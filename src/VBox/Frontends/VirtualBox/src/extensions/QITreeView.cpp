@@ -1,4 +1,4 @@
-/* $Id: QITreeView.cpp 111506 2025-10-28 12:34:08Z sergey.dubov@oracle.com $ */
+/* $Id: QITreeView.cpp 111507 2025-10-28 13:08:39Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - Qt extensions: QITreeView class implementation.
  */
@@ -168,8 +168,41 @@ public:
     /** Returns the state. */
     virtual QAccessible::State state() const RT_OVERRIDE RT_FINAL
     {
-        /* Empty state by default: */
-        return QAccessible::State();
+        /* Sanity check: */
+        QITreeViewItem *pItem = item();
+        AssertPtrReturn(pItem, QAccessible::State());
+        QITreeView *pTree = pItem->parentTree();
+        AssertPtrReturn(pTree, QAccessible::State());
+        QAbstractItemModel *pModel = pTree->model();
+        AssertPtrReturn(pModel, QAccessible::State());
+
+        /* Compose the state: */
+        QAccessible::State myState;
+        myState.focusable = true;
+        myState.selectable = true;
+        if (   pTree->hasFocus()
+            && pTree->currentIndex() == pItem->modelIndex())
+        {
+            myState.focused = true;
+            myState.selected = true;
+        }
+        const Qt::CheckState enmCheckState =
+            pModel->data(pItem->modelIndex(), Qt::CheckStateRole).value<Qt::CheckState>();
+        switch (enmCheckState)
+        {
+            case Qt::Checked:
+                myState.checked = true;
+                break;
+            case Qt::PartiallyChecked:
+                myState.checked = true;
+                myState.checkStateMixed = true;
+                break;
+            default:
+                break;
+        }
+
+        /* Return the state: */
+        return myState;
     }
 
     /** Returns a text for the passed @a enmTextRole. */
@@ -310,6 +343,22 @@ public:
 
         /* -1 by default: */
         return -1;
+    }
+
+    /** Returns the state. */
+    virtual QAccessible::State state() const RT_OVERRIDE
+    {
+        /* Sanity check: */
+        AssertPtrReturn(tree(), QAccessible::State());
+
+        /* Compose the state: */
+        QAccessible::State myState;
+        myState.focusable = true;
+        if (tree()->hasFocus())
+            myState.focused = true;
+
+        /* Return the state: */
+        return myState;
     }
 
     /** Returns a text for the passed @a enmTextRole. */
