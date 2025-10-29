@@ -1,4 +1,4 @@
-/* $Id: display-svga-x11.cpp 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $ */
+/* $Id: display-svga-x11.cpp 111519 2025-10-29 15:20:50Z vadim.galitsyn@oracle.com $ */
 /** @file
  * X11 guest client - VMSVGA emulation resize event pass-through to X.Org
  * guest driver.
@@ -299,6 +299,7 @@ bool VMwareCtrlSetTopology(Display *dpy, int hExtensionMajorOpcode,
     xVMwareCtrlSetTopologyReq *req;
 
     long len;
+    unsigned uLen;
 
     LockDisplay(dpy);
 
@@ -309,7 +310,8 @@ bool VMwareCtrlSetTopology(Display *dpy, int hExtensionMajorOpcode,
     req->number = number;
 
     len = ((long) number) << 1;
-    SetReqLen(req, len, len);
+    uLen = (unsigned)len;
+    SetReqLen(req, uLen, len);
     len <<= 2;
     _XSend(dpy, (char *)extents, len);
 
@@ -565,11 +567,14 @@ static DECLCALLBACK(int) vbclSVGAInit(void)
     int rc;
 
     /* In 32-bit guests GAs build on our release machines causes an xserver hang.
-     * So for 32-bit GAs we use our DRM client. */
+     * This service is a fallback for "--vmsvga-session" one which attempts to start VBoxDRMClient
+     * and connect to it. If it fails, this service is started. So for 32-bit GAs there
+     * is no other option left than to fallback to legacy resizing service which uses
+     * resizing via xrandr command. */
 #if ARCH_BITS == 32
-    rc = VbglR3DrmClientStart();
-    if (RT_FAILURE(rc))
-        VBClLogError("Starting DRM resizing client (32-bit) failed with %Rrc\n", rc);
+    rc = VbglR3DrmLegacyX11AgentStart();
+    VBClLogInfo("Attempt to start legacy X11 resize agent, rc=%Rrc\n", rc);
+
     return VERR_NOT_AVAILABLE; /** @todo r=andy Why ignoring rc here? */
 #endif
 
@@ -598,7 +603,12 @@ static DECLCALLBACK(int) vbclSVGAInit(void)
     x11Connect();
 
     if (x11Context.pDisplay == NULL)
+    {
+        rc = VbglR3DrmLegacyX11AgentStart();
+        VBClLogInfo("Attempt to start legacy X11 resize agent, rc=%Rrc\n", rc);
+
         return VERR_NOT_AVAILABLE;
+    }
 
     /* don't start the monitoring thread if related randr functionality is not available. */
     if (x11Context.fMonitorInfoAvailable)
@@ -809,15 +819,15 @@ static void x11Connect()
 #endif
     if (fSuccess)
     {
-        fSuccess = false;
 #ifdef WITH_DISTRO_XRAND_XINERAMA
         fSuccess = XRRQueryVersion(x11Context.pDisplay, &x11Context.hRandRMajor, &x11Context.hRandRMinor);
 #else
-    if (x11Context.pXRRQueryVersion)
-        fSuccess = x11Context.pXRRQueryVersion(x11Context.pDisplay, &x11Context.hRandRMajor, &x11Context.hRandRMinor);
+        if (x11Context.pXRRQueryVersion)
+            fSuccess = x11Context.pXRRQueryVersion(x11Context.pDisplay, &x11Context.hRandRMajor, &x11Context.hRandRMinor);
 #endif
         if (!fSuccess)
         {
+            VBClLogError("Resizing service cannot query libXrandr version\n");
             XCloseDisplay(x11Context.pDisplay);
             x11Context.pDisplay = NULL;
             return;
@@ -827,13 +837,18 @@ static void x11Connect()
             VBClLogError("Resizing service requires libXrandr Version >= 1.4. Detected version is %d.%d\n", x11Context.hRandRMajor, x11Context.hRandRMinor);
             XCloseDisplay(x11Context.pDisplay);
             x11Context.pDisplay = NULL;
-
-            int rc = VbglR3DrmLegacyX11AgentStart();
-            VBClLogInfo("Attempt to start legacy X11 resize agent, rc=%Rrc\n", rc);
-
             return;
         }
     }
+    else
+    {
+        VBClLogError("Resizing service requires RandREventBase extension which is not available\n");
+        XCloseDisplay(x11Context.pDisplay);
+        x11Context.pDisplay = NULL;
+        return;
+    }
+
+
     x11Context.rootWindow = DefaultRootWindow(x11Context.pDisplay);
     x11Context.hEventMask = RRScreenChangeNotifyMask;
 
