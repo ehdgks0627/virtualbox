@@ -1,5 +1,5 @@
 #!/bin/sh
-# $Id: vboxadd-service.sh 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $
+# $Id: vboxadd-service.sh 111516 2025-10-29 15:12:17Z vadim.galitsyn@oracle.com $
 ## @file
 # Linux Additions Guest Additions service daemon init script.
 #
@@ -155,6 +155,15 @@ status() {
 
     return $RETVAL
 }
+
+# Remove PIDFILE if process no longer running.
+update_pidfile() {
+    if [ -f $PIDFILE ]; then
+        [ -d "/proc/$(cat $PIDFILE)" ] || rm -f "$PIDFILE"
+    fi
+}
+
+update_pidfile
 
 case "$1" in
 start)
