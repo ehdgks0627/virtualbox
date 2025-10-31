@@ -1,4 +1,4 @@
-/* $Id: VBoxGuestR3LibDrmClient.cpp 111523 2025-10-31 11:50:01Z vadim.galitsyn@oracle.com $ */
+/* $Id: VBoxGuestR3LibDrmClient.cpp 111524 2025-10-31 14:01:52Z vadim.galitsyn@oracle.com $ */
 /** @file
  * VBoxGuestR3Lib - Ring-3 Support Library for VirtualBox guest additions, DRM client handling.
  */
@@ -169,6 +169,7 @@ VBGLR3DECL(int) VbglR3DrmClientStart(void)
 #endif
 }
 
+#if defined(RT_OS_LINUX)
 /**
  * Checks if given PID corresponds to running DRM resizing client process ("VBoxDRMClient").
  *
@@ -177,7 +178,6 @@ VBGLR3DECL(int) VbglR3DrmClientStart(void)
  */
 static bool vbglR3DrmClientCheckPid(int32_t pid)
 {
-#if defined(RT_OS_LINUX)
     bool fSuccess = false;
 
     /* Open /proc/PID/cmdline. */
@@ -220,11 +220,9 @@ static bool vbglR3DrmClientCheckPid(int32_t pid)
     }
 
     return fSuccess;
-#else
-    RT_NOREF(pid);
-    return false;
-#endif
+
 }
+#endif
 
 /**
  * Stops the DRM resizing client process ("VBoxDRMClient").
