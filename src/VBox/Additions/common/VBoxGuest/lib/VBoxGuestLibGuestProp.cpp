@@ -1,4 +1,4 @@
-/* $Id: VBoxGuestLibGuestProp.cpp 111547 2025-11-04 18:30:32Z dmitrii.grigorev@oracle.com $ */
+/* $Id: VBoxGuestLibGuestProp.cpp 111555 2025-11-06 09:49:17Z knut.osmundsen@oracle.com $ */
 /** @file
  * VBoxGuestLib - Support Library for VirtualBox guest additions, guest properties.
  *
@@ -178,7 +178,9 @@ DECLVBGL(int) VbglGuestPropDisconnect(PVBGLGSTPROPCLIENT pClient)
     return VINF_SUCCESS;
 
 #else
-    return VbglR3HGCMDisconnect(pClient->idClient);
+    int const rc = VbglR3HGCMDisconnect(pClient->idClient);
+    pClient->idClient = 0;
+    return rc;
 #endif
 }
 
@@ -224,8 +226,9 @@ DECLVBGL(bool) VbglGuestPropExist(PVBGLGSTPROPCLIENT pClient, const char *pszPro
  */
 DECLVBGL(int) VbglGuestPropWrite(PVBGLGSTPROPCLIENT pClient, const char *pszName, const char *pszValue, const char *pszFlags)
 {
-    int rc;
+    AssertPtrReturn(pClient, VERR_INVALID_HANDLE);
 
+    int rc;
     if (pszValue != NULL)
     {
         GuestPropMsgSetProperty Msg;
@@ -262,8 +265,9 @@ DECLVBGL(int) VbglGuestPropWrite(PVBGLGSTPROPCLIENT pClient, const char *pszName
  */
 DECLVBGL(int) VbglGuestPropWriteValue(PVBGLGSTPROPCLIENT pClient, const char *pszName, const char *pszValue)
 {
-    int rc;
+    AssertPtrReturn(pClient, VERR_INVALID_HANDLE);
 
+    int rc;
     if (pszValue != NULL)
     {
         GuestPropMsgSetPropertyValue Msg;
@@ -366,6 +370,8 @@ DECLVBGL(int) VbglGuestPropRead(PVBGLGSTPROPCLIENT pClient, const char *pszName,
                                     char **ppszFlags,
                                     uint32_t *pcbBufActual)
 {
+    AssertPtrReturn(pClient, VERR_INVALID_HANDLE);
+
     /*
      * Create the GET_PROP message and call the host.
      */
@@ -444,6 +450,7 @@ DECLVBGL(int) VbglGuestPropReadEx(PVBGLGSTPROPCLIENT pClient,
                                       const char *pszPropName, char **ppszValue, char **ppszFlags, uint64_t *puTimestamp)
 {
     AssertPtrReturn(pszPropName, VERR_INVALID_POINTER);
+    AssertPtrReturn(pClient, VERR_INVALID_HANDLE);
 
     uint32_t    cbBuf = _1K;
     void       *pvBuf = NULL;
@@ -529,6 +536,7 @@ DECLVBGL(int) VbglGuestPropReadValueAlloc(PVBGLGSTPROPCLIENT pClient, const char
     AssertPtr(ppszValue);
     *ppszValue = NULL;
     AssertPtrReturn(pszName, VERR_INVALID_PARAMETER);
+    AssertPtrReturn(pClient, VERR_INVALID_HANDLE);
 
     /*
      * There is a race here between our reading the property size and the
@@ -603,8 +611,8 @@ DECLVBGL(void) VbglGuestPropReadValueFree(char *pszValue)
  *                          the buffer supplied is too small.  Optional.
  */
 DECLVBGL(int) VbglGuestPropReadValue(PVBGLGSTPROPCLIENT pClient, const char *pszName,
-                                         char *pszValue, uint32_t cchValue,
-                                         uint32_t *pcchValueActual)
+                                     char *pszValue, uint32_t cchValue,
+                                     uint32_t *pcchValueActual)
 {
     void *pvBuf = pszValue;
     uint32_t cchValueActual;
@@ -644,6 +652,8 @@ DECLVBGL(int) VbglGuestPropEnumRaw(PVBGLGSTPROPCLIENT pClient,
                                        uint32_t cbBuf,
                                        uint32_t *pcbBufActual)
 {
+    AssertPtrReturn(pClient, VERR_INVALID_HANDLE);
+
     GuestPropMsgEnumProperties Msg;
     VBGL_HGCM_HDR_INIT(&Msg.hdr, pClient->idClient, GUEST_PROP_FN_ENUM_PROPS, 3);
 
@@ -712,14 +722,16 @@ DECLVBGL(int) VbglGuestPropEnumRaw(PVBGLGSTPROPCLIENT pClient,
  *          figure out when to stop.
  */
 DECLVBGL(int) VbglGuestPropEnum(PVBGLGSTPROPCLIENT pClient,
-                                    char const * const *papszPatterns,
-                                    uint32_t cPatterns,
-                                    PVBGLGUESTPROPENUM *ppHandle,
-                                    char const **ppszName,
-                                    char const **ppszValue,
-                                    uint64_t *pu64Timestamp,
-                                    char const **ppszFlags)
+                                char const * const *papszPatterns,
+                                uint32_t cPatterns,
+                                PVBGLGUESTPROPENUM *ppHandle,
+                                char const **ppszName,
+                                char const **ppszValue,
+                                uint64_t *pu64Timestamp,
+                                char const **ppszFlags)
 {
+    AssertPtrReturn(pClient, VERR_INVALID_HANDLE);
+
     /* Create the handle. */
     PVBGLGUESTPROPENUM pHandle = (PVBGLGUESTPROPENUM)RTMemAllocZ(sizeof(VBGLGUESTPROPENUM));
     if (RT_LIKELY(pHandle))
@@ -816,10 +828,10 @@ DECLVBGL(int) VbglGuestPropEnum(PVBGLGSTPROPCLIENT pClient,
  *          figure out when to stop.
  */
 DECLVBGL(int) VbglGuestPropEnumNext(PVBGLGUESTPROPENUM pHandle,
-                                        char const **ppszName,
-                                        char const **ppszValue,
-                                        uint64_t *pu64Timestamp,
-                                        char const **ppszFlags)
+                                    char const **ppszName,
+                                    char const **ppszValue,
+                                    uint64_t *pu64Timestamp,
+                                    char const **ppszFlags)
 {
     /*
      * The VBGLGUESTPROPENUM structure contains a buffer containing the raw
@@ -909,7 +921,8 @@ DECLVBGL(void) VbglGuestPropEnumFree(PVBGLGUESTPROPENUM pHandle)
  */
 DECLVBGL(int) VbglGuestPropDelete(PVBGLGSTPROPCLIENT pClient, const char *pszName)
 {
-    AssertPtrReturn(pszName,  VERR_INVALID_POINTER);
+    AssertPtrReturn(pszName, VERR_INVALID_POINTER);
+    AssertPtrReturn(pClient, VERR_INVALID_HANDLE);
 
     GuestPropMsgDelProperty Msg;
     VBGL_HGCM_HDR_INIT(&Msg.hdr, pClient->idClient, GUEST_PROP_FN_DEL_PROP, 1);
@@ -1014,6 +1027,8 @@ DECLVBGL(int) VbglGuestPropWait(PVBGLGSTPROPCLIENT pClient,
                                     uint64_t *pu64Timestamp, char **ppszFlags,
                                     uint32_t *pcbBufActual, bool *pfWasDeleted)
 {
+    AssertPtrReturn(pClient, VERR_INVALID_HANDLE);
+
     /*
      * Create the GET_NOTIFICATION message and call the host.
      */

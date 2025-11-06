@@ -1,4 +1,4 @@
-/* $Id: VBoxHostVersion.cpp 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $ */
+/* $Id: VBoxHostVersion.cpp 111555 2025-11-06 09:49:17Z knut.osmundsen@oracle.com $ */
 /** @file
  * VBoxHostVersion - Checks the host's VirtualBox version and notifies
  *                   the user in case of an update.
@@ -28,6 +28,7 @@
 
 #include <VBox/log.h>
 #include <VBox/VBoxGuestLib.h>
+#include <VBox/VBoxGuestLibGuestProp.h>
 
 #include "VBoxHostVersion.h"
 #include "VBoxTray.h"
@@ -39,16 +40,14 @@
           notification stuff, since this is very similar to the VBoxClient code. */
 int VBoxCheckHostVersion(void)
 {
-    int rc;
-    uint32_t uGuestPropSvcClientID;
-
-    rc = VbglR3GuestPropConnect(&uGuestPropSvcClientID);
+    VBGLGSTPROPCLIENT GuestPropClient;
+    int rc = VbglGuestPropConnect(&GuestPropClient);
     if (RT_SUCCESS(rc))
     {
-        char *pszHostVersion;
-        char *pszGuestVersion;
-        bool fUpdate;
-        rc = VbglR3HostVersionCheckForUpdate(uGuestPropSvcClientID, &fUpdate, &pszHostVersion, &pszGuestVersion);
+        char *pszHostVersion  = NULL;
+        char *pszGuestVersion = NULL;
+        bool  fUpdate         = false;
+        rc = VbglR3HostVersionCheckForUpdate(&GuestPropClient, &fUpdate, &pszHostVersion, &pszGuestVersion);
         if (RT_SUCCESS(rc))
         {
             if (fUpdate)
@@ -69,12 +68,12 @@ int VBoxCheckHostVersion(void)
             }
 
             /* Store host version to not notify again. */
-            rc = VbglR3HostVersionLastCheckedStore(uGuestPropSvcClientID, pszHostVersion);
+            rc = VbglR3HostVersionLastCheckedStore(&GuestPropClient, pszHostVersion);
 
-            VbglR3GuestPropReadValueFree(pszHostVersion);
-            VbglR3GuestPropReadValueFree(pszGuestVersion);
+            VbglGuestPropReadValueFree(pszHostVersion);
+            VbglGuestPropReadValueFree(pszGuestVersion);
         }
-        VbglR3GuestPropDisconnect(uGuestPropSvcClientID);
+        VbglGuestPropDisconnect(&GuestPropClient);
     }
     return rc;
 }

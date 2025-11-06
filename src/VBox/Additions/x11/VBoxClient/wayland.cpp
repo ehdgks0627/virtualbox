@@ -1,4 +1,4 @@
-/* $Id: wayland.cpp 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $ */
+/* $Id: wayland.cpp 111555 2025-11-06 09:49:17Z knut.osmundsen@oracle.com $ */
 /** @file
  * Guest Additions - Wayland Desktop Environment assistant.
  */
@@ -28,6 +28,7 @@
 #include <iprt/asm.h>
 #include <iprt/thread.h>
 
+#include <VBox/VBoxGuestLibGuestProp.h>
 #include <VBox/HostServices/GuestPropertySvc.h>
 #include <VBox/HostServices/VBoxClipboardSvc.h>
 
@@ -48,7 +49,8 @@ static const VBCLWAYLANDHELPER *g_apWaylandHelpers[] =
     NULL,                   /* Terminate list. */
 };
 
-/** Global flag to tell service to go shutdown when needed. */
+/** Global flag to tell service to go shutdown when needed.
+ * @todo r=bird: Use the pfShutdown argument passed to vbclWaylandWorker! */
 static bool volatile g_fShutdown = false;
 
 /** Selected helpers for Clipboard and Drag-and-Drop. */
@@ -138,13 +140,10 @@ static DECLCALLBACK(int) vbclWaylandDndWorker(RTTHREAD hThreadSelf, void *pvUser
  */
 static DECLCALLBACK(int) vbclWaylandHostInputFocusWorker(RTTHREAD hThreadSelf, void *pvUser)
 {
-    int rc;
-
     RT_NOREF(pvUser);
 
-    HGCMCLIENTID idClient;
-
-    rc = VbglR3GuestPropConnect(&idClient);
+    VBGLGSTPROPCLIENT GuestPropClient;
+    int rc = VbglGuestPropConnect(&GuestPropClient);
 
     RTThreadUserSignal(hThreadSelf);
 
@@ -158,26 +157,27 @@ static DECLCALLBACK(int) vbclWaylandHostInputFocusWorker(RTTHREAD hThreadSelf, v
             char *pszFlags = NULL;
             bool fWasDeleted = false;
             uint64_t u64Timestamp = 0;
+            /** @todo r=bird: Please comment on u64Timestamp=0 instead of reusing the
+             *        previous timestamp...  */
 
-            rc = VbglR3GuestPropWait(idClient, VBOX_GUI_FOCUS_CHANGE_GUEST_PROP_NAME, achBuf, sizeof(achBuf), u64Timestamp,
-                                     VBCL_WAYLAND_WAIT_HOST_FOCUS_TIMEOUT_MS, &pszName, &pszValue, &u64Timestamp,
-                                     &pszFlags, NULL, &fWasDeleted);
+            rc = VbglGuestPropWait(&GuestPropClient, VBOX_GUI_FOCUS_CHANGE_GUEST_PROP_NAME, achBuf, sizeof(achBuf), u64Timestamp,
+                                   VBCL_WAYLAND_WAIT_HOST_FOCUS_TIMEOUT_MS, &pszName, &pszValue, &u64Timestamp,
+                                   &pszFlags, NULL, &fWasDeleted);
             if (RT_SUCCESS(rc))
             {
-                uint32_t fFlags = 0;
-
                 VBClLogVerbose(1, "guest property change: name: %s, val: %s, flags: %s, fWasDeleted: %RTbool\n",
                                pszName, pszValue, pszFlags, fWasDeleted);
 
+                uint32_t fFlags = 0;
                 if (RT_SUCCESS(GuestPropValidateFlags(pszFlags, &fFlags)))
                 {
-                    if (RTStrNCmp(pszName, VBOX_GUI_FOCUS_CHANGE_GUEST_PROP_NAME, GUEST_PROP_MAX_NAME_LEN) == 0)
+                    if (RTStrCmp(pszName, VBOX_GUI_FOCUS_CHANGE_GUEST_PROP_NAME) == 0)
                     {
                         if (fFlags & GUEST_PROP_F_RDONLYGUEST)
                         {
                             if (RT_VALID_PTR(g_pWaylandHelperClipboard))
                             {
-                                if (RTStrNCmp(pszValue, "0", GUEST_PROP_MAX_NAME_LEN) == 0)
+                                if (RTStrCmp(pszValue, "0") == 0)
                                 {
                                     rc = g_pWaylandHelperClipboard->clip.pfnPopup();
                                     VBClLogVerbose(1, "trigger popup, rc=%Rrc\n", rc);
@@ -192,17 +192,21 @@ static DECLCALLBACK(int) vbclWaylandHostInputFocusWorker(RTTHREAD hThreadSelf, v
                     else
                         VBClLogVerbose(1, "unknown property name '%s'\n", pszName);
 
-                } else
+                }
+                else
                     VBClLogError("guest property change: name: %s, val: %s, flags: %s, fWasDeleted: %RTbool: bad flags\n",
                                  pszName, pszValue, pszFlags, fWasDeleted);
 
-            } else if (   rc != VERR_TIMEOUT
+            }
+            else if (   rc != VERR_TIMEOUT
                      && rc != VERR_INTERRUPTED)
             {
                 VBClLogError("error on waiting guest property notification, rc=%Rrc\n", rc);
                 RTThreadSleep(VBCL_WAYLAND_WAIT_HOST_FOCUS_RELAX_MS);
             }
         }
+
+        VbglGuestPropDisconnect(&GuestPropClient);
     }
 
     return rc;
@@ -353,6 +357,7 @@ static DECLCALLBACK(int) vbclWaylandWorker(bool volatile *pfShutdown)
             VBClLogVerbose(1, "host input focus polling thread finished, rc=%Rrc, rcThread=%Rrc\n", rc, rcThread);
         }
     }
+    /** @todo r=bird: There is not cleanup in the else case... */
 
     VBClLogVerbose(1, "wayland worker thread finished, rc=%Rrc\n", rc);
 
@@ -370,6 +375,7 @@ static DECLCALLBACK(void) vbclWaylandStop(void)
     if (ASMAtomicReadBool(&g_fShutdown))
         return;
 
+    /** @todo r=bird: Use the pfShutdown argument passed to vbclWaylandWorker! */
     ASMAtomicWriteBool(&g_fShutdown, true);
 
     if (RT_VALID_PTR(g_pWaylandHelperClipboard))

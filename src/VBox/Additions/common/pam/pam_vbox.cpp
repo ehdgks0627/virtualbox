@@ -1,4 +1,4 @@
-/* $Id: pam_vbox.cpp 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $ */
+/* $Id: pam_vbox.cpp 111555 2025-11-06 09:49:17Z knut.osmundsen@oracle.com $ */
 /** @file
  * pam_vbox - PAM module for auto logons.
  */
@@ -59,6 +59,7 @@
 #include <iprt/time.h>
 
 #include <VBox/VBoxGuestLib.h>
+#include <VBox/VBoxGuestLibGuestProp.h>
 
 #include <VBox/log.h>
 #include <VBox/HostServices/GuestPropertySvc.h>
@@ -394,7 +395,7 @@ static int pam_vbox_check_creds(pam_handle_t *hPAM)
  *
  * @return  IPRT status code.
  * @param   hPAM                    PAM handle.
- * @param   uClientID               Guest property service client ID.
+ * @param   pGuestPropClient        Guest property service session info.
  * @param   pszKey                  Key (name) of guest property to read.
  * @param   fReadOnly               Indicates whether this key needs to be
  *                                  checked if it only can be read (and *not* written)
@@ -402,12 +403,12 @@ static int pam_vbox_check_creds(pam_handle_t *hPAM)
  * @param   pszValue                Buffer where to store the key's value.
  * @param   cbValue                 Size of buffer (in bytes).
  */
-static int pam_vbox_read_prop(pam_handle_t *hPAM, uint32_t uClientID,
+static int pam_vbox_read_prop(pam_handle_t *hPAM, PVBGLGSTPROPCLIENT pGuestPropClient,
                               const char *pszKey, bool fReadOnly,
                               char *pszValue, size_t cbValue)
 {
     AssertPtrReturn(hPAM, VERR_INVALID_POINTER);
-    AssertReturn(uClientID, VERR_INVALID_PARAMETER);
+    AssertPtrReturn(pGuestPropClient, VERR_INVALID_POINTER);
     AssertPtrReturn(pszKey, VERR_INVALID_POINTER);
     AssertPtrReturn(pszValue, VERR_INVALID_POINTER);
 
@@ -431,9 +432,8 @@ static int pam_vbox_read_prop(pam_handle_t *hPAM, uint32_t uClientID,
         if (pvTmpBuf)
         {
             pvBuf = pvTmpBuf;
-            rc = VbglR3GuestPropRead(uClientID, pszKey, pvBuf, cbBuf,
-                                     &pszValTemp, &u64Timestamp, &pszFlags,
-                                     &cbBuf);
+            rc = VbglGuestPropRead(pGuestPropClient, pszKey, pvBuf, cbBuf,
+                                   &pszValTemp, &u64Timestamp, &pszFlags, &cbBuf);
             if (rc == VERR_BUFFER_OVERFLOW && i < 10)
             {
                 /* Buffer too small, try it with a bigger one next time. */
@@ -492,16 +492,16 @@ static int pam_vbox_read_prop(pam_handle_t *hPAM, uint32_t uClientID,
  *
  * @return  IPRT status code.
  * @param   hPAM                    PAM handle.
- * @param   uClientID               Guest property service client ID.
+ * @param   pGuestPropClient        Guest property service client session info.
  * @param   pszKey                  Key (name) of guest property to wait for.
  * @param   uTimeoutMS              Timeout (in ms) to wait for the change. Specify
  *                                  RT_INDEFINITE_WAIT to wait indefinitly.
  */
-static int pam_vbox_wait_prop(pam_handle_t *hPAM, uint32_t uClientID,
+static int pam_vbox_wait_prop(pam_handle_t *hPAM, PVBGLGSTPROPCLIENT pGuestPropClient,
                               const char *pszKey, uint32_t uTimeoutMS)
 {
     AssertPtrReturn(hPAM, VERR_INVALID_POINTER);
-    AssertReturn(uClientID, VERR_INVALID_PARAMETER);
+    AssertPtrReturn(pGuestPropClient, VERR_INVALID_PARAMETER);
     AssertPtrReturn(pszKey, VERR_INVALID_POINTER);
 
     int rc;
@@ -522,10 +522,10 @@ static int pam_vbox_wait_prop(pam_handle_t *hPAM, uint32_t uClientID,
             char *pszFlags = NULL;
 
             pvBuf = pvTmpBuf;
-            rc = VbglR3GuestPropWait(uClientID, pszKey, pvBuf, cbBuf,
-                                     0 /* Last timestamp; just wait for next event */, uTimeoutMS,
-                                     &pszName, &pszValue, &u64TimestampOut,
-                                     &pszFlags, &cbBuf, NULL /* pfWasDeleted */);
+            rc = VbglGuestPropWait(pGuestPropClient, pszKey, pvBuf, cbBuf,
+                                   0 /* Last timestamp; just wait for next event */, uTimeoutMS,
+                                   &pszName, &pszValue, &u64TimestampOut,
+                                   &pszFlags, &cbBuf, NULL /* pfWasDeleted */);
             if (rc == VERR_BUFFER_OVERFLOW && i < 10)
             {
                 cbBuf += _1K; /* Buffer too small, try it with a bigger one more time. */
@@ -555,60 +555,58 @@ static DECLCALLBACK(int) pam_vbox_wait_thread(RTTHREAD hThreadSelf, void *pvUser
     PPAMVBOXTHREAD pUserData = (PPAMVBOXTHREAD)pvUser;
     AssertPtr(pUserData);
 
-    int rc = VINF_SUCCESS;
     /* Get current time stamp to later calculate rest of timeout left. */
-    uint64_t u64StartMS = RTTimeMilliTS();
+    uint64_t const msStart = RTTimeMilliTS();
 
-    uint32_t uClientID = 0;
-    rc = VbglR3GuestPropConnect(&uClientID);
+    VBGLGSTPROPCLIENT GuestPropClient;
+    int rc = VbglGuestPropConnect(&GuestPropClient);
     if (RT_FAILURE(rc))
     {
         pam_vbox_error(pUserData->hPAM, "pam_vbox_wait_thread: Unable to connect to guest property service, rc=%Rrc\n", rc);
     }
     else
     {
-        pam_vbox_log(pUserData->hPAM, "pam_vbox_wait_thread: clientID=%u\n", uClientID);
+        pam_vbox_log(pUserData->hPAM, "pam_vbox_wait_thread: clientID=%u\n", GuestPropClient.idClient);
 
         for (;;)
         {
-
-            if (uClientID)
+            rc = pam_vbox_wait_prop(pUserData->hPAM, &GuestPropClient,
+                                    "/VirtualBox/GuestAdd/PAM/CredsWaitAbort",
+                                    500 /* Wait 500ms, same as VBoxGINA/VBoxCredProv. */);
+            /** @todo r=bird: use if-statements instead of switch here, since only
+             *        VERR_TIMEOUT continues the loop and the code is very confusing
+             *        (and somewhat confused wrt RT_SUCCESS). */
+            switch (rc)
             {
-                rc = pam_vbox_wait_prop(pUserData->hPAM, uClientID,
-                                        "/VirtualBox/GuestAdd/PAM/CredsWaitAbort",
-                                        500 /* Wait 500ms, same as VBoxGINA/VBoxCredProv. */);
-                switch (rc)
-                {
-                    case VINF_SUCCESS:
-                        /* Somebody (guest/host) wants to abort waiting for credentials. */
-                        break;
-
-                    case VERR_INTERRUPTED:
-                        pam_vbox_error(pUserData->hPAM, "pam_vbox_wait_thread: The abort notification request timed out or was interrupted\n");
-                        break;
-
-                    case VERR_TIMEOUT:
-                        /* We did not receive an abort message within time. */
-                        break;
-
-                    case VERR_TOO_MUCH_DATA:
-                        pam_vbox_error(pUserData->hPAM, "pam_vbox_wait_thread: Temporarily unable to get abort notification\n");
-                        break;
-
-                    default:
-                        pam_vbox_error(pUserData->hPAM, "pam_vbox_wait_thread: The abort notification request failed with rc=%Rrc\n", rc);
-                        break;
-                }
-
-                if (RT_SUCCESS(rc)) /* Abort waiting. */
-                {
-                    pam_vbox_log(pUserData->hPAM, "pam_vbox_wait_thread: Got notification to abort waiting\n");
-                    rc = VERR_CANCELLED;
+                case VINF_SUCCESS:
+                    /* Somebody (guest/host) wants to abort waiting for credentials. */
                     break;
-                }
+
+                case VERR_INTERRUPTED:
+                    pam_vbox_error(pUserData->hPAM, "pam_vbox_wait_thread: The abort notification request timed out or was interrupted\n");
+                    break;
+
+                case VERR_TIMEOUT:
+                    /* We did not receive an abort message within time. */
+                    break;
+
+                case VERR_TOO_MUCH_DATA:
+                    pam_vbox_error(pUserData->hPAM, "pam_vbox_wait_thread: Temporarily unable to get abort notification\n");
+                    break;
+
+                default:
+                    pam_vbox_error(pUserData->hPAM, "pam_vbox_wait_thread: The abort notification request failed with rc=%Rrc\n", rc);
+                    break;
             }
 
-            if (   RT_SUCCESS(rc)
+            if (RT_SUCCESS(rc)) /* Abort waiting. */
+            {
+                pam_vbox_log(pUserData->hPAM, "pam_vbox_wait_thread: Got notification to abort waiting\n");
+                rc = VERR_CANCELLED;
+                break;
+            }
+
+            if (   RT_SUCCESS(rc) /** @todo r=bird: This is illogical, see above. */
                 || rc == VERR_TIMEOUT)
             {
                 rc = pam_vbox_check_creds(pUserData->hPAM);
@@ -617,7 +615,7 @@ static DECLCALLBACK(int) pam_vbox_wait_thread(RTTHREAD hThreadSelf, void *pvUser
                     /* Credentials retrieved. */
                     break; /* Thread no longer is required, bail out. */
                 }
-                else if (rc == VERR_NOT_FOUND)
+                if (rc == VERR_NOT_FOUND)
                 {
                     /* No credentials found, but try next round (if there's
                      * time left for) ... */
@@ -630,9 +628,9 @@ static DECLCALLBACK(int) pam_vbox_wait_thread(RTTHREAD hThreadSelf, void *pvUser
                 break;
 
             /* Calculate timeout value left after process has been started.  */
-            uint64_t u64Elapsed = RTTimeMilliTS() - u64StartMS;
+            uint64_t const cMsElapsed = RTTimeMilliTS() - msStart;
             /* Is it time to bail out? */
-            if (pUserData->uTimeoutMS < u64Elapsed)
+            if (pUserData->uTimeoutMS < cMsElapsed)
             {
                 pam_vbox_log(pUserData->hPAM, "pam_vbox_wait_thread: Waiting thread has reached timeout (%dms), exiting ...\n",
                              pUserData->uTimeoutMS);
@@ -640,8 +638,9 @@ static DECLCALLBACK(int) pam_vbox_wait_thread(RTTHREAD hThreadSelf, void *pvUser
                 break;
             }
         }
+
+        VbglGuestPropDisconnect(&GuestPropClient);
     }
-    VbglR3GuestPropDisconnect(uClientID);
 
     /* Save result. */
     pUserData->rc = rc; /** @todo Use ASMAtomicXXX? */
@@ -658,13 +657,11 @@ static DECLCALLBACK(int) pam_vbox_wait_thread(RTTHREAD hThreadSelf, void *pvUser
  *
  * @return  IPRT status code.
  * @param   hPAM                    PAM handle.
- * @param   uClientID               Guest property service client ID.
  * @param   uTimeoutMS              Timeout (in ms) to wait for the change. Specify
  *                                  RT_INDEFINITE_WAIT to wait indefinitly.
  */
-static int pam_vbox_wait_for_creds(pam_handle_t *hPAM, uint32_t uClientID, uint32_t uTimeoutMS)
+static int pam_vbox_wait_for_creds(pam_handle_t *hPAM, uint32_t uTimeoutMS)
 {
-    RT_NOREF1(uClientID);
     PAMVBOXTHREAD threadData;
     threadData.hPAM = hPAM;
     threadData.uTimeoutMS = uTimeoutMS;
@@ -709,12 +706,12 @@ DECLEXPORT(int) pam_sm_authenticate(pam_handle_t *hPAM, int iFlags, int argc, co
 
     bool fFallback = true;
 
-    uint32_t uClientId;
-    rc = VbglR3GuestPropConnect(&uClientId);
+    VBGLGSTPROPCLIENT GuestPropClient;
+    rc = VbglGuestPropConnect(&GuestPropClient);
     if (RT_SUCCESS(rc))
     {
         char szVal[256];
-        rc = pam_vbox_read_prop(hPAM, uClientId,
+        rc = pam_vbox_read_prop(hPAM, &GuestPropClient,
                                 "/VirtualBox/GuestAdd/PAM/CredsWait",
                                 true /* Read-only on guest */,
                                 szVal, sizeof(szVal));
@@ -723,7 +720,7 @@ DECLEXPORT(int) pam_sm_authenticate(pam_handle_t *hPAM, int iFlags, int argc, co
             /* All calls which are checked against rc2 are not critical, e.g. it does
              * not matter if they succeed or not. */
             uint32_t uTimeoutMS = RT_INDEFINITE_WAIT; /* Wait infinite by default. */
-            int rc2 = pam_vbox_read_prop(hPAM, uClientId,
+            int rc2 = pam_vbox_read_prop(hPAM, &GuestPropClient,
                                          "/VirtualBox/GuestAdd/PAM/CredsWaitTimeout",
                                          true /* Read-only on guest */,
                                          szVal, sizeof(szVal));
@@ -739,7 +736,7 @@ DECLEXPORT(int) pam_sm_authenticate(pam_handle_t *hPAM, int iFlags, int argc, co
                     uTimeoutMS = uTimeoutMS * 1000; /* Make ms out of s. */
             }
 
-            rc2 = pam_vbox_read_prop(hPAM, uClientId,
+            rc2 = pam_vbox_read_prop(hPAM, &GuestPropClient,
                                      "/VirtualBox/GuestAdd/PAM/CredsMsgWaiting",
                                      true /* Read-only on guest */,
                                      szVal, sizeof(szVal));
@@ -759,12 +756,12 @@ DECLEXPORT(int) pam_sm_authenticate(pam_handle_t *hPAM, int iFlags, int argc, co
                 rc = pam_vbox_check_creds(hPAM);
                 if (rc == VERR_NOT_FOUND)
                 {
-                    rc = pam_vbox_wait_for_creds(hPAM, uClientId, uTimeoutMS);
+                    rc = pam_vbox_wait_for_creds(hPAM, uTimeoutMS);
                     if (rc == VERR_TIMEOUT)
                     {
                         pam_vbox_log(hPAM, "pam_vbox_authenticate: no credentials given within time\n");
 
-                        rc2 = pam_vbox_read_prop(hPAM, uClientId,
+                        rc2 = pam_vbox_read_prop(hPAM, &GuestPropClient,
                                                  "/VirtualBox/GuestAdd/PAM/CredsMsgWaitTimeout",
                                                  true /* Read-only on guest */,
                                                  szVal, sizeof(szVal));
@@ -778,7 +775,7 @@ DECLEXPORT(int) pam_sm_authenticate(pam_handle_t *hPAM, int iFlags, int argc, co
                     {
                         pam_vbox_log(hPAM, "pam_vbox_authenticate: waiting aborted\n");
 
-                        rc2 = pam_vbox_read_prop(hPAM, uClientId,
+                        rc2 = pam_vbox_read_prop(hPAM, &GuestPropClient,
                                                  "/VirtualBox/GuestAdd/PAM/CredsMsgWaitAbort",
                                                  true /* Read-only on guest */,
                                                  szVal, sizeof(szVal));
@@ -795,7 +792,7 @@ DECLEXPORT(int) pam_sm_authenticate(pam_handle_t *hPAM, int iFlags, int argc, co
             }
         }
 
-        VbglR3GuestPropDisconnect(uClientId);
+        VbglGuestPropDisconnect(&GuestPropClient);
     }
 
     if (fFallback)

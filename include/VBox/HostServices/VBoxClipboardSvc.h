@@ -359,7 +359,7 @@
  * @retval  VINF_SUCCESS if a message was pending and is being returned.
  * @retval  VERR_TRY_AGAIN if no message pending.
  * @retval  VERR_VM_RESTORED if first parameter is a non-zero 64-bit value that
- *          does not match VbglR3GetSessionId() any more.  The new value is
+ *          does not match VbglR3QuerySessionId() any more.  The new value is
  *          returned.
  * @retval  VERR_INVALID_CLIENT_ID
  * @retval  VERR_WRONG_PARAMETER_COUNT
@@ -376,7 +376,7 @@
  * uint64_t is ~8U).
  *
  * To facilitate VM restore checking, the first parameter can be a 64-bit
- * integer holding the VbglR3GetSessionId() value the guest knowns.  The
+ * integer holding the VbglR3QuerySessionId() value the guest knowns.  The
  * function will then check this before going to sleep and return
  * VERR_VM_RESTORED if it doesn't match, same thing happens when the VM is
  * restored.
@@ -386,7 +386,7 @@
  *          cancelled by VBOX_SHCL_GUEST_FN_MSG_CANCEL.
  * @retval  VERR_RESOURCE_BUSY if another thread already made a waiting call.
  * @retval  VERR_VM_RESTORED if first parameter is a non-zero 64-bit value that
- *          does not match VbglR3GetSessionId() any more.  The new value is
+ *          does not match VbglR3QuerySessionId() any more.  The new value is
  *          returned.
  * @retval  VERR_INVALID_CLIENT_ID
  * @retval  VERR_WRONG_PARAMETER_COUNT

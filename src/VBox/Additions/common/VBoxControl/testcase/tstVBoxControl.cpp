@@ -1,4 +1,4 @@
-/* $Id: tstVBoxControl.cpp 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $ */
+/* $Id: tstVBoxControl.cpp 111555 2025-11-06 09:49:17Z knut.osmundsen@oracle.com $ */
 /** @file
  * VBoxControl - Guest Additions Command Line Management Interface, test case
  */
@@ -39,6 +39,7 @@
 #include <VBox/log.h>
 #include <VBox/version.h>
 #include <VBox/VBoxGuestLib.h>
+#include <VBox/VBoxGuestLibGuestProp.h>
 #ifdef VBOX_WITH_GUEST_PROPS
 # include <VBox/HostServices/GuestPropertySvc.h>
 #endif
@@ -49,52 +50,53 @@ VBGLR3DECL(int)     VbglR3Init(void)
     return VINF_SUCCESS;
 }
 
-VBGLR3DECL(int)     VbglR3GuestPropConnect(HGCMCLIENTID *pidClient)
+DECLVBGL(int)       VbglGuestPropConnect(PVBGLGSTPROPCLIENT pClient)
 {
-    AssertPtrReturn(pidClient, VERR_INVALID_POINTER);
+    AssertPtrReturn(pClient, VERR_INVALID_POINTER);
     RTPrintf("Connect to guest property service...\n");
-    *pidClient = 1;
+    pClient->idClient = 1;
     return VINF_SUCCESS;
 }
 
-VBGLR3DECL(int)     VbglR3GuestPropDisconnect(HGCMCLIENTID idClient)
+DECLVBGL(int)       VbglGuestPropDisconnect(PVBGLGSTPROPCLIENT pClient)
 {
-    RTPrintf("Disconnect client %d from guest property service...\n", idClient);
+    RTPrintf("Disconnect client %d from guest property service...\n", pClient->idClient);
+    pClient->idClient = 0;
     return VINF_SUCCESS;
 }
 
-VBGLR3DECL(int)     VbglR3GuestPropWrite(HGCMCLIENTID idClient,
-                                         const char *pszName,
-                                         const char *pszValue,
-                                         const char *pszFlags)
+DECLVBGL(int)       VbglGuestPropWrite(PVBGLGSTPROPCLIENT pClient,
+                                       const char *pszName,
+                                       const char *pszValue,
+                                       const char *pszFlags)
 {
     RTPrintf("Called SET_PROP, client %d, name %s, value %s, flags %s...\n",
-             idClient, pszName, pszValue, pszFlags);
+             pClient->idClient, pszName, pszValue, pszFlags);
     return VINF_SUCCESS;
 }
 
-VBGLR3DECL(int)     VbglR3GuestPropWriteValue(HGCMCLIENTID idClient,
-                                              const char *pszName,
-                                              const char *pszValue)
+DECLVBGL(int)       VbglGuestPropWriteValue(PVBGLGSTPROPCLIENT pClient,
+                                            const char *pszName,
+                                            const char *pszValue)
 {
     RTPrintf("Called SET_PROP_VALUE, client %d, name %s, value %s...\n",
-             idClient, pszName, pszValue);
+             pClient->idClient, pszName, pszValue);
     return VINF_SUCCESS;
 }
 
 #ifdef VBOX_WITH_GUEST_PROPS
-VBGLR3DECL(int)     VbglR3GuestPropRead(HGCMCLIENTID idClient,
-                                        const char *pszName,
-                                        void *pvBuf,
-                                        uint32_t cbBuf,
-                                        char **ppszValue,
-                                        uint64_t *pu64Timestamp,
-                                        char **ppszFlags,
-                                        uint32_t *pcbBufActual)
+DECLVBGL(int)       VbglGuestPropRead(PVBGLGSTPROPCLIENT pClient,
+                                      const char *pszName,
+                                      void *pvBuf,
+                                      uint32_t cbBuf,
+                                      char **ppszValue,
+                                      uint64_t *pu64Timestamp,
+                                      char **ppszFlags,
+                                      uint32_t *pcbBufActual)
 {
     RT_NOREF2(pvBuf, cbBuf);
     RTPrintf("Called GET_PROP, client %d, name %s...\n",
-             idClient, pszName);
+             pClient->idClient, pszName);
     static char szValue[] = "Value";
     static char szFlags[] = "TRANSIENT";
     if (ppszValue)
@@ -108,32 +110,32 @@ VBGLR3DECL(int)     VbglR3GuestPropRead(HGCMCLIENTID idClient,
     return VINF_SUCCESS;
 }
 
-VBGLR3DECL(int)     VbglR3GuestPropDelete(HGCMCLIENTID idClient,
-                                          const char *pszName)
+DECLVBGL(int)       VbglGuestPropDelete(PVBGLGSTPROPCLIENT pClient,
+                                        const char *pszName)
 {
     RTPrintf("Called DEL_PROP, client %d, name %s...\n",
-             idClient, pszName);
+             pClient->idClient, pszName);
     return VINF_SUCCESS;
 }
 
-struct VBGLR3GUESTPROPENUM
+struct VBGLGUESTPROPENUM
 {
     uint32_t u32;
 };
 
-VBGLR3DECL(int)     VbglR3GuestPropEnum(HGCMCLIENTID idClient,
-                                        char const * const *ppaszPatterns,
-                                        uint32_t cPatterns,
-                                        PVBGLR3GUESTPROPENUM *ppHandle,
-                                        char const **ppszName,
-                                        char const **ppszValue,
-                                        uint64_t *pu64Timestamp,
-                                        char const **ppszFlags)
+DECLVBGL(int)       VbglGuestPropEnum(PVBGLGSTPROPCLIENT pClient,
+                                      char const * const *ppaszPatterns,
+                                      uint32_t cPatterns,
+                                      PVBGLGUESTPROPENUM *ppHandle,
+                                      char const **ppszName,
+                                      char const **ppszValue,
+                                      uint64_t *pu64Timestamp,
+                                      char const **ppszFlags)
 {
     RT_NOREF2(ppaszPatterns, cPatterns);
-    RTPrintf("Called ENUM_PROPS, client %d...\n", idClient);
+    RTPrintf("Called ENUM_PROPS, client %d...\n", pClient->idClient);
     AssertPtrReturn(ppHandle, VERR_INVALID_POINTER);
-    static VBGLR3GUESTPROPENUM Handle = { 0 };
+    static VBGLGUESTPROPENUM Handle = { 0 };
     static char szName[] = "Name";
     static char szValue[] = "Value";
     static char szFlags[] = "TRANSIENT";
@@ -149,11 +151,11 @@ VBGLR3DECL(int)     VbglR3GuestPropEnum(HGCMCLIENTID idClient,
     return VINF_SUCCESS;
 }
 
-VBGLR3DECL(int)     VbglR3GuestPropEnumNext(PVBGLR3GUESTPROPENUM pHandle,
-                                            char const **ppszName,
-                                            char const **ppszValue,
-                                            uint64_t *pu64Timestamp,
-                                            char const **ppszFlags)
+DECLVBGL(int)       VbglGuestPropEnumNext(PVBGLGUESTPROPENUM pHandle,
+                                          char const **ppszName,
+                                          char const **ppszValue,
+                                          uint64_t *pu64Timestamp,
+                                          char const **ppszFlags)
 {
     RT_NOREF1(pHandle);
     RTPrintf("Called enumerate next...\n");
@@ -170,34 +172,34 @@ VBGLR3DECL(int)     VbglR3GuestPropEnumNext(PVBGLR3GUESTPROPENUM pHandle,
     return VINF_SUCCESS;
 }
 
-VBGLR3DECL(void)    VbglR3GuestPropEnumFree(PVBGLR3GUESTPROPENUM pHandle)
+DECLVBGL(void)      VbglGuestPropEnumFree(PVBGLGUESTPROPENUM pHandle)
 {
     RT_NOREF1(pHandle);
     RTPrintf("Called enumerate free...\n");
 }
 
-VBGLR3DECL(int)     VbglR3GuestPropWait(HGCMCLIENTID idClient,
-                                        const char *pszPatterns,
-                                        void *pvBuf,
-                                        uint32_t cbBuf,
-                                        uint64_t u64Timestamp,
-                                        uint32_t u32Timeout,
-                                        char ** ppszName,
-                                        char **ppszValue,
-                                        uint64_t *pu64Timestamp,
-                                        char **ppszFlags,
-                                        uint32_t *pcbBufActual,
-                                        bool *pfWasDeleted)
+DECLVBGL(int)       VbglGuestPropWait(PVBGLGSTPROPCLIENT pClient,
+                                      const char *pszPatterns,
+                                      void *pvBuf,
+                                      uint32_t cbBuf,
+                                      uint64_t u64Timestamp,
+                                      uint32_t u32Timeout,
+                                      char ** ppszName,
+                                      char **ppszValue,
+                                      uint64_t *pu64Timestamp,
+                                      char **ppszFlags,
+                                      uint32_t *pcbBufActual,
+                                      bool *pfWasDeleted)
 {
     RT_NOREF2(pvBuf, cbBuf);
     if (u32Timeout == RT_INDEFINITE_WAIT)
         RTPrintf("Called GET_NOTIFICATION, client %d, patterns %s, timestamp %llu,\n"
                  "    timeout RT_INDEFINITE_WAIT...\n",
-                 idClient, pszPatterns, u64Timestamp);
+                 pClient->idClient, pszPatterns, u64Timestamp);
     else
         RTPrintf("Called GET_NOTIFICATION, client %d, patterns %s, timestamp %llu,\n"
                  "    timeout %u...\n",
-                 idClient, pszPatterns, u64Timestamp, u32Timeout);
+                 pClient->idClient, pszPatterns, u64Timestamp, u32Timeout);
     static char szName[] = "Name";
     static char szValue[] = "Value";
     static char szFlags[] = "TRANSIENT";

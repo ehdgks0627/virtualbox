@@ -1,4 +1,4 @@
-/* $Id: wayland-helper.cpp 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $ */
+/* $Id: wayland-helper.cpp 111555 2025-11-06 09:49:17Z knut.osmundsen@oracle.com $ */
 /** @file
  * Guest Additions - Common code for Wayland Desktop Environment helpers.
  */
@@ -312,14 +312,12 @@ RTDECL(bool) vbcl_wayland_session_is_started(vbcl_wl_session_t *pSession)
     /* Make sure session was initialized. */
     AssertReturn(ASMAtomicReadU32(&pSession->u32Magic) == VBCL_WAYLAND_SESSION_MAGIC, false);
 
-    return RT_BOOL(ASMAtomicReadU8((volatile uint8_t *)&pSession->enmState) == VBCL_WL_SESSION_STATE_STARTED);
+    return ASMAtomicReadU8((volatile uint8_t *)&pSession->enmState) == VBCL_WL_SESSION_STATE_STARTED;
 }
 
 RTDECL(int) vbcl_wayland_thread_start(PRTTHREAD pThread, PFNRTTHREAD pfnThread, const char *pszName, void *pvUser)
 {
-    int rc;
-
-    rc = RTThreadCreate(pThread, pfnThread, pvUser, 0, RTTHREADTYPE_IO, RTTHREADFLAGS_WAITABLE, pszName);
+    int rc = RTThreadCreate(pThread, pfnThread, pvUser, 0, RTTHREADTYPE_IO, RTTHREADFLAGS_WAITABLE, pszName);
     if (RT_SUCCESS(rc))
         rc = RTThreadUserWait(*pThread, RT_MS_30SEC /* msTimeout */);
 

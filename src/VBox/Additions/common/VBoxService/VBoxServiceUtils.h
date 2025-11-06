@@ -1,4 +1,4 @@
-/* $Id: VBoxServiceUtils.h 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $ */
+/* $Id: VBoxServiceUtils.h 111555 2025-11-06 09:49:17Z knut.osmundsen@oracle.com $ */
 /** @file
  * VBoxServiceUtils - Guest Additions Services (Utilities).
  */
@@ -32,6 +32,9 @@
 #endif
 
 #include "VBoxServiceInternal.h"
+#ifdef VBOX_WITH_GUEST_PROPS
+# include <VBox/VBoxGuestLibGuestProp.h>
+#endif
 
 /** ID cache entry. */
 typedef struct VGSVCUIDENTRY
@@ -59,11 +62,14 @@ typedef struct VGSVCIDCACHE
 typedef VGSVCIDCACHE *PVGSVCIDCACHE;
 
 #ifdef VBOX_WITH_GUEST_PROPS
-int VGSvcReadProp(uint32_t u32ClientId, const char *pszPropName, char **ppszValue, char **ppszFlags, uint64_t *puTimestamp);
-int VGSvcReadPropUInt32(uint32_t u32ClientId, const char *pszPropName, uint32_t *pu32, uint32_t u32Min, uint32_t u32Max);
-int VGSvcReadHostProp(uint32_t u32ClientId, const char *pszPropName, bool fReadOnly, char **ppszValue, char **ppszFlags,
-                      uint64_t *puTimestamp);
-int VGSvcWritePropF(uint32_t u32ClientId, const char *pszName, const char *pszValueFormat, ...);
+int VGSvcReadProp(PVBGLGSTPROPCLIENT pGuestPropClient, const char *pszPropName,
+                  char **ppszValue, char **ppszFlags, uint64_t *puTimestamp);
+int VGSvcReadPropUInt32(PVBGLGSTPROPCLIENT pGuestPropClient, const char *pszPropName,
+                        uint32_t *pu32, uint32_t u32Min, uint32_t u32Max);
+int VGSvcReadHostProp(PVBGLGSTPROPCLIENT pGuestPropClient, const char *pszPropName, bool fReadOnly,
+                      char **ppszValue, char **ppszFlags, uint64_t *puTimestamp);
+int VGSvcWriteProp(PVBGLGSTPROPCLIENT pGuestPropClient, const char *pszName, const char *pszValue);
+int VGSvcWritePropF(PVBGLGSTPROPCLIENT pGuestPropClient, const char *pszName, const char *pszValueFormat, ...);
 #endif
 
 #ifdef RT_OS_WINDOWS

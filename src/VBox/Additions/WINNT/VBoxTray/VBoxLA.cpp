@@ -1,4 +1,4 @@
-/* $Id: VBoxLA.cpp 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $ */
+/* $Id: VBoxLA.cpp 111555 2025-11-06 09:49:17Z knut.osmundsen@oracle.com $ */
 /** @file
  * VBoxLA - VBox Location Awareness notifications.
  */
@@ -39,6 +39,8 @@
 #define _WIN32_WINNT 0x0501
 #include <iprt/win/windows.h>
 
+#include <VBox/VBoxGuestLibGuestProp.h>
+
 #include "VBoxTray.h"
 #include "VBoxLA.h"
 
@@ -69,14 +71,15 @@
 /*********************************************************************************************************************************
 *   Structures and Typedefs                                                                                                      *
 *********************************************************************************************************************************/
-typedef struct _VBOXLACONTEXT
+typedef struct VBOXLACONTEXT
 {
     const VBOXTRAYSVCENV *pEnv;
 
     bool fLogEnabled;
     bool fDetachOnDisconnect;
 
-    uint32_t u32GuestPropHandle;  /* The client identifier of the guest property system. */
+    /** The client session info of the guest property system. */
+    VBGLGSTPROPCLIENT GuestPropClient;
 
     RTLISTANCHOR listAttachActions;
     RTLISTANCHOR listDetachActions;
@@ -109,7 +112,7 @@ typedef struct _VBOXLACONTEXT
     BOOL (WINAPI * pfnProcessIdToSessionId)(DWORD dwProcessId, DWORD *pSessionId);
 } VBOXLACONTEXT, *PVBOXLACONTEXT;
 
-typedef struct _ACTIONENTRY
+typedef struct ACTIONENTRY
 {
     RTLISTNODE nodeActionEntry;
     uint32_t u32Index;
@@ -752,7 +755,7 @@ static void laDoDetach(PVBOXLACONTEXT pCtx)
     ActionExecutorExecuteActions(&pCtx->listDetachActions);
 }
 
-static int laGetProperty(uint32_t u32GuestPropHandle, const char *pszName, uint64_t *pu64Timestamp, char **ppszValue)
+static int laGetProperty(PVBGLGSTPROPCLIENT pGuestPropClient, const char *pszName, uint64_t *pu64Timestamp, char **ppszValue)
 {
     int rc = VINF_SUCCESS;
 
@@ -779,9 +782,9 @@ static int laGetProperty(uint32_t u32GuestPropHandle, const char *pszName, uint6
 
         pvBuf = pvTmpBuf;
 
-        rc = VbglR3GuestPropRead(u32GuestPropHandle, pszName, pvBuf, cbBuf,
-                                 NULL, pu64Timestamp, NULL,
-                                 &cbBuf);
+        rc = VbglGuestPropRead(pGuestPropClient, pszName, pvBuf, cbBuf,
+                               NULL, pu64Timestamp, NULL,
+                               &cbBuf);
         if (rc != VERR_BUFFER_OVERFLOW)
         {
             break;
@@ -813,7 +816,7 @@ static int laGetProperty(uint32_t u32GuestPropHandle, const char *pszName, uint6
     return rc;
 }
 
-static int laWaitProperties(uint32_t u32GuestPropHandle,
+static int laWaitProperties(PVBGLGSTPROPCLIENT pGuestPropClient,
                             const char *pszPatterns,
                             uint64_t u64LastTimestamp,
                             uint64_t *pu64Timestamp,
@@ -836,7 +839,7 @@ static int laWaitProperties(uint32_t u32GuestPropHandle,
     for (i = 0; i < 3; ++i)
     {
         void *pvTmpBuf = RTMemRealloc(pvBuf, cbBuf);
-        if (NULL == pvTmpBuf)
+        if (pvTmpBuf == NULL)
         {
             rc = VERR_NO_MEMORY;
             break;
@@ -844,14 +847,14 @@ static int laWaitProperties(uint32_t u32GuestPropHandle,
 
         pvBuf = pvTmpBuf;
 
-        rc = VbglR3GuestPropWait(u32GuestPropHandle, pszPatterns, pvBuf, cbBuf,
-                                 u64LastTimestamp, u32Timeout,
-                                 NULL /* ppszName */,
-                                 NULL /* ppszValue */,
-                                 pu64Timestamp,
-                                 NULL /* ppszFlags */,
-                                 &cbBuf,
-                                 NULL /* pfWasDeleted */);
+        rc = VbglGuestPropWait(pGuestPropClient, pszPatterns, pvBuf, cbBuf,
+                               u64LastTimestamp, u32Timeout,
+                               NULL /* ppszName */,
+                               NULL /* ppszValue */,
+                               pu64Timestamp,
+                               NULL /* ppszFlags */,
+                               &cbBuf,
+                               NULL /* pfWasDeleted */);
 
         if (rc != VERR_BUFFER_OVERFLOW)
             break;
@@ -864,12 +867,12 @@ static int laWaitProperties(uint32_t u32GuestPropHandle,
     return rc;
 }
 
-static int laGetUint32(uint32_t u32GuestPropHandle, const char *pszName, uint64_t *pu64Timestamp, uint32_t *pu32Value)
+static int laGetUint32(PVBGLGSTPROPCLIENT pGuestPropClient, const char *pszName, uint64_t *pu64Timestamp, uint32_t *pu32Value)
 {
     uint64_t u64Timestamp = 0;
     char *pszValue = NULL;
 
-    int rc = laGetProperty(u32GuestPropHandle,
+    int rc = laGetProperty(pGuestPropClient,
                            pszName,
                            &u64Timestamp,
                            &pszValue);
@@ -899,9 +902,9 @@ static int laGetUint32(uint32_t u32GuestPropHandle, const char *pszName, uint64_
     return rc;
 }
 
-static int laGetString(uint32_t u32GuestPropHandle, const char *pszName, uint64_t *pu64Timestamp, char **ppszValue)
+static int laGetString(PVBGLGSTPROPCLIENT pGuestPropClient, const char *pszName, uint64_t *pu64Timestamp, char **ppszValue)
 {
-    int rc = laGetProperty(u32GuestPropHandle,
+    int rc = laGetProperty(pGuestPropClient,
                            pszName,
                            pu64Timestamp,
                            ppszValue);
@@ -912,7 +915,7 @@ static int laGetString(uint32_t u32GuestPropHandle, const char *pszName, uint64_
 
 static int laGetActiveClient(PVBOXLACONTEXT pCtx, uint64_t *pu64Timestamp, uint32_t *pu32Value)
 {
-    int rc = laGetUint32(pCtx->u32GuestPropHandle,
+    int rc = laGetUint32(&pCtx->GuestPropClient,
                          g_pszPropActiveClient,
                          pu64Timestamp,
                          pu32Value);
@@ -1036,7 +1039,7 @@ static int laWait(PVBOXLACONTEXT pCtx, uint64_t *pu64Timestamp, uint32_t u32Time
 {
     LogFlowFunc(("laWait [%s]\n", pCtx->activeClient.pszPropWaitPattern));
 
-    int rc = laWaitProperties(pCtx->u32GuestPropHandle,
+    int rc = laWaitProperties(&pCtx->GuestPropClient,
                               pCtx->activeClient.pszPropWaitPattern,
                               pCtx->u64LastQuery,
                               pu64Timestamp,
@@ -1065,10 +1068,10 @@ static void laProcessClientInfo(PVBOXLACONTEXT pCtx)
 
     for (idx = 0; idx <= LA_UTCINFO_CLIENT_INFO_LAST; idx++)
     {
-         rc = laGetString(pCtx->u32GuestPropHandle,
-                         pClientInfoMap[idx][LA_UTCINFO_PROP_NAME],
-                         &u64Timestamp,
-                         &pClientInfoMap[idx][LA_UTCINFO_PROP_VALUE]);
+         rc = laGetString(&pCtx->GuestPropClient,
+                          pClientInfoMap[idx][LA_UTCINFO_PROP_NAME],
+                          &u64Timestamp,
+                          &pClientInfoMap[idx][LA_UTCINFO_PROP_VALUE]);
 
          LogFlowFunc(("laProcessClientInfo: read [%s], at %RU64\n",
                       pClientInfoMap[idx][LA_UTCINFO_PROP_VALUE], u64Timestamp));
@@ -1107,7 +1110,7 @@ static void laProcessAttach(PVBOXLACONTEXT pCtx)
     uint64_t u64Timestamp = 0;
     uint32_t u32Attach = UINT32_MAX;
 
-    int rc = laGetUint32(pCtx->u32GuestPropHandle,
+    int rc = laGetUint32(&pCtx->GuestPropClient,
                          pCtx->activeClient.pszPropAttach,
                          &u64Timestamp,
                          &u32Attach);
@@ -1245,29 +1248,21 @@ DECLCALLBACK(int) vbtrLAInit(const PVBOXTRAYSVCENV pEnv, void **ppvInstance)
     DWORD dwValue = 0;
     if (   laGetRegistryDWORD(L"SOFTWARE\\Oracle\\VirtualBox Guest Additions", L"VBoxTrayLog", &dwValue)
         && (dwValue & 0x10) != 0)
-    {
          pCtx->fLogEnabled = true;
-    }
     else
-    {
          pCtx->fLogEnabled = false;
-    }
 
     /* DetachOnDisconnect is enabled by default. */
     dwValue = 0x02;
     if (   laGetRegistryDWORD(L"SOFTWARE\\Oracle\\VirtualBox Guest Additions", L"VBoxTrayLA", &dwValue)
         && (dwValue & 0x02) == 0)
-    {
          pCtx->fDetachOnDisconnect = false;
-    }
     else
-    {
          pCtx->fDetachOnDisconnect = true;
-    }
 
     LogRel(("LA: DetachOnDisconnect=%RTbool\n", pCtx->fDetachOnDisconnect));
 
-    int rc = VbglR3GuestPropConnect(&pCtx->u32GuestPropHandle);
+    int rc = VbglGuestPropConnect(&pCtx->GuestPropClient);
     if (RT_FAILURE(rc))
         return rc;
 
@@ -1295,10 +1290,8 @@ DECLCALLBACK(void) vbtrLADestroy(void *pvInstance)
     PVBOXLACONTEXT pCtx = (PVBOXLACONTEXT)pvInstance;
     AssertPtr(pCtx);
 
-    if (pCtx->u32GuestPropHandle != 0)
-    {
-        VbglR3GuestPropDisconnect(pCtx->u32GuestPropHandle);
-    }
+    if (pCtx->GuestPropClient.idClient != 0)
+        VbglGuestPropDisconnect(&pCtx->GuestPropClient);
 
     ActionExecutorDeleteActions(&pCtx->listAttachActions);
     ActionExecutorDeleteActions(&pCtx->listDetachActions);

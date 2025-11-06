@@ -1,4 +1,4 @@
-/* $Id: VBoxServiceInternal.h 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $ */
+/* $Id: VBoxServiceInternal.h 111555 2025-11-06 09:49:17Z knut.osmundsen@oracle.com $ */
 /** @file
  * VBoxService - Guest Additions Services.
  */
@@ -41,7 +41,10 @@
 #include <iprt/stdarg.h>
 
 #include <VBox/VBoxGuestLib.h>
-#include <VBox/HostServices/GuestControlSvc.h>
+#ifdef VBOX_WITH_GUEST_PROPS
+# include <VBox/VBoxGuestLibGuestProp.h>
+# include <VBox/HostServices/GuestControlSvc.h>
+#endif
 
 
 #if !defined(RT_OS_WINDOWS) || defined(DOXYGEN_RUNNING)
@@ -154,12 +157,12 @@ DECLCALLBACK(void) VGSvcDefaultTerm(void);
  */
 typedef struct VBOXSERVICEVEPROPCACHE
 {
-    /** The client ID for HGCM communication. */
-    uint32_t        uClientID;
+    /** The guest property client session info. */
+    PVBGLGSTPROPCLIENT  pClient;
     /** Head in a list of VBOXSERVICEVEPROPCACHEENTRY nodes. */
-    RTLISTANCHOR    NodeHead;
+    RTLISTANCHOR        NodeHead;
     /** Critical section for thread-safe use. */
-    RTCRITSECT      CritSect;
+    RTCRITSECT          CritSect;
 } VBOXSERVICEVEPROPCACHE;
 /** Pointer to a guest property cache. */
 typedef VBOXSERVICEVEPROPCACHE *PVBOXSERVICEVEPROPCACHE;
@@ -186,7 +189,6 @@ typedef struct VBOXSERVICEVEPROPCACHEENTRY
 } VBOXSERVICEVEPROPCACHEENTRY;
 /** Pointer to a cached guest property. */
 typedef VBOXSERVICEVEPROPCACHEENTRY *PVBOXSERVICEVEPROPCACHEENTRY;
-
 #endif /* VBOX_WITH_GUEST_PROPS */
 
 RT_C_DECLS_BEGIN
@@ -194,7 +196,7 @@ RT_C_DECLS_BEGIN
 extern char        *g_pszProgName;
 extern unsigned     g_cVerbosity;
 extern char         g_szLogFile[RTPATH_MAX + 128];
-extern uint32_t     g_DefaultInterval;
+extern uint32_t     g_cSecDefaultInterval;
 extern VBOXSERVICE  g_TimeSync;
 #ifdef VBOX_WITH_VBOXSERVICE_CLIPBOARD
 extern VBOXSERVICE  g_Clipboard;
@@ -270,7 +272,7 @@ extern decltype(LsaNtStatusToWinError)         *g_pfnLsaNtStatusToWinError;
 
 # ifdef VBOX_WITH_GUEST_PROPS
 extern int                      VGSvcVMInfoWinWriteUsers(PVBOXSERVICEVEPROPCACHE pCache, char **ppszUserList, uint32_t *pcUsersInList);
-extern int                      VGSvcVMInfoWinGetComponentVersions(uint32_t uClientID);
+extern int                      VGSvcVMInfoWinGetComponentVersions(PVBGLGSTPROPCLIENT pClient);
 # endif /* VBOX_WITH_GUEST_PROPS */
 
 #endif /* RT_OS_WINDOWS */

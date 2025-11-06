@@ -1,4 +1,4 @@
-/* $Id: main.cpp 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $ */
+/* $Id: main.cpp 111555 2025-11-06 09:49:17Z knut.osmundsen@oracle.com $ */
 /** @file
  * VirtualBox Guest Additions - X11 Client.
  */
@@ -148,8 +148,8 @@ void VBClShutdown(bool fExit /*=true*/)
         VBClLogFatalError("Failure while acquiring the global critical section, rc=%Rrc\n", rc);
 
     /* Ask service to stop. */
-    if (g_Service.pDesc &&
-        g_Service.pDesc->pfnStop)
+    if (   g_Service.pDesc
+        && g_Service.pDesc->pfnStop)
     {
         ASMAtomicWriteBool(&g_Service.fShutdown, true);
         g_Service.pDesc->pfnStop();
@@ -879,9 +879,7 @@ int main(int argc, char *argv[])
         rc = RTThreadCreate(&g_Service.Thread, vbclThread, (void *)&g_Service, 0,
                             RTTHREADTYPE_DEFAULT, RTTHREADFLAGS_WAITABLE, g_Service.pDesc->pszName);
         if (RT_FAILURE(rc))
-        {
             VBClLogError("Creating worker thread failed, rc=%Rrc\n", rc);
-        }
         else
         {
             g_Service.fStarted = true;
@@ -907,7 +905,7 @@ int main(int argc, char *argv[])
             {
                 VBClLogInfo("Service started\n");
 
-                int rcThread;
+                int rcThread = VERR_GENERAL_FAILURE;
                 rc = RTThreadWait(g_Service.Thread, RT_INDEFINITE_WAIT, &rcThread);
                 if (RT_SUCCESS(rc))
                     rc = rcThread;
@@ -924,9 +922,7 @@ int main(int argc, char *argv[])
                         rc = rc2;
 
                     if (RT_SUCCESS(rc))
-                    {
                         VBClLogInfo("Service terminated\n");
-                    }
                     else
                         VBClLogError("Service failed to terminate, rc=%Rrc\n", rc);
                 }
@@ -956,6 +952,6 @@ int main(int argc, char *argv[])
 
     /** @todo r=andy Should we return an appropriate exit code if the service failed to init?
      *               Must be tested carefully with our init scripts first. */
-    return g_fProcessReloadRequested ? VBGLR3EXITCODERELOAD : RTEXITCODE_SUCCESS;
+    return g_fProcessReloadRequested ? VBGLR3_EXITCODE_RELOAD : RTEXITCODE_SUCCESS;
 }
 

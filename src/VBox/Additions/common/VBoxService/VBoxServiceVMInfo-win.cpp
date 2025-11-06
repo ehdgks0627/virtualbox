@@ -1,4 +1,4 @@
-/* $Id: VBoxServiceVMInfo-win.cpp 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $ */
+/* $Id: VBoxServiceVMInfo-win.cpp 111555 2025-11-06 09:49:17Z knut.osmundsen@oracle.com $ */
 /** @file
  * VBoxService - Virtual Machine Information for the Host, Windows specifics.
  */
@@ -53,6 +53,7 @@
 #include <iprt/utf16.h>
 
 #include <VBox/VBoxGuestLib.h>
+#include <VBox/HostServices/GuestPropertySvc.h> /* GUEST_PROP_MAX_NAME_LEN */
 #include "VBoxServiceInternal.h"
 #include "VBoxServiceUtils.h"
 #include "VBoxServiceVMInfo.h"
@@ -117,11 +118,11 @@ static int  vgsvcVMInfoWinWriteLastInput(PVBOXSERVICEVEPROPCACHE pCache, const c
 /*********************************************************************************************************************************
 *   Global Variables                                                                                                             *
 *********************************************************************************************************************************/
-static uint32_t s_uDebugGuestPropClientID = 0;
-static uint32_t s_uDebugIter = 0;
+/** @todo r=bird: Is this temporary? (bad orig code quality) If not, docs++, plase. */
+static uint32_t g_uDebugIter = 0;
 /** Whether to skip the logged-in user detection over RDP or not.
  *  See notes in this section why we might want to skip this. */
-static bool s_fSkipRDPDetection = false;
+static bool     g_fSkipRdpDetection = false;
 
 static RTONCE                                   g_vgsvcWinVmInitOnce = RTONCE_INITIALIZER;
 
@@ -867,23 +868,23 @@ static bool vgsvcVMInfoWinIsLoggedIn(PVBOXSERVICEVMINFOUSER pUserInfo, PLUID pSe
                  * query WTSConnectState, which is a rather simple affair.  So, I've
                  * re-enabled the code for all systems that includes the API.
                  */
-                if (!s_fSkipRDPDetection)
+                if (!g_fSkipRdpDetection)
                 {
                     /* Skip if we don't have the WTS API. */
                     if (!g_pfnWTSQuerySessionInformationA)
-                        s_fSkipRDPDetection = true;
+                        g_fSkipRdpDetection = true;
 #if 0 /* bird: see above */
                     /* Skip RDP detection on Windows 2000 and older.
                        For Windows 2000 however we don't have any hotfixes, so just skip the
                        RDP detection in any case. */
                     else if (RTSystemGetNtVersion() < RTSYSTEM_MAKE_NT_VERSION(5, 1, 0)) /* older than XP */
-                        s_fSkipRDPDetection = true;
+                        g_fSkipRdpDetection = true;
 #endif
-                    if (s_fSkipRDPDetection)
+                    if (g_fSkipRdpDetection)
                         VGSvcVerbose(0, "Detection of logged-in users via RDP is disabled\n");
                 }
 
-                if (!s_fSkipRDPDetection)
+                if (!g_fSkipRdpDetection)
                 {
                     Assert(g_pfnWTSQuerySessionInformationA);
                     Assert(g_pfnWTSFreeMemory);
@@ -1278,8 +1279,15 @@ int VGSvcVMInfoWinWriteUsers(PVBOXSERVICEVEPROPCACHE pCache, char **ppszUserList
     if (!g_pfnLsaEnumerateLogonSessions || !g_pfnEnumProcesses || !g_pfnLsaNtStatusToWinError)
         return VERR_NOT_SUPPORTED;
 
-    rc = VbglR3GuestPropConnect(&s_uDebugGuestPropClientID);
-    AssertRC(rc);
+    VBGLGSTPROPCLIENT DebugGuestPropClient;
+    if (g_cVerbosity <= 3)
+        rc = VERR_NOT_IMPLEMENTED;
+    else
+    {
+        rc = VbglGuestPropConnect(&DebugGuestPropClient);
+        AssertRC(rc);
+    }
+    PVBGLGSTPROPCLIENT const pDebugGuestPropClient = RT_SUCCESS(rc) ? &DebugGuestPropClient : NULL;
 
     char *pszUserList = NULL;
     uint32_t cUsersInList = 0;
@@ -1361,12 +1369,12 @@ int VGSvcVMInfoWinWriteUsers(PVBOXSERVICEVEPROPCACHE pCache, char **ppszUserList
 
                     if (g_cVerbosity > 3)
                     {
-                        char szDebugSessionPath[255];
+                        char szDebugSessionPath[GUEST_PROP_MAX_NAME_LEN];
                         RTStrPrintf(szDebugSessionPath,  sizeof(szDebugSessionPath),
                                     "/VirtualBox/GuestInfo/Debug/LSA/Session/%RU32", userSession.ulLastSession);
-                        VGSvcWritePropF(s_uDebugGuestPropClientID, szDebugSessionPath,
+                        VGSvcWritePropF(pDebugGuestPropClient, szDebugSessionPath,
                                         "#%RU32: cSessionProcs=%RU32 (of %RU32 procs total)",
-                                        s_uDebugIter, cCurSessionProcs, cProcs);
+                                        g_uDebugIter, cCurSessionProcs, cProcs);
                     }
 
                     bool fFoundUser = false;
@@ -1425,9 +1433,9 @@ int VGSvcVMInfoWinWriteUsers(PVBOXSERVICEVEPROPCACHE pCache, char **ppszUserList
             }
 
             if (g_cVerbosity > 3)
-                VGSvcWritePropF(s_uDebugGuestPropClientID, "/VirtualBox/GuestInfo/Debug/LSA",
+                VGSvcWritePropF(pDebugGuestPropClient, "/VirtualBox/GuestInfo/Debug/LSA",
                                 "#%RU32: cSessions=%RU32, cProcs=%RU32, cUniqueUsers=%RU32",
-                                s_uDebugIter, cSessions, cProcs, cUniqueUsers);
+                                g_uDebugIter, cSessions, cProcs, cUniqueUsers);
 
             VGSvcVerbose(3, "Found %u unique logged-in user(s)\n", cUniqueUsers);
 
@@ -1435,10 +1443,11 @@ int VGSvcVMInfoWinWriteUsers(PVBOXSERVICEVEPROPCACHE pCache, char **ppszUserList
             {
                 if (g_cVerbosity > 3)
                 {
-                    char szDebugUserPath[255]; RTStrPrintf(szDebugUserPath,  sizeof(szDebugUserPath), "/VirtualBox/GuestInfo/Debug/LSA/User/%RU32", i);
-                    VGSvcWritePropF(s_uDebugGuestPropClientID, szDebugUserPath,
+                    char szDebugUserPath[GUEST_PROP_MAX_NAME_LEN];
+                    RTStrPrintf(szDebugUserPath,  sizeof(szDebugUserPath), "/VirtualBox/GuestInfo/Debug/LSA/User/%RU32", i);
+                    VGSvcWritePropF(pDebugGuestPropClient, szDebugUserPath,
                                     "#%RU32: szName=%ls, sessionID=%RU32, cProcs=%RU32",
-                                    s_uDebugIter, pUserInfo[i].wszUser, pUserInfo[i].ulLastSession, pUserInfo[i].ulNumProcs);
+                                    g_uDebugIter, pUserInfo[i].wszUser, pUserInfo[i].ulLastSession, pUserInfo[i].ulNumProcs);
                 }
 
                 bool fAddUser = false;
@@ -1496,14 +1505,17 @@ int VGSvcVMInfoWinWriteUsers(PVBOXSERVICEVEPROPCACHE pCache, char **ppszUserList
         *pcUsersInList = cUsersInList;
     }
 
-    s_uDebugIter++;
-    VbglR3GuestPropDisconnect(s_uDebugGuestPropClientID);
+    if (pDebugGuestPropClient)
+    {
+        g_uDebugIter++;
+        VbglGuestPropDisconnect(pDebugGuestPropClient);
+    }
 
     return rc;
 }
 
 
-int VGSvcVMInfoWinGetComponentVersions(uint32_t uClientID)
+int VGSvcVMInfoWinGetComponentVersions(PVBGLGSTPROPCLIENT pClient)
 {
     int rc;
     char szSysDir[MAX_PATH] = {0};
@@ -1550,13 +1562,13 @@ int VGSvcVMInfoWinGetComponentVersions(uint32_t uClientID)
     {
         char szVer[128];
         rc = VGSvcUtilWinGetFileVersionString(aVBoxFiles[i].pszFilePath, aVBoxFiles[i].pszFileName, szVer, sizeof(szVer));
-        char szPropPath[256];
+        char szPropPath[GUEST_PROP_MAX_NAME_LEN];
         RTStrPrintf(szPropPath, sizeof(szPropPath), "/VirtualBox/GuestAdd/Components/%s", aVBoxFiles[i].pszFileName);
         if (   rc != VERR_FILE_NOT_FOUND
             && rc != VERR_PATH_NOT_FOUND)
-            VGSvcWritePropF(uClientID, szPropPath, "%s", szVer);
+            VGSvcWriteProp(pClient, szPropPath, szVer);
         else
-            VGSvcWritePropF(uClientID, szPropPath, NULL);
+            VGSvcWriteProp(pClient, szPropPath, NULL);
     }
 
     return VINF_SUCCESS;

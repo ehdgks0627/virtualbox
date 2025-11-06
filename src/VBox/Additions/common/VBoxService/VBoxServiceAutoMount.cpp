@@ -1,4 +1,4 @@
-/* $Id: VBoxServiceAutoMount.cpp 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $ */
+/* $Id: VBoxServiceAutoMount.cpp 111555 2025-11-06 09:49:17Z knut.osmundsen@oracle.com $ */
 /** @file
  * VBoxService - Auto-mounting for Shared Folders, only Linux & Solaris atm.
  */
@@ -613,7 +613,7 @@ static int vbsvcAutoMountWorkerOld(bool volatile *pfShutdown)
         && cMappings)
     {
         char *pszMountDir;
-        rc = VbglR3SharedFolderGetMountDir(&pszMountDir);
+        rc = VbglR3SharedFolderQueryMountDir(&pszMountDir);
         if (rc == VERR_NOT_FOUND)
             rc = RTStrDupEx(&pszMountDir, VBOXSERVICE_AUTOMOUNT_DEFAULT_DIR);
         if (RT_SUCCESS(rc))
@@ -621,7 +621,7 @@ static int vbsvcAutoMountWorkerOld(bool volatile *pfShutdown)
             VGSvcVerbose(3, "vbsvcAutoMountWorker: Shared folder mount dir set to '%s'\n", pszMountDir);
 
             char *pszSharePrefix;
-            rc = VbglR3SharedFolderGetMountPrefix(&pszSharePrefix);
+            rc = VbglR3SharedFolderQueryMountPrefix(&pszSharePrefix);
             if (RT_SUCCESS(rc))
             {
                 VGSvcVerbose(3, "vbsvcAutoMountWorker: Shared folder mount prefix set to '%s'\n", pszSharePrefix);
@@ -692,7 +692,7 @@ static int vbsvcAutomounterQueryMountDirAndPrefix(char *pszDst, size_t cbDst)
     /* Mount directory: */
     const char *pszDir = VBOXSERVICE_AUTOMOUNT_DEFAULT_DIR;
     char       *pszCfgDir;
-    int rc = VbglR3SharedFolderGetMountDir(&pszCfgDir);
+    int rc = VbglR3SharedFolderQueryMountDir(&pszCfgDir);
     if (RT_SUCCESS(rc))
     {
         if (*pszCfgDir == '/')
@@ -703,8 +703,8 @@ static int vbsvcAutomounterQueryMountDirAndPrefix(char *pszDst, size_t cbDst)
 
     /* Prefix: */
     const char *pszPrefix = VBOXSERVICE_AUTOMOUNT_DEFAULT_PREFIX;
-    char *pszCfgPrefix;
-    rc = VbglR3SharedFolderGetMountPrefix(&pszCfgPrefix);
+    char       *pszCfgPrefix;
+    rc = VbglR3SharedFolderQueryMountPrefix(&pszCfgPrefix);
     if (RT_SUCCESS(rc))
     {
         if (   strchr(pszCfgPrefix, '/')  == NULL

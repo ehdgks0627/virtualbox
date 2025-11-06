@@ -1,4 +1,4 @@
-/* $Id: VBoxServiceTimeSync.cpp 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $ */
+/* $Id: VBoxServiceTimeSync.cpp 111555 2025-11-06 09:49:17Z knut.osmundsen@oracle.com $ */
 /** @file
  * VBoxService - Guest Additions TimeSync Service.
  */
@@ -187,8 +187,8 @@ static DECLCALLBACK(int) vgsvcTimeSyncPreInit(void)
      * Read the service options from the VM's guest properties.
      * Note that these options can be overridden by the command line options later.
      */
-    uint32_t uGuestPropSvcClientID;
-    int rc = VbglR3GuestPropConnect(&uGuestPropSvcClientID);
+    VBGLGSTPROPCLIENT GuestPropClient;
+    int rc = VbglGuestPropConnect(&GuestPropClient);
     if (RT_FAILURE(rc))
     {
         if (rc == VERR_HGCM_SERVICE_NOT_FOUND) /* Host service is not available. */
@@ -201,46 +201,45 @@ static DECLCALLBACK(int) vgsvcTimeSyncPreInit(void)
     }
     else
     {
-        rc = VGSvcReadPropUInt32(uGuestPropSvcClientID, "/VirtualBox/GuestAdd/VBoxService/--timesync-interval",
+        rc = VGSvcReadPropUInt32(&GuestPropClient, "/VirtualBox/GuestAdd/VBoxService/--timesync-interval",
                                  &g_TimeSyncInterval, 50, UINT32_MAX - 1);
         if (   RT_SUCCESS(rc)
             || rc == VERR_NOT_FOUND)
-            rc = VGSvcReadPropUInt32(uGuestPropSvcClientID, "/VirtualBox/GuestAdd/VBoxService/--timesync-min-adjust",
+            rc = VGSvcReadPropUInt32(&GuestPropClient, "/VirtualBox/GuestAdd/VBoxService/--timesync-min-adjust",
                                      &g_cMsTimeSyncMinAdjust, 0, 3600000);
         if (   RT_SUCCESS(rc)
             || rc == VERR_NOT_FOUND)
-            rc = VGSvcReadPropUInt32(uGuestPropSvcClientID, "/VirtualBox/GuestAdd/VBoxService/--timesync-latency-factor",
+            rc = VGSvcReadPropUInt32(&GuestPropClient, "/VirtualBox/GuestAdd/VBoxService/--timesync-latency-factor",
                                      &g_TimeSyncLatencyFactor, 1, 1024);
         if (   RT_SUCCESS(rc)
             || rc == VERR_NOT_FOUND)
-            rc = VGSvcReadPropUInt32(uGuestPropSvcClientID, "/VirtualBox/GuestAdd/VBoxService/--timesync-max-latency",
+            rc = VGSvcReadPropUInt32(&GuestPropClient, "/VirtualBox/GuestAdd/VBoxService/--timesync-max-latency",
                                      &g_cMsTimeSyncMaxLatency, 1, 3600000);
         if (   RT_SUCCESS(rc)
             || rc == VERR_NOT_FOUND)
-            rc = VGSvcReadPropUInt32(uGuestPropSvcClientID, "/VirtualBox/GuestAdd/VBoxService/--timesync-set-threshold",
+            rc = VGSvcReadPropUInt32(&GuestPropClient, "/VirtualBox/GuestAdd/VBoxService/--timesync-set-threshold",
                                      &g_TimeSyncSetThreshold, 0, 7*24*60*60*1000 /* a week */);
 
-        if (VbglR3GuestPropExist(uGuestPropSvcClientID,
-                                 "/VirtualBox/GuestAdd/VBoxService/--timesync-set-start"))
+        if (VbglGuestPropExist(&GuestPropClient, "/VirtualBox/GuestAdd/VBoxService/--timesync-set-start"))
             g_fTimeSyncSetOnStart = true;
 
-        if (VbglR3GuestPropExist(uGuestPropSvcClientID, "/VirtualBox/GuestAdd/VBoxService/--timesync-no-set-start"))
+        if (VbglGuestPropExist(&GuestPropClient, "/VirtualBox/GuestAdd/VBoxService/--timesync-no-set-start"))
             g_fTimeSyncSetOnStart = false;
 
 
-        if (VbglR3GuestPropExist(uGuestPropSvcClientID, "/VirtualBox/GuestAdd/VBoxService/--timesync-set-on-restore"))
+        if (VbglGuestPropExist(&GuestPropClient, "/VirtualBox/GuestAdd/VBoxService/--timesync-set-on-restore"))
             g_fTimeSyncSetOnRestore = true;
 
-        if (VbglR3GuestPropExist(uGuestPropSvcClientID, "/VirtualBox/GuestAdd/VBoxService/--timesync-no-set-on-restore"))
+        if (VbglGuestPropExist(&GuestPropClient, "/VirtualBox/GuestAdd/VBoxService/--timesync-no-set-on-restore"))
             g_fTimeSyncSetOnRestore = false;
 
         uint32_t uValue;
-        rc = VGSvcReadPropUInt32(uGuestPropSvcClientID, "/VirtualBox/GuestAdd/VBoxService/--timesync-verbosity",
+        rc = VGSvcReadPropUInt32(&GuestPropClient, "/VirtualBox/GuestAdd/VBoxService/--timesync-verbosity",
                                  &uValue, 0 /*uMin*/, 255 /*uMax*/);
         if (RT_SUCCESS(rc))
             g_cTimeSyncVerbosity = uValue;
 
-        VbglR3GuestPropDisconnect(uGuestPropSvcClientID);
+        VbglGuestPropDisconnect(&GuestPropClient);
     }
 
     if (rc == VERR_NOT_FOUND) /* If a value is not found, don't be sad! */
@@ -318,11 +317,11 @@ static DECLCALLBACK(int) vgsvcTimeSyncInit(void)
      * Then create the event sem to block on.
      */
     if (!g_TimeSyncInterval)
-        g_TimeSyncInterval = g_DefaultInterval * 1000;
+        g_TimeSyncInterval = g_cSecDefaultInterval * 1000;
     if (!g_TimeSyncInterval)
         g_TimeSyncInterval = 10 * 1000;
 
-    VbglR3GetSessionId(&g_idTimeSyncSession);
+    VbglR3QuerySessionId(&g_idTimeSyncSession);
     /* The status code is ignored as this information is not available with VBox < 3.2.10. */
 
     int rc = RTSemEventMultiCreate(&g_TimeSyncEvent);
@@ -574,7 +573,7 @@ static DECLCALLBACK(int) vgsvcTimeSyncWorker(bool volatile *pfShutdown)
              */
             uint64_t idNewSession = g_idTimeSyncSession;
             if (g_fTimeSyncSetOnRestore)
-                VbglR3GetSessionId(&idNewSession);
+                VbglR3QuerySessionId(&idNewSession);
 
             RTTIMESPEC GuestNow0;
             RTTimeNow(&GuestNow0);

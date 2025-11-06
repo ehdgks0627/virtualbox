@@ -1,4 +1,4 @@
-/* $Id: */
+/* $Id: VBoxGuestR3LibHostVersion.cpp 111555 2025-11-06 09:49:17Z knut.osmundsen@oracle.com $ */
 /** @file
  * VBoxGuestR3Lib - Ring-3 Support Library for VirtualBox guest additions, host version check.
  */
@@ -40,11 +40,7 @@
 *********************************************************************************************************************************/
 #include <iprt/string.h>
 #include <VBox/log.h>
-
-#ifdef RT_OS_WINDOWS
- #define WIN32_LEAN_AND_MEAN
- #include <iprt/win/windows.h>
-#endif
+#include <VBox/VBoxGuestLibGuestProp.h>
 
 #include "VBoxGuestR3LibInternal.h"
 
@@ -55,23 +51,25 @@
  *
  * @returns VBox status code
  *
- * @param   idClient            The client id returned by
- *                              VbglR3InfoSvcConnect().
+ * @param   pGuestPropClient    The client session info returned by
+ *                              VbglInfoSvcConnect().
  * @param   pfUpdate            Receives pointer to boolean flag indicating
  *                              whether an update was found or not.
  * @param   ppszHostVersion     Receives pointer of allocated version string.
  *                              The returned pointer must be freed using
- *                              VbglR3GuestPropReadValueFree().  Always set to
+ *                              VbglGuestPropReadValueFree().  Always set to
  *                              NULL.
  * @param   ppszGuestVersion    Receives pointer of allocated revision string.
  *                              The returned pointer must be freed using
- *                              VbglR3GuestPropReadValueFree().  Always set to
+ *                              VbglGuestPropReadValueFree().  Always set to
  *                              NULL.
  */
-VBGLR3DECL(int) VbglR3HostVersionCheckForUpdate(HGCMCLIENTID idClient, bool *pfUpdate, char **ppszHostVersion, char **ppszGuestVersion)
+VBGLR3DECL(int) VbglR3HostVersionCheckForUpdate(PVBGLGSTPROPCLIENT pGuestPropClient,
+                                                bool *pfUpdate, char **ppszHostVersion, char **ppszGuestVersion)
 {
 #ifdef VBOX_WITH_GUEST_PROPS
-    Assert(idClient > 0);
+    AssertPtr(pGuestPropClient);
+    Assert(pGuestPropClient->idClient > 0);
     AssertPtr(pfUpdate);
     AssertPtr(ppszHostVersion);
     AssertPtr(ppszGuestVersion);
@@ -85,7 +83,7 @@ VBGLR3DECL(int) VbglR3HostVersionCheckForUpdate(HGCMCLIENTID idClient, bool *pfU
 
     /* Do we need to do all this stuff? */
     char *pszCheckHostVersion;
-    int rc = VbglR3GuestPropReadValueAlloc(idClient, "/VirtualBox/GuestAdd/CheckHostVersion", &pszCheckHostVersion);
+    int rc = VbglGuestPropReadValueAlloc(pGuestPropClient, "/VirtualBox/GuestAdd/CheckHostVersion", &pszCheckHostVersion);
     if (RT_FAILURE(rc))
     {
         if (rc == VERR_NOT_FOUND)
@@ -101,7 +99,7 @@ VBGLR3DECL(int) VbglR3HostVersionCheckForUpdate(HGCMCLIENTID idClient, bool *pfU
             LogRel(("No host version update check performed (disabled).\n"));
             *pfUpdate = false;
         }
-        VbglR3GuestPropReadValueFree(pszCheckHostVersion);
+        VbglGuestPropReadValueFree(pszCheckHostVersion);
     }
 
     /* Collect all needed information */
@@ -110,24 +108,22 @@ VBGLR3DECL(int) VbglR3HostVersionCheckForUpdate(HGCMCLIENTID idClient, bool *pfU
     if (RT_SUCCESS(rc) && *pfUpdate)
     {
         /* Look up host version */
-        rc = VbglR3GuestPropReadValueAlloc(idClient, "/VirtualBox/HostInfo/VBoxVer", ppszHostVersion);
+        rc = VbglGuestPropReadValueAlloc(pGuestPropClient, "/VirtualBox/HostInfo/VBoxVer", ppszHostVersion);
         if (RT_FAILURE(rc))
-        {
             LogFlow(("Could not read VBox host version! rc = %Rrc\n", rc));
-        }
         else
         {
             LogFlow(("Host version: %s\n", *ppszHostVersion));
 
             /* Get last checked host version */
             char *pszLastCheckedHostVersion;
-            rc = VbglR3HostVersionLastCheckedLoad(idClient, &pszLastCheckedHostVersion);
+            rc = VbglR3HostVersionLastCheckedLoad(pGuestPropClient, &pszLastCheckedHostVersion);
             if (RT_SUCCESS(rc))
             {
                 LogFlow(("Last checked host version: %s\n", pszLastCheckedHostVersion));
                 if (strcmp(*ppszHostVersion, pszLastCheckedHostVersion) == 0)
                     *pfUpdate = false; /* We already notified this version, skip */
-                VbglR3GuestPropReadValueFree(pszLastCheckedHostVersion);
+                VbglGuestPropReadValueFree(pszLastCheckedHostVersion);
             }
             else if (rc == VERR_NOT_FOUND) /* Never wrote a last checked host version before */
             {
@@ -139,8 +135,8 @@ VBGLR3DECL(int) VbglR3HostVersionCheckForUpdate(HGCMCLIENTID idClient, bool *pfU
         /* Look up guest version */
         if (RT_SUCCESS(rc))
         {
-            rc = VbglR3GetAdditionsVersion(ppszGuestVersion, NULL /* Extended version not needed here */,
-                                           NULL /* Revision not needed here */);
+            rc = VbglR3QueryAdditionsVersion(ppszGuestVersion, NULL /* Extended version not needed here */,
+                                             NULL /* Revision not needed here */);
             if (RT_FAILURE(rc))
                 LogFlow(("Could not read VBox guest version! rc = %Rrc\n", rc));
         }
@@ -166,60 +162,63 @@ VBGLR3DECL(int) VbglR3HostVersionCheckForUpdate(HGCMCLIENTID idClient, bool *pfU
     {
         if (*ppszHostVersion)
         {
-            VbglR3GuestPropReadValueFree(*ppszHostVersion);
+            VbglGuestPropReadValueFree(*ppszHostVersion);
             *ppszHostVersion = NULL;
         }
         if (*ppszGuestVersion)
         {
-            VbglR3GuestPropReadValueFree(*ppszGuestVersion);
+            VbglGuestPropReadValueFree(*ppszGuestVersion);
             *ppszGuestVersion = NULL;
         }
     }
     return rc;
 #else /* !VBOX_WITH_GUEST_PROPS */
-    RT_NOREF(idClient, pfUpdate, ppszHostVersion, ppszGuestVersion);
+    RT_NOREF(pGuestPropClient, pfUpdate, ppszHostVersion, ppszGuestVersion);
     return VERR_NOT_SUPPORTED;
 #endif
 }
 
 
-/** Retrieves the last checked host version.
+/**
+ * Retrieves the last checked host version.
  *
  * @returns VBox status code.
  *
- * @param   idClient        The client id returned by VbglR3InfoSvcConnect().
- * @param   ppszVer         Receives pointer of allocated version string.
- *                          The returned pointer must be freed using RTStrFree() on VINF_SUCCESS.
+ * @param   pGuestPropClient    The client session info returned by
+ *                              VbglInfoSvcConnect().
+ * @param   ppszVer             Receives pointer of allocated version string.
+ *                              The returned pointer must be freed using RTStrFree() on VINF_SUCCESS.
  */
-VBGLR3DECL(int) VbglR3HostVersionLastCheckedLoad(HGCMCLIENTID idClient, char **ppszVer)
+VBGLR3DECL(int) VbglR3HostVersionLastCheckedLoad(PVBGLGSTPROPCLIENT pGuestPropClient, char **ppszVer)
 {
 #ifdef VBOX_WITH_GUEST_PROPS
-    Assert(idClient > 0);
     AssertPtr(ppszVer);
-    return VbglR3GuestPropReadValueAlloc(idClient, "/VirtualBox/GuestAdd/HostVerLastChecked", ppszVer);
+    return VbglGuestPropReadValueAlloc(pGuestPropClient, "/VirtualBox/GuestAdd/HostVerLastChecked", ppszVer);
 #else /* !VBOX_WITH_GUEST_PROPS */
-    RT_NOREF(idClient, ppszVer);
+    RT_NOREF(pGuestPropClient, ppszVer);
     return VERR_NOT_SUPPORTED;
 #endif
 }
 
 
-/** Stores the last checked host version for later lookup.
- *  Requires strings in form of "majorVer.minorVer.build".
+/**
+ * Stores the last checked host version for later lookup.
+ *
+ * Requires strings in form of "majorVer.minorVer.build".
  *
  * @returns VBox status code.
  *
- * @param   idClient        The client id returned by VbglR3InfoSvcConnect().
- * @param   pszVer          Pointer to version string to store.
+ * @param   pGuestPropClient    The client session info returned by
+ *                              VbglInfoSvcConnect().
+ * @param   pszVer              Pointer to version string to store.
  */
-VBGLR3DECL(int) VbglR3HostVersionLastCheckedStore(HGCMCLIENTID idClient, const char *pszVer)
+VBGLR3DECL(int) VbglR3HostVersionLastCheckedStore(PVBGLGSTPROPCLIENT pGuestPropClient, const char *pszVer)
 {
 #ifdef VBOX_WITH_GUEST_PROPS
-    Assert(idClient > 0);
     AssertPtr(pszVer);
-    return VbglR3GuestPropWriteValue(idClient, "/VirtualBox/GuestAdd/HostVerLastChecked", pszVer);
+    return VbglGuestPropWriteValue(pGuestPropClient, "/VirtualBox/GuestAdd/HostVerLastChecked", pszVer);
 #else /* !VBOX_WITH_GUEST_PROPS */
-    RT_NOREF(idClient, pszVer);
+    RT_NOREF(pGuestPropClient, pszVer);
     return VERR_NOT_SUPPORTED;
 #endif
 }

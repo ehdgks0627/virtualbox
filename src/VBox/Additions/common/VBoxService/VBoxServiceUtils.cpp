@@ -1,4 +1,4 @@
-/* $Id: VBoxServiceUtils.cpp 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $ */
+/* $Id: VBoxServiceUtils.cpp 111555 2025-11-06 09:49:17Z knut.osmundsen@oracle.com $ */
 /** @file
  * VBoxServiceUtils - Some utility functions.
  */
@@ -44,20 +44,22 @@
 
 
 #ifdef VBOX_WITH_GUEST_PROPS
+
 /**
  * Reads a guest property as a 32-bit value.
  *
  * @returns VBox status code, fully bitched.
  *
- * @param   u32ClientId         The HGCM client ID for the guest property session.
+ * @param   pGuestPropClient    The guest property client session info.
  * @param   pszPropName         The property name.
  * @param   pu32                Where to store the 32-bit value.
  *
  */
-int VGSvcReadPropUInt32(uint32_t u32ClientId, const char *pszPropName, uint32_t *pu32, uint32_t u32Min, uint32_t u32Max)
+int VGSvcReadPropUInt32(PVBGLGSTPROPCLIENT pGuestPropClient, const char *pszPropName,
+                        uint32_t *pu32, uint32_t u32Min, uint32_t u32Max)
 {
     char *pszValue;
-    int rc = VbglR3GuestPropReadEx(u32ClientId, pszPropName, &pszValue, NULL /* ppszFlags */, NULL /* puTimestamp */);
+    int rc = VbglGuestPropReadEx(pGuestPropClient, pszPropName, &pszValue, NULL /* ppszFlags */, NULL /* puTimestamp */);
     if (RT_SUCCESS(rc))
     {
         char *pszNext;
@@ -75,7 +77,7 @@ int VGSvcReadPropUInt32(uint32_t u32ClientId, const char *pszPropName, uint32_t 
  * Reads a guest property from the host side.
  *
  * @returns IPRT status code, fully bitched.
- * @param   u32ClientId         The HGCM client ID for the guest property session.
+ * @param   pGuestPropClient    The guest property client session info.
  * @param   pszPropName         The property name.
  * @param   fReadOnly           Whether or not this property needs to be read only
  *                              by the guest side. Otherwise VERR_ACCESS_DENIED will
@@ -87,14 +89,14 @@ int VGSvcReadPropUInt32(uint32_t u32ClientId, const char *pszPropName, uint32_t 
  * @param   puTimestamp         Where to return the timestamp.  This is only set
  *                              on success.  Optional.
  */
-int VGSvcReadHostProp(uint32_t u32ClientId, const char *pszPropName, bool fReadOnly,
+int VGSvcReadHostProp(PVBGLGSTPROPCLIENT pGuestPropClient, const char *pszPropName, bool fReadOnly,
                       char **ppszValue, char **ppszFlags, uint64_t *puTimestamp)
 {
     AssertPtrReturn(ppszValue, VERR_INVALID_PARAMETER);
 
     char *pszValue = NULL;
     char *pszFlags = NULL;
-    int rc = VbglR3GuestPropReadEx(u32ClientId, pszPropName, &pszValue, &pszFlags, puTimestamp);
+    int rc = VbglGuestPropReadEx(pGuestPropClient, pszPropName, &pszValue, &pszFlags, puTimestamp);
     if (RT_SUCCESS(rc))
     {
         /* Check security bits. */
@@ -129,18 +131,51 @@ int VGSvcReadHostProp(uint32_t u32ClientId, const char *pszPropName, bool fReadO
 
 
 /**
- * Wrapper around VbglR3GuestPropWriteValue that does value formatting and
+ * Wrapper around VbglGuestPropWriteValue that does value formatting and
  * logging.
  *
  * @returns VBox status code. Errors will be logged.
  *
- * @param   u32ClientId     The HGCM client ID for the guest property session.
- * @param   pszName         The property name.
- * @param   pszValueFormat  The property format string.  If this is NULL then
- *                          the property will be deleted (if possible).
- * @param   ...             Format arguments.
+ * @param   pGuestPropClient    The guest property client session info.
+ * @param   pszName             The property name.
+ * @param   pszValue            The property value.  If this is NULL then the
+ *                              property will be deleted (if possible).
  */
-int VGSvcWritePropF(uint32_t u32ClientId, const char *pszName, const char *pszValueFormat, ...)
+int VGSvcWriteProp(PVBGLGSTPROPCLIENT pGuestPropClient, const char *pszName, const char *pszValue)
+{
+    AssertPtr(pszName);
+    int rc;
+    if (pszValue != NULL)
+    {
+        VGSvcVerbose(3, "Writing guest property '%s' = '%s'\n", pszName, pszValue);
+        rc = VbglGuestPropWriteValue(pGuestPropClient, pszName, pszValue);
+        if (RT_FAILURE(rc))
+            VGSvcError("Error writing guest property '%s' (rc=%Rrc)\n", pszName, rc);
+    }
+    else
+    {
+        VGSvcVerbose(3, "Deleting guest property '%s'\n", pszName);
+        rc = VbglGuestPropWriteValue(pGuestPropClient, pszName, NULL);
+        if (RT_FAILURE(rc))
+            VGSvcError("Error deleting guest property '%s' (rc=%Rrc)\n", pszName, rc);
+    }
+    return rc;
+}
+
+
+/**
+ * Wrapper around VbglGuestPropWriteValueV that does value formatting and
+ * logging.
+ *
+ * @returns VBox status code. Errors will be logged.
+ *
+ * @param   pGuestPropClient    The guest property client session info.
+ * @param   pszName             The property name.
+ * @param   pszValueFormat      The property format string.  If this is NULL then
+ *                              the property will be deleted (if possible).
+ * @param   ...                 Format arguments.
+ */
+int VGSvcWritePropF(PVBGLGSTPROPCLIENT pGuestPropClient, const char *pszName, const char *pszValueFormat, ...)
 {
     AssertPtr(pszName);
     int rc;
@@ -152,16 +187,16 @@ int VGSvcWritePropF(uint32_t u32ClientId, const char *pszName, const char *pszVa
         va_end(va);
 
         va_start(va, pszValueFormat);
-        rc = VbglR3GuestPropWriteValueV(u32ClientId, pszName, pszValueFormat, va);
+        rc = VbglGuestPropWriteValueV(pGuestPropClient, pszName, pszValueFormat, va);
         va_end(va);
 
         if (RT_FAILURE(rc))
-             VGSvcError("Error writing guest property '%s' (rc=%Rrc)\n", pszName, rc);
+            VGSvcError("Error writing guest property '%s' (rc=%Rrc)\n", pszName, rc);
     }
     else
     {
         VGSvcVerbose(3, "Deleting guest property '%s'\n", pszName);
-        rc = VbglR3GuestPropWriteValue(u32ClientId, pszName, NULL);
+        rc = VbglGuestPropWriteValue(pGuestPropClient, pszName, NULL);
         if (RT_FAILURE(rc))
             VGSvcError("Error deleting guest property '%s' (rc=%Rrc)\n", pszName, rc);
     }

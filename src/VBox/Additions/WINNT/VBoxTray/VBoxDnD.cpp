@@ -1,4 +1,4 @@
-/* $Id: VBoxDnD.cpp 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $ */
+/* $Id: VBoxDnD.cpp 111555 2025-11-06 09:49:17Z knut.osmundsen@oracle.com $ */
 /** @file
  * VBoxDnD.cpp - Windows-specific bits of the drag and drop service.
  */
@@ -1493,7 +1493,7 @@ int VBoxDnDWnd::ProcessEvent(PVBOXDNDEVENT pEvent)
 int VBoxDnDWnd::checkForSessionChange(void)
 {
     uint64_t uSessionID;
-    int rc = VbglR3GetSessionId(&uSessionID);
+    int rc = VbglR3QuerySessionId(&uSessionID);
     if (   RT_SUCCESS(rc)
         && uSessionID != m_cmdCtx.uSessionID)
     {

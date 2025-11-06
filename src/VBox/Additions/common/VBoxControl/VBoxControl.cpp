@@ -1,4 +1,4 @@
-/* $Id: VBoxControl.cpp 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $ */
+/* $Id: VBoxControl.cpp 111555 2025-11-06 09:49:17Z knut.osmundsen@oracle.com $ */
 /** @file
  * VBoxControl - Guest Additions Command Line Management Interface.
  */
@@ -45,6 +45,9 @@
 #include <VBox/log.h>
 #include <VBox/version.h>
 #include <VBox/VBoxGuestLib.h>
+#ifdef VBOX_WITH_GUEST_PROPS
+# include <VBox/VBoxGuestLibGuestProp.h>
+#endif
 #ifdef RT_OS_WINDOWS
 # include <iprt/win/windows.h>
 #endif
@@ -128,7 +131,7 @@ enum VBoxControlUsage
     USAGE_ALL = UINT32_MAX
 };
 
-static RTEXITCODE usage(enum VBoxControlUsage eWhich = USAGE_ALL)
+static RTEXITCODE usage(enum VBoxControlUsage eWhich = USAGE_ALL, RTEXITCODE rcExit = RTEXITCODE_SYNTAX)
 {
     RTPrintf("Usage:\n\n");
     doUsage("print version number and exit", g_pszProgName, "[-V|--version]");
@@ -195,7 +198,7 @@ static RTEXITCODE usage(enum VBoxControlUsage eWhich = USAGE_ALL)
     if (eWhich == VERSION   || eWhich == USAGE_ALL)
         doUsage("", g_pszProgName, "version");
 
-    return RTEXITCODE_SUCCESS;
+    return rcExit;
 }
 
 /** @} */
@@ -609,10 +612,7 @@ static BOOL ResizeDisplayDevice(ULONG Id, DWORD Width, DWORD Height, DWORD BitsP
 static DECLCALLBACK(RTEXITCODE) handleSetVideoMode(int argc, char *argv[])
 {
     if (argc != 3 && argc != 4)
-    {
-        usage(SET_VIDEO_MODE);
-        return RTEXITCODE_FAILURE;
-    }
+        return usage(SET_VIDEO_MODE);
 
     DWORD xres = RTStrToUInt32(argv[0]);
     DWORD yres = RTStrToUInt32(argv[1]);
@@ -795,13 +795,10 @@ static DECLCALLBACK(RTEXITCODE) handleSetVideoAcceleration(int argc, char *argv[
     HKEY hkeyVideo;
 
     /* must have exactly one argument: the new offset */
-    if (   (argc != 1)
+    if (   argc != 1
         || (   RTStrICmp(argv[0], "on")
             && RTStrICmp(argv[0], "off")))
-    {
-        usage(SET_VIDEO_ACCEL);
-        return RTEXITCODE_FAILURE;
-    }
+        return usage(SET_VIDEO_ACCEL);
 
     hkeyVideo = getVideoKey(true);
 
@@ -911,38 +908,28 @@ static DECLCALLBACK(RTEXITCODE) handleVideoFlags(int argc, char *argv[])
     if (argc != 1 && argc != 2)
     {
         VBoxControlError("Invalid number of arguments.\n");
-        usage(VIDEO_FLAGS);
-        return RTEXITCODE_FAILURE;
+        return usage(VIDEO_FLAGS);
     }
 
     RTEXITCODE exitCode = RTEXITCODE_SUCCESS;
 
     if (RTStrICmp(argv[0], "get") == 0)
-    {
         exitCode = videoFlagsGet();
-    }
     else if (RTStrICmp(argv[0], "delete") == 0)
-    {
         exitCode = videoFlagsDelete();
-    }
     else if (RTStrICmp(argv[0], "set") == 0)
-    {
         exitCode = videoFlagsModify(true, argc - 1, &argv[1]);
-    }
     else if (RTStrICmp(argv[0], "clear") == 0)
-    {
         exitCode = videoFlagsModify(false, argc - 1, &argv[1]);
-    }
     else
     {
         VBoxControlError("Invalid command.\n");
-        exitCode = RTEXITCODE_FAILURE;
+        exitCode = RTEXITCODE_SYNTAX;
     }
 
+    /** @todo r=bird: This is bad form. */
     if (exitCode != RTEXITCODE_SUCCESS)
-    {
         usage(VIDEO_FLAGS);
-    }
 
     return exitCode;
 }
@@ -1060,13 +1047,9 @@ static DECLCALLBACK(RTEXITCODE) handleListCustomModes(int argc, char *argv[])
 {
     RT_NOREF1(argv);
     if (argc != 0)
-    {
-        usage(LIST_CUST_MODES);
-        return RTEXITCODE_FAILURE;
-    }
+        return usage(LIST_CUST_MODES);
 
     HKEY hkeyVideo = getVideoKey(false);
-
     if (hkeyVideo)
     {
         getCustomModes(hkeyVideo);
@@ -1077,8 +1060,7 @@ static DECLCALLBACK(RTEXITCODE) handleListCustomModes(int argc, char *argv[])
                 || !customModes[i].bpp)
                 continue;
 
-            RTPrintf("Mode: %d x %d x %d\n",
-                             customModes[i].xres, customModes[i].yres, customModes[i].bpp);
+            RTPrintf("Mode: %d x %d x %d\n", customModes[i].xres, customModes[i].yres, customModes[i].bpp);
         }
         RegCloseKey(hkeyVideo);
     }
@@ -1088,10 +1070,7 @@ static DECLCALLBACK(RTEXITCODE) handleListCustomModes(int argc, char *argv[])
 static DECLCALLBACK(RTEXITCODE) handleAddCustomMode(int argc, char *argv[])
 {
     if (argc != 3)
-    {
-        usage(ADD_CUST_MODE);
-        return RTEXITCODE_FAILURE;
-    }
+        return usage(ADD_CUST_MODE);
 
     DWORD xres = RTStrToUInt32(argv[0]);
     DWORD yres = RTStrToUInt32(argv[1]);
@@ -1149,17 +1128,13 @@ static DECLCALLBACK(RTEXITCODE) handleAddCustomMode(int argc, char *argv[])
 static DECLCALLBACK(RTEXITCODE) handleRemoveCustomMode(int argc, char *argv[])
 {
     if (argc != 3)
-    {
-        usage(REMOVE_CUST_MODE);
-        return RTEXITCODE_FAILURE;
-    }
+        return usage(REMOVE_CUST_MODE);
 
     DWORD xres = RTStrToUInt32(argv[0]);
     DWORD yres = RTStrToUInt32(argv[1]);
     DWORD bpp  = RTStrToUInt32(argv[2]);
 
     HKEY hkeyVideo = getVideoKey(true);
-
     if (hkeyVideo)
     {
         getCustomModes(hkeyVideo);
@@ -1201,17 +1176,12 @@ static RTEXITCODE getGuestProperty(int argc, char **argv)
        )
         fVerbose = true;
     else if (argc != 1)
-    {
-        usage(GUEST_PROP);
-        return RTEXITCODE_FAILURE;
-    }
+        return usage(GUEST_PROP);
 
-    uint32_t u32ClientId = 0;
-    int rc = VINF_SUCCESS;
-
-    rc = VbglR3GuestPropConnect(&u32ClientId);
+    VBGLGSTPROPCLIENT Client;
+    int rc = VbglGuestPropConnect(&Client);
     if (RT_FAILURE(rc))
-        VBoxControlError("Failed to connect to the guest property service, error %Rrc\n", rc);
+        return VBoxControlError("Failed to connect to the guest property service, error %Rrc\n", rc);
 
     /*
      * Here we actually retrieve the value from the host.
@@ -1224,44 +1194,34 @@ static RTEXITCODE getGuestProperty(int argc, char **argv)
      * of space here in case the maximum values are raised. */
     void *pvBuf = NULL;
     uint32_t cbBuf = GUEST_PROP_MAX_VALUE_LEN + GUEST_PROP_MAX_FLAGS_LEN + 1024;
-    if (RT_SUCCESS(rc))
+
+    /* Because there is a race condition between our reading the size of a
+     * property and the guest updating it, we loop a few times here and
+     * hope.  Actually this should never go wrong, as we are generous
+     * enough with buffer space. */
+    for (unsigned i = 0; i < 10; ++i)
     {
-        /* Because there is a race condition between our reading the size of a
-         * property and the guest updating it, we loop a few times here and
-         * hope.  Actually this should never go wrong, as we are generous
-         * enough with buffer space. */
-        bool fFinished = false;
-        for (unsigned i = 0; i < 10 && !fFinished; ++i)
+        void *pvTmpBuf = RTMemRealloc(pvBuf, cbBuf);
+        if (pvTmpBuf == NULL)
         {
-            void *pvTmpBuf = RTMemRealloc(pvBuf, cbBuf);
-            if (NULL == pvTmpBuf)
-            {
-                rc = VERR_NO_MEMORY;
-                VBoxControlError("Out of memory\n");
-            }
-            else
-            {
-                pvBuf = pvTmpBuf;
-                rc = VbglR3GuestPropRead(u32ClientId, pszName, pvBuf, cbBuf,
-                                         &pszValue, &u64Timestamp, &pszFlags,
-                                         &cbBuf);
-            }
-            if (VERR_BUFFER_OVERFLOW == rc)
-                /* Leave a bit of extra space to be safe */
-                cbBuf += 1024;
-            else
-                fFinished = true;
+            rc = VERR_NO_MEMORY;
+            VBoxControlError("Out of memory\n");
+            break;
         }
-        if (VERR_TOO_MUCH_DATA == rc)
-            VBoxControlError("Temporarily unable to retrieve the property\n");
-        else if (RT_FAILURE(rc) && rc != VERR_NOT_FOUND)
-            VBoxControlError("Failed to retrieve the property value, error %Rrc\n", rc);
+        pvBuf = pvTmpBuf;
+        rc = VbglGuestPropRead(&Client, pszName, pvBuf, cbBuf,
+                               &pszValue, &u64Timestamp, &pszFlags, &cbBuf);
+        if (rc != VERR_BUFFER_OVERFLOW)
+            break;
+
+        /* Leave a bit of extra space to be safe */
+        cbBuf += 1024;
     }
 
     /*
      * And display it on the guest console.
      */
-    if (VERR_NOT_FOUND == rc)
+    if (rc == VERR_NOT_FOUND)
         RTPrintf("No value set!\n");
     else if (RT_SUCCESS(rc))
     {
@@ -1272,9 +1232,12 @@ static RTEXITCODE getGuestProperty(int argc, char **argv)
             RTPrintf("Flags: %s\n", pszFlags);
         }
     }
+    else if (rc == VERR_TOO_MUCH_DATA)
+        VBoxControlError("Temporarily unable to retrieve the property\n");
+    else
+        VBoxControlError("Failed to retrieve the property value: %Rrc\n", rc);
 
-    if (u32ClientId != 0)
-        VbglR3GuestPropDisconnect(u32ClientId);
+    VbglGuestPropDisconnect(&Client);
     RTMemFree(pvBuf);
     return RT_SUCCESS(rc) ? RTEXITCODE_SUCCESS : RTEXITCODE_FAILURE;
 }
@@ -1297,13 +1260,11 @@ static RTEXITCODE setGuestProperty(int argc, char *argv[])
     const char *pszName = NULL;
     const char *pszValue = NULL;
     const char *pszFlags = NULL;
-    if (2 == argc)
-    {
+    if (argc == 2)
         pszValue = argv[1];
-    }
-    else if (3 == argc)
+    else if (argc == 3)
         fUsageOK = false;
-    else if (4 == argc)
+    else if (argc == 4)
     {
         pszValue = argv[1];
         if (   strcmp(argv[2], "-flags") != 0
@@ -1314,34 +1275,26 @@ static RTEXITCODE setGuestProperty(int argc, char *argv[])
     else if (argc != 1)
         fUsageOK = false;
     if (!fUsageOK)
-    {
-        usage(GUEST_PROP);
-        return RTEXITCODE_FAILURE;
-    }
+        return usage(GUEST_PROP);
     /* This is always needed. */
     pszName = argv[0];
 
     /*
      * Do the actual setting.
      */
-    uint32_t u32ClientId = 0;
-    int rc = VINF_SUCCESS;
-    rc = VbglR3GuestPropConnect(&u32ClientId);
+    VBGLGSTPROPCLIENT Client;
+    int rc = VbglGuestPropConnect(&Client);
     if (RT_FAILURE(rc))
-        VBoxControlError("Failed to connect to the guest property service, error %Rrc\n", rc);
-    else
-    {
-        if (pszFlags != NULL)
-            rc = VbglR3GuestPropWrite(u32ClientId, pszName, pszValue, pszFlags);
-        else
-            rc = VbglR3GuestPropWriteValue(u32ClientId, pszName, pszValue);
-        if (RT_FAILURE(rc))
-            VBoxControlError("Failed to store the property value, error %Rrc\n", rc);
-    }
+        return VBoxControlError("Failed to connect to the guest property service: %Rrc\n", rc);
 
-    if (u32ClientId != 0)
-        VbglR3GuestPropDisconnect(u32ClientId);
-    return RT_SUCCESS(rc) ? RTEXITCODE_SUCCESS : RTEXITCODE_FAILURE;
+    if (pszFlags != NULL)
+        rc = VbglGuestPropWrite(&Client, pszName, pszValue, pszFlags);
+    else
+        rc = VbglGuestPropWriteValue(&Client, pszName, pszValue);
+    VbglGuestPropDisconnect(&Client);
+    if (RT_FAILURE(rc))
+        return VBoxControlError("Failed to store the property value: %Rrc\n", rc);
+    return RTEXITCODE_SUCCESS;
 }
 
 
@@ -1355,38 +1308,26 @@ static RTEXITCODE setGuestProperty(int argc, char *argv[])
 static RTEXITCODE deleteGuestProperty(int argc, char *argv[])
 {
     /*
-     * Check the syntax.  We can deduce the correct syntax from the number of
-     * arguments.
+     * Parse arguments.
      */
-    bool fUsageOK = true;
-    const char *pszName = NULL;
-    if (argc < 1)
-        fUsageOK = false;
-    if (!fUsageOK)
-    {
-        usage(GUEST_PROP);
-        return RTEXITCODE_FAILURE;
-    }
-    /* This is always needed. */
-    pszName = argv[0];
+    if (argc != 1)
+        return usage(GUEST_PROP);
+    const char *pszName = argv[0];
 
     /*
      * Do the actual setting.
      */
-    uint32_t u32ClientId = 0;
-    int rc = VbglR3GuestPropConnect(&u32ClientId);
-    if (RT_FAILURE(rc))
-        VBoxControlError("Failed to connect to the guest property service, error %Rrc\n", rc);
-    else
+    VBGLGSTPROPCLIENT Client;
+    int rc = VbglGuestPropConnect(&Client);
+    if (RT_SUCCESS(rc))
     {
-        rc = VbglR3GuestPropDelete(u32ClientId, pszName);
-        if (RT_FAILURE(rc))
-            VBoxControlError("Failed to delete the property value, error %Rrc\n", rc);
+        rc = VbglGuestPropDelete(&Client, pszName);
+        VbglGuestPropDisconnect(&Client);
+        if (RT_SUCCESS(rc))
+            return RTEXITCODE_SUCCESS;
+        return VBoxControlError("Failed to delete the property value: %Rrc\n", rc);
     }
-
-    if (u32ClientId != 0)
-        VbglR3GuestPropDisconnect(u32ClientId);
-    return RT_SUCCESS(rc) ? RTEXITCODE_SUCCESS : RTEXITCODE_FAILURE;
+    return VBoxControlError("Failed to connect to the guest property service: %Rrc\n", rc);
 }
 
 
@@ -1413,43 +1354,43 @@ static RTEXITCODE enumGuestProperty(int argc, char *argv[])
         cPatterns = argc - 1;
     }
     else if (argc != 0)
-    {
-        usage(GUEST_PROP);
-        return RTEXITCODE_FAILURE;
-    }
+        return usage(GUEST_PROP);
 
     /*
      * Do the actual enumeration.
      */
-    uint32_t u32ClientId = 0;
-    int rc = VbglR3GuestPropConnect(&u32ClientId);
+    VBGLGSTPROPCLIENT Client;
+    int rc = VbglGuestPropConnect(&Client);
     if (RT_SUCCESS(rc))
     {
-        PVBGLR3GUESTPROPENUM pHandle;
+        PVBGLGUESTPROPENUM pHandle;
         const char *pszName, *pszValue, *pszFlags;
         uint64_t u64Timestamp;
 
-        rc = VbglR3GuestPropEnum(u32ClientId, papszPatterns, cPatterns, &pHandle,
-                                 &pszName, &pszValue, &u64Timestamp, &pszFlags);
+        rc = VbglGuestPropEnum(&Client, papszPatterns, cPatterns,
+                               &pHandle, &pszName, &pszValue, &u64Timestamp, &pszFlags);
         if (RT_SUCCESS(rc))
         {
-            while (RT_SUCCESS(rc) && pszName)
+            while (pszName)
             {
                 RTPrintf("Name: %s, value: %s, timestamp: %lld, flags: %s\n",
                          pszName, pszValue ? pszValue : "", u64Timestamp, pszFlags);
 
-                rc = VbglR3GuestPropEnumNext(pHandle, &pszName, &pszValue, &u64Timestamp, &pszFlags);
+                rc = VbglGuestPropEnumNext(pHandle, &pszName, &pszValue, &u64Timestamp, &pszFlags);
                 if (RT_FAILURE(rc))
+                {
                     VBoxControlError("Error while enumerating guest properties: %Rrc\n", rc);
+                    break;
+                }
             }
 
-            VbglR3GuestPropEnumFree(pHandle);
+            VbglGuestPropEnumFree(pHandle);
         }
-        else if (VERR_NOT_FOUND == rc)
+        else if (rc == VERR_NOT_FOUND)
             RTPrintf("No properties found.\n");
         else
             VBoxControlError("Failed to enumerate the guest properties! Error: %Rrc\n", rc);
-        VbglR3GuestPropDisconnect(u32ClientId);
+        VbglGuestPropDisconnect(&Client);
     }
     else
         VBoxControlError("Failed to connect to the guest property service! Error: %Rrc\n", rc);
@@ -1482,9 +1423,7 @@ static RTEXITCODE waitGuestProperty(int argc, char **argv)
             || strcmp(argv[i], "--timeout") == 0)
         {
             if (   i + 1 >= argc
-                || RTStrToUInt32Full(argv[i + 1], 10, &u32Timeout)
-                       != VINF_SUCCESS
-               )
+                || RTStrToUInt32Full(argv[i + 1], 10, &u32Timeout) != VINF_SUCCESS)
                 fUsageOK = false;
             else
                 ++i;
@@ -1504,18 +1443,15 @@ static RTEXITCODE waitGuestProperty(int argc, char **argv)
             fUsageOK = false;
     }
     if (!fUsageOK)
-    {
-        usage(GUEST_PROP);
-        return RTEXITCODE_FAILURE;
-    }
+        return usage(GUEST_PROP);
 
     /*
      * Connect to the service
      */
-    uint32_t u32ClientId = 0;
-    int rc = VbglR3GuestPropConnect(&u32ClientId);
+    VBGLGSTPROPCLIENT Client;
+    int rc = VbglGuestPropConnect(&Client);
     if (RT_FAILURE(rc))
-        VBoxControlError("Failed to connect to the guest property service, error %Rrc\n", rc);
+        return VBoxControlError("Failed to connect to the guest property service: %Rrc\n", rc);
 
     /*
      * Retrieve the notification from the host
@@ -1535,13 +1471,12 @@ static RTEXITCODE waitGuestProperty(int argc, char **argv)
      * enough with buffer space. */
     for (unsigned iTry = 0; ; iTry++)
     {
-        pvBuf = RTMemRealloc(pvBuf, cbBuf);
-        if (pvBuf != NULL)
+        void *pvNewBuf = RTMemRealloc(pvBuf, cbBuf);
+        if (pvNewBuf != NULL)
         {
-            rc = VbglR3GuestPropWait(u32ClientId, pszPatterns, pvBuf, cbBuf,
-                                     u64TimestampIn, u32Timeout,
-                                     &pszName, &pszValue, &u64TimestampOut,
-                                     &pszFlags, &cbBuf, &fWasDeleted);
+            pvBuf = pvNewBuf;
+            rc = VbglGuestPropWait(&Client, pszPatterns, pvBuf, cbBuf, u64TimestampIn, u32Timeout,
+                                   &pszName, &pszValue, &u64TimestampOut, &pszFlags, &cbBuf, &fWasDeleted);
             if (rc == VERR_BUFFER_OVERFLOW && iTry < 10)
             {
                 cbBuf += _1K; /* Add a bit of extra space to be on the safe side. */
@@ -1572,9 +1507,7 @@ static RTEXITCODE waitGuestProperty(int argc, char **argv)
     else if (RT_SUCCESS(rc))
     {
         if (fWasDeleted)
-        {
             RTPrintf("Property %s was deleted\n", pszName);
-        }
         else
         {
             RTPrintf("Name: %s\n", pszName);
@@ -1584,8 +1517,7 @@ static RTEXITCODE waitGuestProperty(int argc, char **argv)
         }
     }
 
-    if (u32ClientId != 0)
-        VbglR3GuestPropDisconnect(u32ClientId);
+    VbglGuestPropDisconnect(&Client);
     RTMemFree(pvBuf);
     return RT_SUCCESS(rc) ? RTEXITCODE_SUCCESS : RTEXITCODE_FAILURE;
 }
@@ -1601,10 +1533,7 @@ static RTEXITCODE waitGuestProperty(int argc, char **argv)
 static DECLCALLBACK(RTEXITCODE) handleGuestProperty(int argc, char *argv[])
 {
     if (argc == 0)
-    {
-        usage(GUEST_PROP);
-        return RTEXITCODE_FAILURE;
-    }
+        return usage(GUEST_PROP);
     if (!strcmp(argv[0], "get"))
         return getGuestProperty(argc - 1, argv + 1);
     if (!strcmp(argv[0], "set"))
@@ -1616,8 +1545,7 @@ static DECLCALLBACK(RTEXITCODE) handleGuestProperty(int argc, char *argv[])
     if (!strcmp(argv[0], "wait"))
         return waitGuestProperty(argc - 1, argv + 1);
     /* unknown cmd */
-    usage(GUEST_PROP);
-    return RTEXITCODE_FAILURE;
+    return usage(GUEST_PROP);
 }
 
 #endif
@@ -1640,10 +1568,7 @@ static RTEXITCODE sharedFolder_list(int argc, char **argv)
     else if (argc > 1)
         fUsageOK = false;
     if (!fUsageOK)
-    {
-        usage(GUEST_SHAREDFOLDERS);
-        return RTEXITCODE_SYNTAX;
-    }
+        return usage(GUEST_SHAREDFOLDERS);
 
     uint32_t u32ClientId;
     int rc = VbglR3SharedFolderConnect(&u32ClientId);
@@ -1822,10 +1747,7 @@ static RTEXITCODE sharedFolder_unuse(int argc, char **argv)
 static DECLCALLBACK(RTEXITCODE) handleSharedFolder(int argc, char *argv[])
 {
     if (argc == 0)
-    {
-        usage(GUEST_SHAREDFOLDERS);
-        return RTEXITCODE_FAILURE;
-    }
+        return usage(GUEST_SHAREDFOLDERS);
     if (!strcmp(argv[0], "list"))
         return sharedFolder_list(argc - 1, argv + 1);
 # ifdef RT_OS_OS2
@@ -1834,9 +1756,7 @@ static DECLCALLBACK(RTEXITCODE) handleSharedFolder(int argc, char *argv[])
     if (!strcmp(argv[0], "unuse"))
         return sharedFolder_unuse(argc - 1, argv + 1);
 # endif
-
-    usage(GUEST_SHAREDFOLDERS);
-    return RTEXITCODE_FAILURE;
+    return usage(GUEST_SHAREDFOLDERS);
 }
 
 #endif
@@ -1941,7 +1861,7 @@ static DECLCALLBACK(RTEXITCODE) handleWriteLog(int argc, char *argv[])
                     fNoNewline = true;
                     break;
 
-                case 'h': return usage(WRITE_LOG);
+                case 'h': return usage(WRITE_LOG, RTEXITCODE_SUCCESS);
                 case 'V': return printVersion();
                 default:
                     return VBoxCtrlGetOptError(ch, &ValueUnion);
@@ -2007,8 +1927,7 @@ static DECLCALLBACK(RTEXITCODE) handleVersion(int argc, char *argv[])
 static DECLCALLBACK(RTEXITCODE) handleHelp(int argc, char *argv[])
 {
     RT_NOREF2(argc, argv); /* ignore arguments for now. */
-    usage();
-    return RTEXITCODE_SUCCESS;
+    return usage(USAGE_ALL, RTEXITCODE_SUCCESS);
 }
 
 /**
@@ -2099,8 +2018,6 @@ int main(int argc, char **argv)
 {
     /** The application's global return code */
     RTEXITCODE rcExit = RTEXITCODE_SUCCESS;
-    /** An IPRT return code for local use */
-    int rrc = VINF_SUCCESS;
     /** The index of the command line argument we are currently processing */
     int iArg = 1;
     /** Should we show the logo text? */
@@ -2110,9 +2027,9 @@ int main(int argc, char **argv)
     /** Will we be executing a command or just printing information? */
     bool fOnlyInfo = false;
 
-    rrc = RTR3InitExe(argc, &argv, 0);
-    if (RT_FAILURE(rrc))
-        return RTMsgInitFailure(rrc);
+    int rc = RTR3InitExe(argc, &argv, 0);
+    if (RT_FAILURE(rc))
+        return RTMsgInitFailure(rc);
 
     /*
      * Start by handling command line switches
@@ -2173,37 +2090,33 @@ int main(int argc, char **argv)
             /*
              * Try locate the command and execute it, complain if not found.
              */
+            const char * const pszCmd = argv[iArg];
             unsigned i;
             for (i = 0; i < RT_ELEMENTS(g_aCommandHandlers); i++)
-                if (!strcmp(argv[iArg], g_aCommandHandlers[i].pszCommand))
+                if (!strcmp(pszCmd, g_aCommandHandlers[i].pszCommand))
                 {
                     if (g_aCommandHandlers[i].fNeedDevice)
                     {
-                        rrc = VbglR3Init();
-                        if (RT_FAILURE(rrc))
+                        rc = VbglR3Init();
+                        if (RT_FAILURE(rc))
                         {
-                            VBoxControlError("Could not contact the host system.  Make sure that you are running this\n"
-                                             "application inside a VirtualBox guest system, and that you have sufficient\n"
-                                             "user permissions.\n");
-                            rcExit = RTEXITCODE_FAILURE;
+                            rcExit = VBoxControlError("Could not contact the host system.  Make sure that you are running this\n"
+                                                      "application inside a VirtualBox guest system, and that you have sufficient\n"
+                                                      "user permissions.\n");
+                            break;
                         }
                     }
-                    if (rcExit == RTEXITCODE_SUCCESS)
-                        rcExit = g_aCommandHandlers[i].pfnHandler(argc - iArg - 1, argv + iArg + 1);
+                    rcExit = g_aCommandHandlers[i].pfnHandler(argc - iArg - 1, argv + iArg + 1);
                     break;
                 }
             if (i >= RT_ELEMENTS(g_aCommandHandlers))
             {
-                usage();
-                rcExit = RTEXITCODE_SYNTAX;
+                RTMsgSyntax("Unknown command: %s", pszCmd);
+                rcExit = usage();
             }
         }
         else
-        {
-            /* The user didn't specify a command. */
-            usage();
-            rcExit = RTEXITCODE_SYNTAX;
-        }
+            rcExit = usage(); /* The user didn't specify a command. */
     }
 
     /*

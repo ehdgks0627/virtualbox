@@ -1,4 +1,4 @@
-/* $Id: VBoxServiceVMInfo.cpp 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $ */
+/* $Id: VBoxServiceVMInfo.cpp 111555 2025-11-06 09:49:17Z knut.osmundsen@oracle.com $ */
 /** @file
  * VBoxService - Virtual Machine Information for the Host.
  */
@@ -107,7 +107,7 @@
 #include <VBox/err.h>
 #include <VBox/version.h>
 #include <VBox/VBoxGuestLib.h>
-#include <VBox/HostServices/GuestPropertySvc.h> /* For GUEST_PROP_MAX_VALUE_LEN */
+#include <VBox/HostServices/GuestPropertySvc.h> /* For GUEST_PROP_MAX_VALUE_LEN and GUEST_PROP_MAX_NAME_LEN.  */
 #include "VBoxServiceInternal.h"
 #include "VBoxServiceUtils.h"
 #include "VBoxServicePropCache.h"
@@ -135,8 +135,8 @@ typedef struct VBOXSERVICELACLIENTINFO
 static uint32_t                 g_cMsVMInfoInterval = 0;
 /** The semaphore we're blocking on. */
 static RTSEMEVENTMULTI          g_hVMInfoEvent = NIL_RTSEMEVENTMULTI;
-/** The guest property service client ID. */
-static uint32_t                 g_uVMInfoGuestPropSvcClientID = 0;
+/** The guest property service client session details. */
+static VBGLGSTPROPCLIENT        g_VMInfoGuestPropSvcClient;
 /** Number of currently logged in users in OS. */
 static uint32_t                 g_cVMInfoLoggedInUsers = 0;
 /** The guest property cache. */
@@ -239,7 +239,7 @@ static DECLCALLBACK(int) vbsvcVMInfoInit(void)
      * Then create the event sem to block on.
      */
     if (!g_cMsVMInfoInterval)
-        g_cMsVMInfoInterval = g_DefaultInterval * 1000;
+        g_cMsVMInfoInterval = g_cSecDefaultInterval * 1000;
     if (!g_cMsVMInfoInterval)
     {
         /* Set it to 5s by default for location awareness checks. */
@@ -249,33 +249,19 @@ static DECLCALLBACK(int) vbsvcVMInfoInit(void)
     int rc = RTSemEventMultiCreate(&g_hVMInfoEvent);
     AssertRCReturn(rc, rc);
 
-    VbglR3GetSessionId(&g_idVMInfoSession);
-    /* The status code is ignored as this information is not available with VBox < 3.2.10. */
+    /* Get the session ID. The status code is ignored as this information is
+       not available with VBox < 3.2.10. */
+    VbglR3QuerySessionId(&g_idVMInfoSession);
 
     /* Initialize the LA client object. */
     RT_ZERO(g_LAClientInfo);
 
-    rc = VbglR3GuestPropConnect(&g_uVMInfoGuestPropSvcClientID);
+    rc = VbglGuestPropConnect(&g_VMInfoGuestPropSvcClient);
     if (RT_SUCCESS(rc))
-        VGSvcVerbose(3, "Property Service Client ID: %#x\n", g_uVMInfoGuestPropSvcClientID);
-    else
     {
-        /* If the service was not found, we disable this service without
-           causing VBoxService to fail. */
-        if (rc == VERR_HGCM_SERVICE_NOT_FOUND) /* Host service is not available. */
-        {
-            VGSvcVerbose(0, "Guest property service is not available, disabling the service\n");
-            rc = VERR_SERVICE_DISABLED;
-        }
-        else
-            VGSvcError("Failed to connect to the guest property service! Error: %Rrc\n", rc);
-        RTSemEventMultiDestroy(g_hVMInfoEvent);
-        g_hVMInfoEvent = NIL_RTSEMEVENTMULTI;
-    }
+        VGSvcVerbose(3, "Property Service Client ID: %#x\n", g_VMInfoGuestPropSvcClient.idClient);
 
-    if (RT_SUCCESS(rc))
-    {
-        VGSvcPropCacheCreate(&g_VMInfoPropCache, g_uVMInfoGuestPropSvcClientID);
+        VGSvcPropCacheCreate(&g_VMInfoPropCache, &g_VMInfoGuestPropSvcClient);
 
         /*
          * Declare some guest properties with flags and reset values.
@@ -307,7 +293,7 @@ static DECLCALLBACK(int) vbsvcVMInfoInit(void)
          * Note: All properties should have sensible defaults in case the lookup here fails.
          */
         char *pszValue;
-        rc2 = VGSvcReadHostProp(g_uVMInfoGuestPropSvcClientID, "/VirtualBox/GuestAdd/VBoxService/--vminfo-user-idle-threshold",
+        rc2 = VGSvcReadHostProp(&g_VMInfoGuestPropSvcClient, "/VirtualBox/GuestAdd/VBoxService/--vminfo-user-idle-threshold",
                                 true /* Read only */, &pszValue, NULL /* Flags */, NULL /* Timestamp */);
         if (RT_SUCCESS(rc2))
         {
@@ -316,7 +302,21 @@ static DECLCALLBACK(int) vbsvcVMInfoInit(void)
             g_uVMInfoUserIdleThresholdMS = RT_CLAMP(g_uVMInfoUserIdleThresholdMS, 1000, UINT32_MAX - 1);
             RTStrFree(pszValue);
         }
+
+        return VINF_SUCCESS;
     }
+
+    /* If the service was not found, we disable this service without
+       causing VBoxService to fail. */
+    if (rc == VERR_HGCM_SERVICE_NOT_FOUND) /* Host service is not available. */
+    {
+        VGSvcVerbose(0, "Guest property service is not available, disabling the service\n");
+        rc = VERR_SERVICE_DISABLED;
+    }
+    else
+        VGSvcError("Failed to connect to the guest property service! Error: %Rrc\n", rc);
+    RTSemEventMultiDestroy(g_hVMInfoEvent);
+    g_hVMInfoEvent = NIL_RTSEMEVENTMULTI;
     return rc;
 }
 
@@ -325,29 +325,24 @@ static DECLCALLBACK(int) vbsvcVMInfoInit(void)
  * Retrieves a specifiy client LA property.
  *
  * @return  IPRT status code.
- * @param   uClientID               LA client ID to retrieve property for.
+ * @param   idLAClient              LA client ID to retrieve property for.
  * @param   pszProperty             Property (without path) to retrieve.
  * @param   ppszValue               Where to store value of property.
  * @param   puTimestamp             Timestamp of property to retrieve. Optional.
  */
-static int vgsvcGetLAClientValue(uint32_t uClientID, const char *pszProperty, char **ppszValue, uint64_t *puTimestamp)
+static int vgsvcGetLAClientValue(uint32_t idLAClient, const char *pszProperty, char **ppszValue, uint64_t *puTimestamp)
 {
-    AssertReturn(uClientID, VERR_INVALID_PARAMETER);
+    AssertReturn(idLAClient, VERR_INVALID_PARAMETER);
     AssertPtrReturn(pszProperty, VERR_INVALID_POINTER);
 
-    int rc;
-
-    char pszClientPath[255];
-/** @todo r=bird: Another pointless RTStrPrintf test with wrong status code to boot. */
-    if (RTStrPrintf(pszClientPath, sizeof(pszClientPath),
-                    "/VirtualBox/HostInfo/VRDP/Client/%RU32/%s", uClientID, pszProperty))
-    {
-        rc = VGSvcReadHostProp(g_uVMInfoGuestPropSvcClientID, pszClientPath, true /* Read only */,
-                               ppszValue, NULL /* Flags */, puTimestamp);
-    }
+    int  rc;
+    char szFullPropNm[GUEST_PROP_MAX_NAME_LEN];
+    if (RTStrPrintf2(szFullPropNm, sizeof(szFullPropNm),
+                     "/VirtualBox/HostInfo/VRDP/Client/%RU32/%s", idLAClient, pszProperty) > 0)
+        rc = VGSvcReadHostProp(&g_VMInfoGuestPropSvcClient, szFullPropNm, true /*fReadOnly*/,
+                               ppszValue, NULL /*fFlags*/, puTimestamp);
     else
-        rc = VERR_NO_MEMORY;
-
+        rc = VERR_FILENAME_TOO_LONG;
     return rc;
 }
 
@@ -520,22 +515,22 @@ static void vgsvcVMInfoWriteFixedProperties(void)
     /*
      * First get OS information that won't change.
      */
-    char szInfo[256];
+    char szInfo[GUEST_PROP_MAX_VALUE_LEN];
     int rc = RTSystemQueryOSInfo(RTSYSOSINFO_PRODUCT, szInfo, sizeof(szInfo));
-    VGSvcWritePropF(g_uVMInfoGuestPropSvcClientID, "/VirtualBox/GuestInfo/OS/Product",
-                    "%s", RT_FAILURE(rc) ? "" : szInfo);
+    if (RT_FAILURE(rc) && rc != VERR_BUFFER_OVERFLOW) szInfo[0] = '\0';
+    VGSvcWriteProp(&g_VMInfoGuestPropSvcClient, "/VirtualBox/GuestInfo/OS/Product", szInfo);
 
     rc = RTSystemQueryOSInfo(RTSYSOSINFO_RELEASE, szInfo, sizeof(szInfo));
-    VGSvcWritePropF(g_uVMInfoGuestPropSvcClientID, "/VirtualBox/GuestInfo/OS/Release",
-                    "%s", RT_FAILURE(rc) ? "" : szInfo);
+    if (RT_FAILURE(rc) && rc != VERR_BUFFER_OVERFLOW) szInfo[0] = '\0';
+    VGSvcWriteProp(&g_VMInfoGuestPropSvcClient, "/VirtualBox/GuestInfo/OS/Release", szInfo);
 
     rc = RTSystemQueryOSInfo(RTSYSOSINFO_VERSION, szInfo, sizeof(szInfo));
-    VGSvcWritePropF(g_uVMInfoGuestPropSvcClientID, "/VirtualBox/GuestInfo/OS/Version",
-                    "%s", RT_FAILURE(rc) ? "" : szInfo);
+    if (RT_FAILURE(rc) && rc != VERR_BUFFER_OVERFLOW) szInfo[0] = '\0';
+    VGSvcWriteProp(&g_VMInfoGuestPropSvcClient, "/VirtualBox/GuestInfo/OS/Version", szInfo);
 
     rc = RTSystemQueryOSInfo(RTSYSOSINFO_SERVICE_PACK, szInfo, sizeof(szInfo));
-    VGSvcWritePropF(g_uVMInfoGuestPropSvcClientID, "/VirtualBox/GuestInfo/OS/ServicePack",
-                    "%s", RT_FAILURE(rc) ? "" : szInfo);
+    if (RT_FAILURE(rc) && rc != VERR_BUFFER_OVERFLOW) szInfo[0] = '\0';
+    VGSvcWriteProp(&g_VMInfoGuestPropSvcClient, "/VirtualBox/GuestInfo/OS/ServicePack", szInfo);
 
     /*
      * Retrieve version information about Guest Additions and installed files (components).
@@ -543,13 +538,13 @@ static void vgsvcVMInfoWriteFixedProperties(void)
     char *pszAddVer;
     char *pszAddVerExt;
     char *pszAddRev;
-    rc = VbglR3GetAdditionsVersion(&pszAddVer, &pszAddVerExt, &pszAddRev);
-    VGSvcWritePropF(g_uVMInfoGuestPropSvcClientID, "/VirtualBox/GuestAdd/Version",
-                    "%s", RT_FAILURE(rc) ? "" : pszAddVer);
-    VGSvcWritePropF(g_uVMInfoGuestPropSvcClientID, "/VirtualBox/GuestAdd/VersionExt",
-                    "%s", RT_FAILURE(rc) ? "" : pszAddVerExt);
-    VGSvcWritePropF(g_uVMInfoGuestPropSvcClientID, "/VirtualBox/GuestAdd/Revision",
-                    "%s", RT_FAILURE(rc) ? "" : pszAddRev);
+    rc = VbglR3QueryAdditionsVersion(&pszAddVer, &pszAddVerExt, &pszAddRev);
+    VGSvcWriteProp(&g_VMInfoGuestPropSvcClient, "/VirtualBox/GuestAdd/Version",
+                   RT_SUCCESS(rc) ? pszAddVer    : VBOX_VERSION_STRING_RAW);
+    VGSvcWriteProp(&g_VMInfoGuestPropSvcClient, "/VirtualBox/GuestAdd/VersionExt",
+                   RT_SUCCESS(rc) ? pszAddVerExt : VBOX_VERSION_STRING);
+    VGSvcWriteProp(&g_VMInfoGuestPropSvcClient, "/VirtualBox/GuestAdd/Revision",
+                   RT_SUCCESS(rc) ? pszAddRev    : RT_XSTR(VBOX_SVN_REV));
     if (RT_SUCCESS(rc))
     {
         RTStrFree(pszAddVer);
@@ -562,13 +557,12 @@ static void vgsvcVMInfoWriteFixedProperties(void)
      * Do windows specific properties.
      */
     char *pszInstDir;
-    rc = VbglR3GetAdditionsInstallationPath(&pszInstDir);
-    VGSvcWritePropF(g_uVMInfoGuestPropSvcClientID, "/VirtualBox/GuestAdd/InstallDir",
-                    "%s", RT_FAILURE(rc) ? "" :  pszInstDir);
+    rc = VbglR3QueryAdditionsInstallationPath(&pszInstDir);
+    VGSvcWriteProp(&g_VMInfoGuestPropSvcClient, "/VirtualBox/GuestAdd/InstallDir", RT_SUCCESS(rc) ? pszInstDir : "");
     if (RT_SUCCESS(rc))
         RTStrFree(pszInstDir);
 
-    VGSvcVMInfoWinGetComponentVersions(g_uVMInfoGuestPropSvcClientID);
+    VGSvcVMInfoWinGetComponentVersions(&g_VMInfoGuestPropSvcClient);
 #endif
 }
 
@@ -1655,7 +1649,7 @@ static int vgsvcVMInfoWriteNetwork(void)
 
     /* Get former count. */
     uint32_t cIfsReportedOld;
-    rc = VGSvcReadPropUInt32(g_uVMInfoGuestPropSvcClientID, g_pszPropCacheValNetCount, &cIfsReportedOld,
+    rc = VGSvcReadPropUInt32(&g_VMInfoGuestPropSvcClient, g_pszPropCacheValNetCount, &cIfsReportedOld,
                              0 /* Min */, UINT32_MAX /* Max */);
     if (   RT_SUCCESS(rc)
         && cIfsReportedOld > cIfsReported) /* Are some ifaces not around anymore? */
@@ -1739,8 +1733,8 @@ static DECLCALLBACK(int) vbsvcVMInfoWorker(bool volatile *pfShutdown)
 
         /* Check for new connection. */
         char *pszLAClientID = NULL;
-        int rc2 = VGSvcReadHostProp(g_uVMInfoGuestPropSvcClientID, g_pszLAActiveClient, true /* Read only */,
-                                          &pszLAClientID, NULL /* Flags */, NULL /* Timestamp */);
+        int rc2 = VGSvcReadHostProp(&g_VMInfoGuestPropSvcClient, g_pszLAActiveClient, true /*fReadOnly*/,
+                                    &pszLAClientID, NULL /*ppszFlags*/, NULL /*puTimestamp*/);
         if (RT_SUCCESS(rc2))
         {
             AssertPtr(pszLAClientID);
@@ -1751,8 +1745,7 @@ static DECLCALLBACK(int) vbsvcVMInfoWorker(bool volatile *pfShutdown)
 
                 /* Peek at "Attach" value to figure out if hotdesking happened. */
                 char *pszAttach = NULL;
-                rc2 = vgsvcGetLAClientValue(uLAClientID, "Attach", &pszAttach,
-                                                 &uLAClientAttachedTS);
+                rc2 = vgsvcGetLAClientValue(uLAClientID, "Attach", &pszAttach, &uLAClientAttachedTS);
 
                 if (   RT_SUCCESS(rc2)
                     && (   !g_LAClientAttachedTS
@@ -1817,7 +1810,7 @@ static DECLCALLBACK(int) vbsvcVMInfoWorker(bool volatile *pfShutdown)
          * Flush all properties if we were restored.
          */
         uint64_t idNewSession = g_idVMInfoSession;
-        VbglR3GetSessionId(&idNewSession);
+        VbglR3QuerySessionId(&idNewSession);
         if (idNewSession != g_idVMInfoSession)
         {
             VGSvcVerbose(3, "The VM session ID changed, flushing all properties\n");
@@ -1887,11 +1880,16 @@ static DECLCALLBACK(void) vbsvcVMInfoTerm(void)
          *        as the HGCM session isn't closed (e.g. guest application
          *        terminates). [don't remove till implemented]
          */
-        /** @todo r=bird: Drop the VbglR3GuestPropDelSet call here and use the cache
+        /** @todo r=bird: This temporary solution is making BAD ASSUMPTIONS like
+         *        VBoxService only stop when the VM is rebooted or shutdown.
+         *        If VBoxService is restarted for some other reason (some parameter
+         *        change), we'll nuke the still valid network data here. */
+        /** @todo r=bird: Drop the VbglGuestPropDelSet call here and use the cache
          *        since it remembers what we've written. */
+        /** @todo r=bird: Haven't we've already implemented this? */
         /* Delete the "../Net" branch. */
         const char *apszPat[1] = { "/VirtualBox/GuestInfo/Net/*" };
-        VbglR3GuestPropDelSet(g_uVMInfoGuestPropSvcClientID, &apszPat[0], RT_ELEMENTS(apszPat));
+        VbglGuestPropDelSet(&g_VMInfoGuestPropSvcClient, &apszPat[0], RT_ELEMENTS(apszPat));
 
         /* Destroy LA client info. */
         vgsvcFreeLAClientInfo(&g_LAClientInfo);
@@ -1900,8 +1898,7 @@ static DECLCALLBACK(void) vbsvcVMInfoTerm(void)
         VGSvcPropCacheDestroy(&g_VMInfoPropCache);
 
         /* Disconnect from guest properties service. */
-        VbglR3GuestPropDisconnect(g_uVMInfoGuestPropSvcClientID);
-        g_uVMInfoGuestPropSvcClientID = 0;
+        VbglGuestPropDisconnect(&g_VMInfoGuestPropSvcClient);
 
         RTSemEventMultiDestroy(g_hVMInfoEvent);
         g_hVMInfoEvent = NIL_RTSEMEVENTMULTI;

@@ -1,4 +1,4 @@
-/* $Id: VBoxGuestR3LibSharedFolders.cpp 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $ */
+/* $Id: VBoxGuestR3LibSharedFolders.cpp 111555 2025-11-06 09:49:17Z knut.osmundsen@oracle.com $ */
 /** @file
  * VBoxGuestR3Lib - Ring-3 Support Library for VirtualBox guest additions, shared folders.
  */
@@ -45,6 +45,8 @@
 #include <iprt/stdarg.h>
 #include <VBox/log.h>
 #include <VBox/shflsvc.h> /** @todo File should be moved to VBox/HostServices/SharedFolderSvc.h */
+
+#include <VBox/VBoxGuestLibGuestProp.h>
 
 #include "VBoxGuestR3LibInternal.h"
 
@@ -373,31 +375,31 @@ VBGLR3DECL(int) VbglR3SharedFolderCancelMappingsChangesWaits(HGCMCLIENTID idClie
 
 
 /**
- * Retrieves the prefix for a shared folder mount point.  If no prefix
- * is set in the guest properties "sf_" is returned.
+ * Retrieves the prefix for a shared folder mount point.
+ *
+ * If no prefix is set in the guest properties "sf_" is returned.
  *
  * @returns VBox status code.
  * @param   ppszPrefix      Where to return the prefix string.  This shall be
  *                          freed by calling RTStrFree.
  */
-VBGLR3DECL(int) VbglR3SharedFolderGetMountPrefix(char **ppszPrefix)
+VBGLR3DECL(int) VbglR3SharedFolderQueryMountPrefix(char **ppszPrefix)
 {
     AssertPtrReturn(ppszPrefix, VERR_INVALID_POINTER);
     int rc;
 #ifdef VBOX_WITH_GUEST_PROPS
-    HGCMCLIENTID idClientGuestProp;
-    rc = VbglR3GuestPropConnect(&idClientGuestProp);
+    VBGLGSTPROPCLIENT ClientGuestProp;
+    rc = VbglGuestPropConnect(&ClientGuestProp);
     if (RT_SUCCESS(rc))
     {
-        rc = VbglR3GuestPropReadValueAlloc(idClientGuestProp, "/VirtualBox/GuestAdd/SharedFolders/MountPrefix", ppszPrefix);
+        rc = VbglGuestPropReadValueAlloc(&ClientGuestProp, "/VirtualBox/GuestAdd/SharedFolders/MountPrefix", ppszPrefix);
         if (rc == VERR_NOT_FOUND) /* No prefix set? Then set the default. */
         {
 #endif
-/** @todo r=bird: Inconsistent! VbglR3SharedFolderGetMountDir does not return a default. */
             rc = RTStrDupEx(ppszPrefix, "sf_");
 #ifdef VBOX_WITH_GUEST_PROPS
         }
-        VbglR3GuestPropDisconnect(idClientGuestProp);
+        VbglGuestPropDisconnect(&ClientGuestProp);
     }
 #endif
     return rc;
@@ -405,28 +407,30 @@ VBGLR3DECL(int) VbglR3SharedFolderGetMountPrefix(char **ppszPrefix)
 
 
 /**
- * Retrieves the mount root directory for auto-mounted shared
- * folders. mount point. If no string is set (VERR_NOT_FOUND)
- * it's up on the caller (guest) to decide where to mount.
+ * Retrieves the mount root directory for auto-mounted shared folders.
+ *
+ * If no string is set (VERR_NOT_FOUND) it's up on the caller (guest) to decide
+ * where to mount.
  *
  * @returns VBox status code.
  * @param   ppszDir         Where to return the directory
  *                          string. This shall be freed by
  *                          calling RTStrFree.
  */
-VBGLR3DECL(int) VbglR3SharedFolderGetMountDir(char **ppszDir)
+VBGLR3DECL(int) VbglR3SharedFolderQueryMountDir(char **ppszDir)
 {
     AssertPtrReturn(ppszDir, VERR_INVALID_POINTER);
-    int rc = VERR_NOT_FOUND;
 #ifdef VBOX_WITH_GUEST_PROPS
-    HGCMCLIENTID idClientGuestProp;
-    rc = VbglR3GuestPropConnect(&idClientGuestProp);
+    VBGLGSTPROPCLIENT ClientGuestProp;
+    int rc = VbglGuestPropConnect(&ClientGuestProp);
     if (RT_SUCCESS(rc))
     {
-        rc = VbglR3GuestPropReadValueAlloc(idClientGuestProp, "/VirtualBox/GuestAdd/SharedFolders/MountDir", ppszDir);
-        VbglR3GuestPropDisconnect(idClientGuestProp);
+        rc = VbglGuestPropReadValueAlloc(&ClientGuestProp, "/VirtualBox/GuestAdd/SharedFolders/MountDir", ppszDir);
+        VbglGuestPropDisconnect(&ClientGuestProp);
     }
-#endif
     return rc;
+#else
+    return VERR_NOT_FOUND;
+#endif
 }
 

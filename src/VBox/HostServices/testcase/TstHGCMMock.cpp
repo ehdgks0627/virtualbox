@@ -1,4 +1,4 @@
-/* $Id: TstHGCMMock.cpp 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $ */
+/* $Id: TstHGCMMock.cpp 111555 2025-11-06 09:49:17Z knut.osmundsen@oracle.com $ */
 /** @file
  * TstHGCMMock.cpp - Mocking framework for testing HGCM-based host services.
  *
@@ -545,7 +545,7 @@ VBGLR3DECL(int) VbglR3HGCMDisconnect(HGCMCLIENTID idClient)
  * @returns IPRT status code.
  * @param   pu64IdSession       Session id (out).
  */
-VBGLR3DECL(int) VbglR3GetSessionId(uint64_t *pu64IdSession)
+VBGLR3DECL(int) VbglR3QuerySessionId(uint64_t *pu64IdSession)
 {
     if (pu64IdSession)
         *pu64IdSession = 42;

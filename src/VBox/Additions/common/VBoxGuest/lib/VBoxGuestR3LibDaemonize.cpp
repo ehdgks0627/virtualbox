@@ -1,4 +1,4 @@
-/** $Id: VBoxGuestR3LibDaemonize.cpp 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $ */
+/** $Id: VBoxGuestR3LibDaemonize.cpp 111555 2025-11-06 09:49:17Z knut.osmundsen@oracle.com $ */
 /** @file
  * VBoxGuestR3Lib - Ring-3 Support Library for VirtualBox guest additions, daemonize a process.
  */
@@ -300,7 +300,7 @@ VBGLR3DECL(int) VbglR3DaemonizeEx(bool fNoChDir, bool fNoClose, bool fRespawn, u
             {
                 if (WEXITSTATUS(iStatus) == 0)
                     exit(0);
-                else if (fReturnOnUpdate && WEXITSTATUS(iStatus) == VBGLR3EXITCODERELOAD)
+                else if (fReturnOnUpdate && WEXITSTATUS(iStatus) == VBGLR3_EXITCODE_RELOAD)
                 {
                     /* Tell caller that update has been started. */
                     if (pfUpdateStarted != NULL)

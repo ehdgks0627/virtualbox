@@ -187,7 +187,7 @@ RT_C_DECLS_END
 # define VBGLR3DECL(type) DECL_HIDDEN_NOTHROW(type) VBOXCALL
 VBGLR3DECL(int)    VbglR3HGCMConnect(const char *pszServiceName, HGCMCLIENTID *pidClient);
 VBGLR3DECL(int)    VbglR3HGCMDisconnect(HGCMCLIENTID idClient);
-VBGLR3DECL(int)    VbglR3GetSessionId(uint64_t *pu64IdSession);
+VBGLR3DECL(int)    VbglR3QuerySessionId(uint64_t *pu64IdSession);
 VBGLR3DECL(int)    VbglR3HGCMCall(PVBGLIOCHGCMCALL pInfo, size_t cbInfo);
 
 

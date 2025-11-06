@@ -1,4 +1,4 @@
-/* $Id: VBoxServiceControl.cpp 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $ */
+/* $Id: VBoxServiceControl.cpp 111555 2025-11-06 09:49:17Z knut.osmundsen@oracle.com $ */
 /** @file
  * VBoxServiceControl - Host-driven Guest Control.
  */
@@ -127,13 +127,15 @@ static void vgsvcGstCtrlShutdown(void);
 static DECLCALLBACK(int) vgsvcGstCtrlPreInit(void)
 {
     int rc;
-#ifdef VBOX_WITH_GUEST_PROPS
+#if 0 /*def VBOX_WITH_GUEST_PROPS - pointless copy & paste */
     /*
      * Read the service options from the VM's guest properties.
      * Note that these options can be overridden by the command line options later.
      */
-    uint32_t uGuestPropSvcClientID;
-    rc = VbglR3GuestPropConnect(&uGuestPropSvcClientID);
+    /** @todo r=bird: Misleading comment. We don't read any service options.
+     * Doesn't seem like we are checking for host service availability either... */
+    VBGLGSTPROPCLIENT Client;
+    rc = VbglGuestPropConnect(&Client);
     if (RT_FAILURE(rc))
     {
         if (rc == VERR_HGCM_SERVICE_NOT_FOUND) /* Host service is not available. */
@@ -145,16 +147,12 @@ static DECLCALLBACK(int) vgsvcGstCtrlPreInit(void)
             VGSvcError("Failed to connect to the guest property service, rc=%Rrc\n", rc);
     }
     else
-        VbglR3GuestPropDisconnect(uGuestPropSvcClientID);
+        VbglGuestPropDisconnect(&GuestPropClient);
 
-    if (rc == VERR_NOT_FOUND) /* If a value is not found, don't be sad! */
+    if (rc == VERR_NOT_FOUND) /* If a value is not found, don't be sad! */ /** @todo r=bird: which values? */
         rc = VINF_SUCCESS;
-#else
-    /* Nothing to do here yet. */
-    rc = VINF_SUCCESS;
-#endif
-
     if (RT_SUCCESS(rc))
+#endif
     {
         /* Init session object. */
         rc = VGSvcGstCtrlSessionInit(&g_Session, 0 /* Flags */);
@@ -206,7 +204,7 @@ static DECLCALLBACK(int) vgsvcGstCtrlInit(void)
     int rc = RTSemEventMultiCreate(&g_hControlEvent);
     AssertRCReturn(rc, rc);
 
-    VbglR3GetSessionId(&g_idControlSession); /* The status code is ignored as this information is not available with VBox < 3.2.10. */
+    VbglR3QuerySessionId(&g_idControlSession); /* The status code is ignored as this information is not available with VBox < 3.2.10. */
 
     RTListInit(&g_lstControlSessionThreads);
 
@@ -394,7 +392,7 @@ static DECLCALLBACK(int) vgsvcGstCtrlWorker(bool volatile *pfShutdown)
             /* Check for VM session change. */
             /** @todo  We don't need to check the host here.  */
             uint64_t idNewSession = g_idControlSession;
-            int rc2 = VbglR3GetSessionId(&idNewSession);
+            int rc2 = VbglR3QuerySessionId(&idNewSession);
             if (   RT_SUCCESS(rc2)
                 && (idNewSession != g_idControlSession))
             {

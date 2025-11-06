@@ -1,4 +1,4 @@
-/* $Id: VBoxService.cpp 111521 2025-10-30 12:50:56Z vadim.galitsyn@oracle.com $ */
+/* $Id: VBoxService.cpp 111555 2025-11-06 09:49:17Z knut.osmundsen@oracle.com $ */
 /** @file
  * VBoxService - Guest Additions Service Skeleton.
  */
@@ -129,8 +129,8 @@ static uint64_t      g_uHistoryFileSize = 100 * _1M;    /* Max 100MB per file. *
 #ifdef DEBUG
  RTCRITSECT          g_csLog;
 #endif
-/** The default service interval (the -i | --interval) option). */
-uint32_t             g_DefaultInterval = 0;
+/** The default service interval in seconds (the -i | --interval) option). */
+uint32_t             g_cSecDefaultInterval = 0;
 #ifdef RT_OS_WINDOWS
 /** Signal shutdown to the Windows service thread. */
 static bool volatile g_fWindowsServiceShutdown;
@@ -1097,7 +1097,7 @@ int main(int argc, char **argv)
             switch (*psz)
             {
                 case 'i':
-                    rc = VGSvcArgUInt32(argc, argv, psz + 1, &i, &g_DefaultInterval, 1, (UINT32_MAX / 1000) - 1);
+                    rc = VGSvcArgUInt32(argc, argv, psz + 1, &i, &g_cSecDefaultInterval, 1, (UINT32_MAX / 1000) - 1);
                     if (rc)
                         return rc;
                     psz = NULL;

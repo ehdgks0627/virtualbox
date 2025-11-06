@@ -1,4 +1,4 @@
-/* $Id: VBoxGuestR3LibVideo.cpp 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $ */
+/* $Id: VBoxGuestR3LibVideo.cpp 111555 2025-11-06 09:49:17Z knut.osmundsen@oracle.com $ */
 /** @file
  * VBoxGuestR3Lib - Ring-3 Support Library for VirtualBox guest additions, Video.
  */
@@ -42,6 +42,7 @@
 
 #include <VBox/log.h>
 #include <VBox/HostServices/GuestPropertySvc.h>  /* For Save and RetrieveVideoMode */
+#include <VBox/VBoxGuestLibGuestProp.h>
 #include <iprt/assert.h>
 #include <iprt/mem.h>
 #include <iprt/string.h>
@@ -369,55 +370,53 @@ VBGLR3DECL(bool) VbglR3HostLikesVideoMode(uint32_t cx, uint32_t cy, uint32_t cBi
 }
 
 /**
- * Get the highest screen number for which there is a saved video mode or "0"
- * if there are no saved modes.
+ * Get the highest screen number (ID) for which there is a saved video mode or
+ * "0" if there are no saved modes.
  *
  * @returns iprt status value
  * @returns VERR_NOT_SUPPORTED if the guest property service is not available.
- * @param   pcScreen   where to store the virtual screen number
+ * @param   pidMaxScreen    where to store the virtual screen ID on success
  */
-VBGLR3DECL(int) VbglR3VideoModeGetHighestSavedScreen(unsigned *pcScreen)
+VBGLR3DECL(int) VbglR3VideoModeGetHighestSavedScreen(unsigned *pidMaxScreen)
 {
 #if defined(VBOX_WITH_GUEST_PROPS)
-    int rc;
-    HGCMCLIENTID idClient = 0;
-    PVBGLR3GUESTPROPENUM pHandle = NULL;
-    const char *pszName = NULL;
-    unsigned cHighestScreen = 0;
-
     /* Validate input. */
-    AssertPtrReturn(pcScreen, VERR_INVALID_POINTER);
+    AssertPtrReturn(pidMaxScreen, VERR_INVALID_POINTER);
 
     /* Query the data. */
-    rc = VbglR3GuestPropConnect(&idClient);
+    VBGLGSTPROPCLIENT Client;
+    int rc = VbglGuestPropConnect(&Client);
     if (RT_SUCCESS(rc))
     {
-        const char *pszPattern = VIDEO_PROP_PREFIX"*";
-        rc = VbglR3GuestPropEnum(idClient, &pszPattern, 1, &pHandle, &pszName, NULL, NULL, NULL);
-        int rc2 = VbglR3GuestPropDisconnect(idClient);
-        if (RT_FAILURE(rc2) && RT_SUCCESS(rc))
-            rc = rc2;
+        static const char * const s_apszPatterns[] = { VIDEO_PROP_PREFIX "*" };
+        PVBGLGUESTPROPENUM pEnumHandle = NULL;
+        const char *pszName = NULL;
+        unsigned cHighestScreen = 0;
+        rc = VbglGuestPropEnum(&Client, s_apszPatterns, RT_ELEMENTS(s_apszPatterns), &pEnumHandle, &pszName, NULL, NULL, NULL);
+
+        int rc2 = VbglGuestPropDisconnect(&Client);
+        AssertRC(rc2);
+
+        /* Process the data. */
+        while (RT_SUCCESS(rc) && pszName != NULL)
+        {
+            uint32_t cScreen = 0;
+            rc = RTStrToUInt32Full(&pszName[sizeof(VIDEO_PROP_PREFIX) - 1], 10, &cScreen);
+            if (RT_SUCCESS(rc))  /* There may be similar properties with text. */
+                cHighestScreen = RT_MAX(cHighestScreen, cScreen);
+            rc = VbglGuestPropEnumNext(pEnumHandle, &pszName, NULL, NULL, NULL);
+        }
+
+        VbglGuestPropEnumFree(pEnumHandle);
+
+        /* Return result. */
+        if (RT_SUCCESS(rc))
+            *pidMaxScreen = cHighestScreen;
     }
 
-    /* Process the data. */
-    while (RT_SUCCESS(rc) && pszName != NULL)
-    {
-        uint32_t cScreen;
-
-        rc = RTStrToUInt32Full(pszName + sizeof(VIDEO_PROP_PREFIX) - 1, 10, &cScreen);
-        if (RT_SUCCESS(rc))  /* There may be similar properties with text. */
-            cHighestScreen = RT_MAX(cHighestScreen, cScreen);
-        rc = VbglR3GuestPropEnumNext(pHandle, &pszName, NULL, NULL, NULL);
-    }
-
-    VbglR3GuestPropEnumFree(pHandle);
-
-    /* Return result. */
-    if (RT_SUCCESS(rc))
-        *pcScreen = cHighestScreen;
     return rc;
 #else /* !VBOX_WITH_GUEST_PROPS */
-    RT_NOREF(pcScreen);
+    RT_NOREF(pidMaxScreen);
     return VERR_NOT_SUPPORTED;
 #endif /* !VBOX_WITH_GUEST_PROPS */
 }
@@ -438,12 +437,14 @@ VBGLR3DECL(int) VbglR3SaveVideoMode(unsigned idScreen, unsigned cx, unsigned cy,
                                     unsigned x, unsigned y, bool fEnabled)
 {
 #ifdef VBOX_WITH_GUEST_PROPS
-    unsigned cHighestScreen = 0;
-    int rc = VbglR3VideoModeGetHighestSavedScreen(&cHighestScreen);
+    /** @todo r=bird: this code connects three times to the guest property
+     *        services. Fortunately, it looks like nobody uses it any longer... */
+    unsigned idHighestScreen = 0;
+    int rc = VbglR3VideoModeGetHighestSavedScreen(&idHighestScreen);
     if (RT_SUCCESS(rc))
     {
-        HGCMCLIENTID idClient = 0;
-        rc = VbglR3GuestPropConnect(&idClient);
+        VBGLGSTPROPCLIENT Client;
+        rc = VbglGuestPropConnect(&Client);
         if (RT_SUCCESS(rc))
         {
             int rc2;
@@ -452,16 +453,16 @@ VBGLR3DECL(int) VbglR3SaveVideoMode(unsigned idScreen, unsigned cx, unsigned cy,
             RTStrPrintf(szModeName, sizeof(szModeName), VIDEO_PROP_PREFIX "%u", idScreen);
             RTStrPrintf(szModeParms, sizeof(szModeParms), "%ux%ux%u,%ux%u,%u", cx, cy, cBits, x, y, (unsigned) fEnabled);
 
-            rc = VbglR3GuestPropWriteValue(idClient, szModeName, szModeParms);
+            rc = VbglGuestPropWriteValue(&Client, szModeName, szModeParms);
             /* Write out the mode using the legacy name too, in case the user
              * re-installs older Additions. */
             if (idScreen == 0)
             {
                 RTStrPrintf(szModeParms, sizeof(szModeParms), "%ux%ux%u", cx, cy, cBits);
-                VbglR3GuestPropWriteValue(idClient, VIDEO_PROP_PREFIX "SavedMode", szModeParms);
+                VbglGuestPropWriteValue(&Client, VIDEO_PROP_PREFIX "SavedMode", szModeParms);
             }
 
-            rc2 = VbglR3GuestPropDisconnect(idClient);
+            rc2 = VbglGuestPropDisconnect(&Client);
             if (rc != VINF_PERMISSION_DENIED)
             {
                 if (RT_SUCCESS(rc))
@@ -483,10 +484,10 @@ VBGLR3DECL(int) VbglR3SaveVideoMode(unsigned idScreen, unsigned cx, unsigned cy,
                     /* Sanity check 2.  Same comment. */
                     else if (RT_SUCCESS(rc))
                     {
-                        unsigned cHighestScreen2 = 0;
-                        rc = VbglR3VideoModeGetHighestSavedScreen(&cHighestScreen2);
+                        unsigned idHighestScreen2 = 0;
+                        rc = VbglR3VideoModeGetHighestSavedScreen(&idHighestScreen2);
                         if (RT_SUCCESS(rc))
-                            if (cHighestScreen2 != RT_MAX(cHighestScreen, idScreen))
+                            if (idHighestScreen2 != RT_MAX(idHighestScreen, idScreen))
                                 rc = VERR_INTERNAL_ERROR;
                     }
                 }
@@ -524,24 +525,22 @@ VBGLR3DECL(int) VbglR3RetrieveVideoMode(unsigned idScreen,
      * First we retrieve the video mode which is saved as a string in the
      * guest property store.
      */
-    HGCMCLIENTID idClient = 0;
-    int rc = VbglR3GuestPropConnect(&idClient);
+    VBGLGSTPROPCLIENT Client;
+    int rc = VbglGuestPropConnect(&Client);
     if (RT_SUCCESS(rc))
     {
-        int rc2;
-        /* The buffer for VbglR3GuestPropReadValue.  If this is too small then
+        /* The buffer for VbglGuestPropReadValue.  If this is too small then
          * something is wrong with the data stored in the property. */
         char szModeParms[1024];
-        char szModeName[GUEST_PROP_MAX_NAME_LEN]; /** @todo add a VbglR3GuestPropReadValueF/FV that does the RTStrPrintf for you. */
+        char szModeName[GUEST_PROP_MAX_NAME_LEN]; /** @todo add a VbglGuestPropReadValueF/FV that does the RTStrPrintf for you. */
         RTStrPrintf(szModeName, sizeof(szModeName), VIDEO_PROP_PREFIX "%u", idScreen);
-        rc = VbglR3GuestPropReadValue(idClient, szModeName, szModeParms, sizeof(szModeParms), NULL);
+        rc = VbglGuestPropReadValue(&Client, szModeName, szModeParms, sizeof(szModeParms), NULL);
+
         /* Try legacy single screen name. */
         if (rc == VERR_NOT_FOUND && idScreen == 0)
-            rc = VbglR3GuestPropReadValue(idClient,
-                                          VIDEO_PROP_PREFIX"SavedMode",
-                                          szModeParms, sizeof(szModeParms),
-                                          NULL);
-        rc2 = VbglR3GuestPropDisconnect(idClient);
+            rc = VbglGuestPropReadValue(&Client, VIDEO_PROP_PREFIX "SavedMode", szModeParms, sizeof(szModeParms), NULL);
+
+        int rc2 = VbglGuestPropDisconnect(&Client);
         if (RT_SUCCESS(rc))
             rc = rc2;
 

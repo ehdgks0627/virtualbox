@@ -1,4 +1,4 @@
-/* $Id: VBoxServicePageSharing.cpp 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $ */
+/* $Id: VBoxServicePageSharing.cpp 111555 2025-11-06 09:49:17Z knut.osmundsen@oracle.com $ */
 /** @file
  * VBoxService - Guest page sharing.
  */
@@ -580,7 +580,7 @@ static DECLCALLBACK(int) vgsvcPageSharingInit(void)
     AssertRCReturn(rc, rc);
 
 #ifdef RT_OS_WINDOWS
-    rc = VbglR3GetSessionId(&g_idSession);
+    rc = VbglR3QuerySessionId(&g_idSession);
     if (RT_FAILURE(rc))
     {
         if (rc == VERR_IO_GEN_FAILURE)
@@ -640,7 +640,7 @@ static DECLCALLBACK(int) vgsvcPageSharingWorker(bool volatile *pfShutdown)
         }
 #ifdef RT_OS_WINDOWS
         uint64_t idNewSession = g_idSession;
-        rc =  VbglR3GetSessionId(&idNewSession);
+        rc =  VbglR3QuerySessionId(&idNewSession);
         AssertRC(rc);
 
         if (idNewSession != g_idSession)

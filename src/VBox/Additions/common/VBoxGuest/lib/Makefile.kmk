@@ -1,4 +1,4 @@
-# $Id: Makefile.kmk 111526 2025-11-03 15:08:13Z knut.osmundsen@oracle.com $
+# $Id: Makefile.kmk 111555 2025-11-06 09:49:17Z knut.osmundsen@oracle.com $
 ## @file
 # Sub-Makefile for the common guest addition code library.
 #
@@ -156,7 +156,6 @@ endif
 ifdef VBOX_WITH_GUEST_PROPS
  VBoxGuestR3Lib_SOURCES   += \
  	VBoxGuestLibGuestProp.cpp \
- 	VBoxGuestR3LibGuestProp.cpp \
  	VBoxGuestR3LibHostVersion.cpp
 endif
 ifdef VBOX_WITH_SHARED_CLIPBOARD
@@ -227,7 +226,7 @@ VBoxGuestR3LibXFree86_DEFS     = \
 VBoxGuestR3LibXFree86_SOURCES  = \
 	VBoxGuestR3Lib.cpp \
 	VBoxGuestR3LibGR.cpp \
-	$(if $(VBOX_WITH_GUEST_PROPS),VBoxGuestR3LibGuestProp.cpp,) \
+	$(if $(VBOX_WITH_GUEST_PROPS),VBoxGuestLibGuestProp.cpp,) \
 	VBoxGuestR3LibMouse.cpp \
 	VBoxGuestR3LibMisc.cpp \
 	VBoxGuestR3LibSeamless.cpp \

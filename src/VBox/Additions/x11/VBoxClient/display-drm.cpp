@@ -1,4 +1,4 @@
-/* $Id: display-drm.cpp 111520 2025-10-30 12:50:00Z vadim.galitsyn@oracle.com $ */
+/* $Id: display-drm.cpp 111555 2025-11-06 09:49:17Z knut.osmundsen@oracle.com $ */
 /** @file
  * Guest Additions - VMSVGA guest screen resize service.
  *
@@ -98,6 +98,7 @@
 #include "display-ipc.h"
 
 #include <VBox/VBoxGuestLib.h>
+#include <VBox/VBoxGuestLibGuestProp.h>
 #include <VBox/HostServices/GuestPropertySvc.h>
 
 #include <iprt/getopt.h>
@@ -943,19 +944,20 @@ static int vbDrmIpcClientsListAdd(PVBOX_DRMIPC_CLIENT_CONNECTION_LIST_NODE pClie
  */
 static int vbDrmIpcClientsListRemove(PVBOX_DRMIPC_CLIENT_CONNECTION_LIST_NODE pClientNode)
 {
-    int rc;
-    PVBOX_DRMIPC_CLIENT_CONNECTION_LIST_NODE pEntry, pNextEntry, pFound = NULL;
-
     AssertReturn(pClientNode, VERR_INVALID_PARAMETER);
 
-    rc = RTCritSectEnter(&g_ipcClientConnectionsListCritSect);
+    PVBOX_DRMIPC_CLIENT_CONNECTION_LIST_NODE pFound = NULL; /** @todo just work rc directly in the loop. */
+    int rc = RTCritSectEnter(&g_ipcClientConnectionsListCritSect);
     if (RT_SUCCESS(rc))
     {
 
         if (!RTListIsEmpty(&g_ipcClientConnectionsList.Node))
         {
+            PVBOX_DRMIPC_CLIENT_CONNECTION_LIST_NODE pEntry, pNextEntry;
             RTListForEachSafe(&g_ipcClientConnectionsList.Node, pEntry, pNextEntry, VBOX_DRMIPC_CLIENT_CONNECTION_LIST_NODE, Node)
             {
+                /** @todo r=bird: Why doesn't this code break out of here after a match?  The
+                 *        entry can't be linked in more than once.  */
                 if (pEntry == pClientNode)
                     pFound = (PVBOX_DRMIPC_CLIENT_CONNECTION_LIST_NODE)RTListNodeRemoveRet(&pEntry->Node);
             }
@@ -1007,9 +1009,9 @@ static bool vbDrmVmwRectToDisplayDef(uint32_t cDisplays, struct VBOX_DRMIPC_VMWR
 
         /* Make sure that displays do not overlap within reported screen layout. Ask IPC server to fix layout otherwise. */
         fCorrect =    i > 0
-                  && pIn[i].x != (int32_t)pIn[i - 1].w + pIn[i - 1].x
-                  ?  false
-                  :  fCorrect;
+                   && pIn[i].x != (int32_t)pIn[i - 1].w + pIn[i - 1].x
+                 ? false
+                 : fCorrect;
     }
 
     return fCorrect;
@@ -1282,10 +1284,8 @@ static void vbDrmSetIpcServerAccessPermissions(RTLOCALIPCSERVER hIpcServer, bool
  */
 static void vbDrmPollIpcServerAccessMode(RTLOCALIPCSERVER hIpcServer)
 {
-    HGCMCLIENTID idClient;
-    int rc;
-
-    rc = VbglR3GuestPropConnect(&idClient);
+    VBGLGSTPROPCLIENT Client;
+    int rc = VbglGuestPropConnect(&Client);
     if (RT_SUCCESS(rc))
     {
         do
@@ -1298,16 +1298,15 @@ static void vbDrmPollIpcServerAccessMode(RTLOCALIPCSERVER hIpcServer)
             bool fWasDeleted = false;
             uint64_t u64Timestamp = 0;
 
-            rc = VbglR3GuestPropWait(idClient, VBGLR3DRMPROPPTR, achBuf, sizeof(achBuf), u64Timestamp,
-                                     VBOX_DRMIPC_RX_TIMEOUT_MS, &pszName, &pszValue, &u64Timestamp,
-                                     &pszFlags, NULL, &fWasDeleted);
+            rc = VbglGuestPropWait(&Client, VBGLR3DRMPROPPTR, achBuf, sizeof(achBuf), u64Timestamp,
+                                   VBOX_DRMIPC_RX_TIMEOUT_MS, &pszName, &pszValue, &u64Timestamp,
+                                   &pszFlags, NULL, &fWasDeleted);
             if (RT_SUCCESS(rc))
             {
-                uint32_t fFlags = 0;
-
                 VBClLogVerbose(1, "guest property change: name: %s, val: %s, flags: %s, fWasDeleted: %RTbool\n",
                                pszName, pszValue, pszFlags, fWasDeleted);
 
+                uint32_t fFlags = 0;
                 if (RT_SUCCESS(GuestPropValidateFlags(pszFlags, &fFlags)))
                 {
                     if (RTStrNCmp(pszName, VBGLR3DRMIPCPROPRESTRICT, GUEST_PROP_MAX_NAME_LEN) == 0)
@@ -1315,12 +1314,12 @@ static void vbDrmPollIpcServerAccessMode(RTLOCALIPCSERVER hIpcServer)
                         /* Enforce restricted socket access until guest property exist and READ-ONLY for the guest. */
                         vbDrmSetIpcServerAccessPermissions(hIpcServer, !fWasDeleted && fFlags & GUEST_PROP_F_RDONLYGUEST);
                     }
-
-                } else
+                }
+                else
                     VBClLogError("guest property change: name: %s, val: %s, flags: %s, fWasDeleted: %RTbool: bad flags\n",
                                  pszName, pszValue, pszFlags, fWasDeleted);
-
-            } else if (   rc != VERR_TIMEOUT
+            }
+            else if (   rc != VERR_TIMEOUT
                      && rc != VERR_INTERRUPTED)
             {
                 VBClLogError("error on waiting guest property notification, rc=%Rrc\n", rc);
@@ -1329,7 +1328,7 @@ static void vbDrmPollIpcServerAccessMode(RTLOCALIPCSERVER hIpcServer)
 
         } while (!ASMAtomicReadBool(&g_fShutdown));
 
-        VbglR3GuestPropDisconnect(idClient);
+        VbglGuestPropDisconnect(&Client);
     }
     else
         VBClLogError("cannot connect to VM guest properties service, rc=%Rrc\n", rc);

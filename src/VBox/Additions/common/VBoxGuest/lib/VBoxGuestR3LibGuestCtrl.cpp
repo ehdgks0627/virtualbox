@@ -1,4 +1,4 @@
-/* $Id: VBoxGuestR3LibGuestCtrl.cpp 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $ */
+/* $Id: VBoxGuestR3LibGuestCtrl.cpp 111555 2025-11-06 09:49:17Z knut.osmundsen@oracle.com $ */
 /** @file
  * VBoxGuestR3Lib - Ring-3 Support Library for VirtualBox guest additions, guest control.
  */
@@ -72,7 +72,7 @@ static uint64_t g_fVbglR3GuestCtrlHostFeatures0 = 0;
 
 
 /*********************************************************************************************************************************
-*   Prototypes                                                                                                                   *
+*   Internal Functions                                                                                                           *
 *********************************************************************************************************************************/
 static int vbglR3GuestCtrlQueryFeatures(uint32_t idClient, uint64_t *pfHostFeatures0, uint64_t *pfHostFeatures1);
 
@@ -477,8 +477,8 @@ VBGLR3DECL(int) VbglR3GuestCtrlQueryFeatures(uint32_t idClient, uint64_t *pfHost
  * @param   pidMsg          Where to store the message id.
  * @param   pcParameters    Where to store the number  of parameters which will
  *                          be received in a second call to the host.
- * @param   pidRestoreCheck Pointer to the VbglR3GetSessionId() variable to use
- *                          for the VM restore check.  Optional.
+ * @param   pidRestoreCheck Pointer to the VbglR3QuerySessionId() variable to
+ *                          use for the VM restore check.  Optional.
  *
  * @note    Restore check is only performed optimally with a 6.0 host.
  */
@@ -544,7 +544,7 @@ VBGLR3DECL(int) VbglR3GuestCtrlMsgPeekWait(uint32_t idClient, uint32_t *pidMsg, 
     if (pidRestoreCheck)
     {
         uint64_t idRestoreCur = *pidRestoreCheck;
-        rc = VbglR3GetSessionId(&idRestoreCur);
+        rc = VbglR3QuerySessionId(&idRestoreCur);
         if (RT_SUCCESS(rc) && idRestoreCur != *pidRestoreCheck)
         {
             *pidRestoreCheck = idRestoreCur;

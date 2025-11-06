@@ -1,4 +1,4 @@
-/* $Id: VBoxGuestR3LibMisc.cpp 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $ */
+/* $Id: VBoxGuestR3LibMisc.cpp 111555 2025-11-06 09:49:17Z knut.osmundsen@oracle.com $ */
 /** @file
  * VBoxGuestR3Lib - Ring-3 Support Library for VirtualBox guest additions, Misc.
  */
@@ -121,7 +121,7 @@ VBGLR3DECL(int) VbglR3AcquireGuestCaps(uint32_t fOr, uint32_t fNot, bool fConfig
  *                              deal with backward compatibility (see
  *                              VBoxServiceVMInfoWorker() for an example.)
  */
-VBGLR3DECL(int) VbglR3GetSessionId(uint64_t *pu64IdSession)
+VBGLR3DECL(int) VbglR3QuerySessionId(uint64_t *pu64IdSession)
 {
     VMMDevReqSessionId Req;
 
