@@ -1,4 +1,4 @@
-/* $Id: UIVMActivityToolWidget.h 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $ */
+/* $Id: UIVMActivityToolWidget.h 111557 2025-11-06 11:34:59Z serkan.bayraktar@oracle.com $ */
 /** @file
  * VBox Qt GUI - UIVMActivityToolWidget class declaration.
  */
@@ -94,7 +94,6 @@ private:
     QIToolBar *m_pToolBar;
     /** Indicates if this widget's host tool is current tool. */
     bool    m_fIsCurrentTool;
-    QVector<QUuid> m_machineIds;
     UIVMActivityMonitorContainer *m_pMonitorContainer;
 };
 

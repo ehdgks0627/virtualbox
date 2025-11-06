@@ -1,4 +1,4 @@
-/* $Id: UIVMActivityToolWidget.cpp 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $ */
+/* $Id: UIVMActivityToolWidget.cpp 111557 2025-11-06 11:34:59Z serkan.bayraktar@oracle.com $ */
 /** @file
  * VBox Qt GUI - UIVMActivityToolWidget class implementation.
  */
@@ -94,6 +94,8 @@ void UIVMActivityToolWidget::setSelectedVMListItems(const QList<UIVirtualMachine
 
 void UIVMActivityToolWidget::setMachines(const QList<UIVirtualMachineItem*> &machines)
 {
+    AssertPtrReturnVoid(m_pMonitorContainer);
+    QVector<QUuid> currentlyShownMachineIds = m_pMonitorContainer->machineIds();
     QVector<QUuid> machineIds;
     foreach (const UIVirtualMachineItem* pMachine, machines)
     {
@@ -101,9 +103,10 @@ void UIVMActivityToolWidget::setMachines(const QList<UIVirtualMachineItem*> &mac
             continue;
         machineIds << pMachine->id();
     }
+
     /* List of machines that are newly added to selected machine list: */
     QList<UIVirtualMachineItem*> newSelections;
-    QVector<QUuid> unselectedMachines(m_machineIds);
+    QVector<QUuid> unselectedMachines(currentlyShownMachineIds);
 
     foreach (UIVirtualMachineItem* pMachine, machines)
     {
@@ -111,10 +114,9 @@ void UIVMActivityToolWidget::setMachines(const QList<UIVirtualMachineItem*> &mac
             continue;
         QUuid id = pMachine->id();
         unselectedMachines.removeAll(id);
-        if (!m_machineIds.contains(id))
+        if (!currentlyShownMachineIds.contains(id))
             newSelections << pMachine;
     }
-    m_machineIds = machineIds;
 
     m_pMonitorContainer->removeTabs(unselectedMachines);
     addTabs(newSelections);
