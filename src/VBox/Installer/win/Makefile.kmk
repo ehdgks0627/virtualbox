@@ -1,4 +1,4 @@
-# $Id: Makefile.kmk 111351 2025-10-13 13:33:19Z sergey.dubov@oracle.com $
+# $Id: Makefile.kmk 111570 2025-11-07 17:13:59Z andreas.loeffler@oracle.com $
 ## @file
 # Makefile for the Windows installer.
 #
@@ -888,8 +888,8 @@ $(VBOX_WIN_INST_OUT_DIR)/VBoxGuiNLS.wxi: $(PATH_ROOT)/src/VBox/Frontends/Virtual
 	$(APPEND) -t $@ '<?xml version="1.0" ?>'
 	$(APPEND) $@ '<Include xmlns="http://wixtoolset.org/schemas/v4/wxs">'
 	$(APPEND) -n $@ $(foreach lang,$(VBOX_APPROVED_GUI_LANGUAGES), \
-	             '  <File Id="nlsqt${lang}"  Name="qt_${lang}.qm"         DiskId="$(VBOX_INSTALLER_COMMON_DISKID)" Vital="yes" Source="$$(env.PATH_OUT)\bin\nls\qt_${lang}.qm"         />' \
-	             '  <File Id="nlsgui${lang}" Name="VirtualBox_${lang}.qm" DiskId="$(VBOX_INSTALLER_COMMON_DISKID)" Vital="yes" Source="$$(env.PATH_OUT)\bin\nls\VirtualBox_${lang}.qm" />')
+	             '  <File Id="file_nlsqt${lang}"  Name="qt_${lang}.qm"         DiskId="$(VBOX_INSTALLER_COMMON_DISKID)" Vital="yes" Source="$$(env.PATH_OUT)\bin\nls\qt_${lang}.qm"         />' \
+	             '  <File Id="file_nlsgui${lang}" Name="VirtualBox_${lang}.qm" DiskId="$(VBOX_INSTALLER_COMMON_DISKID)" Vital="yes" Source="$$(env.PATH_OUT)\bin\nls\VirtualBox_${lang}.qm" />')
 	$(APPEND) $@ '</Include>'
 
 #
@@ -955,7 +955,7 @@ ifdef VBOX_UNATTENDED_TEMPLATES
 		'  <Directory Id="dir_VBoxUnattendedTemplates" Name="UnattendedTemplates">' \
 		'    <Component Id="cp_UnattendedTemplates" Guid="0571550d-aaa5-4723-c17b-5ddcc29f5686" Bitness="$$(var.Property_Bitness)">' \
 		$(foreach file,$(VBOX_UNATTENDED_TEMPLATES), \
-		'      <File Id="$(file)" Name="$(file)" Source="$$(env.PATH_OUT)\bin\UnattendedTemplates\$(file)" />') \
+		'      <File Id="file_$(file)" Name="$(file)" Source="$$(env.PATH_OUT)\bin\UnattendedTemplates\$(file)" />') \
 		'    </Component>' \
 		'  </Directory>'
 endif
