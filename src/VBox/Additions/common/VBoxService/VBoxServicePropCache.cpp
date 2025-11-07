@@ -1,4 +1,4 @@
-/* $Id: VBoxServicePropCache.cpp 111564 2025-11-07 16:17:09Z knut.osmundsen@oracle.com $ */
+/* $Id: VBoxServicePropCache.cpp 111571 2025-11-07 17:20:08Z knut.osmundsen@oracle.com $ */
 /** @file
  * VBoxServicePropCache - Guest property cache.
  *
@@ -222,7 +222,8 @@ static int vgsvcPropCacheUpdateDeclaration(PVBOXSERVICEVEPROPCACHEENTRY pNode, u
 
 
 /**
- * Declares a cache entry, setting flags and termination behaviour.
+ * Declares a cache entry, typeically a beacon, setting flags and termination
+ * behaviour.
  *
  * This can also be used to modify the declaration of existing entries,
  * unlike VGSvcPropCacheUpdateEx().
@@ -238,7 +239,8 @@ static int vgsvcPropCacheUpdateDeclaration(PVBOXSERVICEVEPROPCACHEENTRY pNode, u
  * @param   pszValueReset   The property reset value (only applicable if
  *                          VGSVCPROPCACHE_FLAGS_TEMPORARY is set).
  */
-int VGSvcPropCacheDeclareEntry(PVBOXSERVICEVEPROPCACHE pCache, const char *pszName, uint32_t fFlags, const char *pszValueReset)
+int VGSvcPropCacheDeclareEntry(PVBOXSERVICEVEPROPCACHE pCache, const char *pszName, uint32_t fFlags,
+                               const char *pszValueReset /*= NULL*/)
 {
     AssertPtrReturn(pCache, VERR_INVALID_POINTER);
     AssertPtrReturn(pszName, VERR_INVALID_POINTER);

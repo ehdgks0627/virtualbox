@@ -1,4 +1,4 @@
-/* $Id: VBoxServiceVMInfo.cpp 111569 2025-11-07 17:06:09Z knut.osmundsen@oracle.com $ */
+/* $Id: VBoxServiceVMInfo.cpp 111571 2025-11-07 17:20:08Z knut.osmundsen@oracle.com $ */
 /** @file
  * VBoxService - Virtual Machine Information for the Host.
  */
@@ -304,29 +304,17 @@ static DECLCALLBACK(int) vbsvcVMInfoInit(void)
         if (RT_SUCCESS(rc))
         {
             /*
-             * Declare some guest properties with flags and reset values.
+             * Declare the beacons.
              *
              * We ignore errors here, though, we probably shouldn't as the only
              * error is running out of memory or process corruption.
              */
-            int rc2 = VGSvcPropCacheDeclareEntry(&g_VMInfoPropCache, g_pszPropCacheValLoggedInUsersList,
-                                                 VGSVCPROPCACHE_FLAGS_TMP_DEL_TRANSRESET, NULL);
-            AssertLogRelRC(rc2);
-
-            /** @todo r=bird: we should delete this one on termination just like
-             *        g_pszPropCacheValNetCount! */
-            rc2 = VGSvcPropCacheDeclareEntry(&g_VMInfoPropCache, g_pszPropCacheValLoggedInUsers,
-                                             VGSVCPROPCACHE_FLAGS_TMP_TRANSRESET | VGSVCPROPCACHE_FLAGS_ALWAYS_UPDATE, "0");
-            AssertLogRelRC(rc2);
-
-            /** @todo r=bird: we should delete this one on termination! 'true' can be
-             *        misleading, absence won't. */
-            rc2 = VGSvcPropCacheDeclareEntry(&g_VMInfoPropCache, g_pszPropCacheValNoLoggedInUsers,
-                                             VGSVCPROPCACHE_FLAGS_TMP_TRANSRESET, "true");
+            int rc2 = VGSvcPropCacheDeclareEntry(&g_VMInfoPropCache, g_pszPropCacheValLoggedInUsers,
+                                                 VGSVCPROPCACHE_FLAGS_TMP_DEL_TRANSRESET | VGSVCPROPCACHE_FLAGS_ALWAYS_UPDATE);
             AssertLogRelRC(rc2);
 
             rc2 = VGSvcPropCacheDeclareEntry(&g_VMInfoPropCache, g_pszPropCacheValNetCount,
-                                             VGSVCPROPCACHE_FLAGS_TMP_DEL | VGSVCPROPCACHE_FLAGS_ALWAYS_UPDATE, NULL);
+                                             VGSVCPROPCACHE_FLAGS_TMP_DEL_TRANSRESET | VGSVCPROPCACHE_FLAGS_ALWAYS_UPDATE);
             AssertLogRelRC(rc2);
 
             /*

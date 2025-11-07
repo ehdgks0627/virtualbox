@@ -50,12 +50,6 @@
  *  or powered off.  Maps directly to the guest property TRANSRESET flag. */
 # define VGSVCPROPCACHE_FLAGS_TRANSIENT             RT_BIT_32(2)
 
-/** Same as VGSVCPROPCACHE_FLAGS_TEMPORARY to convey intention at reset. */
-# define VGSVCPROPCACHE_FLAGS_TMP_DEL               VGSVCPROPCACHE_FLAGS_TEMPORARY
-
-/** Same as VGSVCPROPCACHE_FLAGS_TEMPORARY|VGSVCPROPCACHE_FLAGS_TEMPORARY to
- *  convey intention at reset. */
-# define VGSVCPROPCACHE_FLAGS_TMP_TRANSRESET        (VGSVCPROPCACHE_FLAGS_TEMPORARY | VGSVCPROPCACHE_FLAGS_TEMPORARY)
 /** Same as VGSVCPROPCACHE_FLAGS_TEMPORARY|VGSVCPROPCACHE_FLAGS_TEMPORARY to
  *  convey intention at reset. */
 # define VGSVCPROPCACHE_FLAGS_TMP_DEL_TRANSRESET    (VGSVCPROPCACHE_FLAGS_TEMPORARY | VGSVCPROPCACHE_FLAGS_TEMPORARY)
@@ -63,7 +57,8 @@
 
 int  VGSvcPropCacheInit(PVBOXSERVICEVEPROPCACHE pCache, PVBGLGSTPROPCLIENT pClient);
 void VGSvcPropCacheTerm(PVBOXSERVICEVEPROPCACHE pCache);
-int  VGSvcPropCacheDeclareEntry(PVBOXSERVICEVEPROPCACHE pCache, const char *pszName, uint32_t fFlags, const char *pszValueReset);
+int  VGSvcPropCacheDeclareEntry(PVBOXSERVICEVEPROPCACHE pCache, const char *pszName, uint32_t fFlags,
+                                const char *pszValueReset = NULL);
 int  VGSvcPropCacheUpdate(PVBOXSERVICEVEPROPCACHE pCache, const char *pszName, const char *pszValue);
 int  VGSvcPropCacheUpdateF(PVBOXSERVICEVEPROPCACHE pCache, const char *pszName, const char *pszValueFormat, ...) RT_IPRT_FORMAT_ATTR(3, 4);
 int  VGSvcPropCacheUpdateEx(PVBOXSERVICEVEPROPCACHE pCache, const char *pszName, const char *pszValue,
