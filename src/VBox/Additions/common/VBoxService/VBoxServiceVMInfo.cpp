@@ -1,4 +1,4 @@
-/* $Id: VBoxServiceVMInfo.cpp 111575 2025-11-07 18:33:12Z knut.osmundsen@oracle.com $ */
+/* $Id: VBoxServiceVMInfo.cpp 111576 2025-11-07 18:42:24Z knut.osmundsen@oracle.com $ */
 /** @file
  * VBoxService - Virtual Machine Information for the Host.
  */
@@ -617,7 +617,47 @@ static void vgsvcVMInfoWriteFixedProperties(void)
 }
 
 
-#if defined(VBOX_WITH_DBUS) && defined(RT_OS_LINUX) /* Not yet for Solaris/FreeBSB. */
+#if !defined(RT_OS_WINDOWS) && !defined(RT_OS_OS2) && !defined(RT_OS_FREEBSD) && !defined(RT_OS_HAIKU)
+/*
+ * Add a user to the list of active users (while ignoring duplicates
+ * and dynamically maintaining the list storage)
+ */
+# define USER_LIST_CHUNK_SIZE 32
+#endif
+/** @todo wtf? */
+static uint32_t cUsersInList;
+#if !defined(RT_OS_WINDOWS) && !defined(RT_OS_OS2) && !defined(RT_OS_FREEBSD) && !defined(RT_OS_HAIKU)
+static uint32_t cListSize;
+static char **papszUsers;
+
+static void vgsvcVMInfoAddUserToList(const char *name, const char *src)
+{
+    int rc;
+    bool fFound = false;
+    for (uint32_t idx = 0; idx < cUsersInList && !fFound; idx++)
+        fFound = strncmp(papszUsers[idx], name, 32) == 0;
+    VGSvcVerbose(5, "LoggedInUsers: Asked to add user '%s' from '%s' to list (already in list = %lu)\n", name, src, fFound);
+    if (!fFound)
+    {
+        if (cUsersInList + 1 > cListSize)
+        {
+            VGSvcVerbose(5, "LoggedInUsers: increase user list size from %lu to %lu\n", cListSize, cListSize + USER_LIST_CHUNK_SIZE);
+            cListSize += USER_LIST_CHUNK_SIZE;
+            void *pvNew = RTMemRealloc(papszUsers, cListSize * sizeof(char*));
+            AssertReturnVoidStmt(pvNew, cListSize -= USER_LIST_CHUNK_SIZE);
+            papszUsers = (char **)pvNew;
+        }
+        VGSvcVerbose(4, "LoggedInUsers: Adding user '%s' from '%s' to list (size = %lu, count = %lu)\n", name, src, cListSize, cUsersInList);
+        rc = RTStrDupEx(&papszUsers[cUsersInList], name);
+        if (!RT_FAILURE(rc))
+            cUsersInList++;
+    }
+}
+#endif
+
+
+#if defined(VBOX_WITH_DBUS) && defined(RT_OS_LINUX) /* Not yet for Solaris/FreeBSD. */
+
 /*
  * Simple wrappers to work around compiler-specific va_list madness.
  */
@@ -697,101 +737,9 @@ static void vboxService_dbus_message_discard(DBusMessage **ppMsg)
         *ppMsg = NULL;
     }
 }
-#endif
 
-
-/*
- * Add a user to the list of active users (while ignoring duplicates
- * and dynamically maintaining the list storage)
- */
-#define USER_LIST_CHUNK_SIZE 32
-/** @todo wtf? */
-static uint32_t cUsersInList;
-static uint32_t cListSize;
-static char **papszUsers;
-
-static void vgsvcVMInfoAddUserToList(const char *name, const char *src)
+static void vgsvcVMInfoDBusAddToUserList(void)
 {
-    int rc;
-    bool fFound = false;
-    for (uint32_t idx = 0; idx < cUsersInList && !fFound; idx++)
-        fFound = strncmp(papszUsers[idx], name, 32) == 0;
-    VGSvcVerbose(5, "LoggedInUsers: Asked to add user '%s' from '%s' to list (already in list = %lu)\n", name, src, fFound);
-    if (!fFound)
-    {
-        if (cUsersInList + 1 > cListSize)
-        {
-            VGSvcVerbose(5, "LoggedInUsers: increase user list size from %lu to %lu\n", cListSize, cListSize + USER_LIST_CHUNK_SIZE);
-            cListSize += USER_LIST_CHUNK_SIZE;
-            void *pvNew = RTMemRealloc(papszUsers, cListSize * sizeof(char*));
-            AssertReturnVoidStmt(pvNew, cListSize -= USER_LIST_CHUNK_SIZE);
-            papszUsers = (char **)pvNew;
-        }
-        VGSvcVerbose(4, "LoggedInUsers: Adding user '%s' from '%s' to list (size = %lu, count = %lu)\n", name, src, cListSize, cUsersInList);
-        rc = RTStrDupEx(&papszUsers[cUsersInList], name);
-        if (!RT_FAILURE(rc))
-            cUsersInList++;
-    }
-}
-
-/**
- * Provide information about active users.
- */
-static int vgsvcVMInfoWriteUsers(void)
-{
-    /*
-     * Get the number of logged in users and their names (comma separated list).
-     */
-    char *pszUserList = NULL;
-    cUsersInList = 0;
-
-#ifdef RT_OS_WINDOWS
-    /* We're passing &g_VMInfoPropCache to this function, however, it's only
-       ever used to call back into VGSvcVMInfoUpdateUserF and VGSvcVMInfoUpdateUserV (which
-       doesn't technically need them). */
-    int rc = VGSvcVMInfoWinQueryUserListAndUpdateInfo(&g_VMInfoPropCache, &pszUserList, &cUsersInList);
-
-#elif defined(RT_OS_FREEBSD)
-    /** @todo FreeBSD: Port logged on user info retrieval.
-     *                 However, FreeBSD 9 supports utmpx, so we could use the code
-     *                 block below (?). */
-    int rc = VERR_NOT_IMPLEMENTED;
-
-#elif defined(RT_OS_HAIKU)
-    /** @todo Haiku: Port logged on user info retrieval. */
-    int rc = VERR_NOT_IMPLEMENTED;
-
-#elif defined(RT_OS_OS2)
-    /** @todo OS/2: Port logged on (LAN/local/whatever) user info retrieval. */
-    int rc = VERR_NOT_IMPLEMENTED;
-
-#else
-    setutxent();
-    utmpx *ut_user;
-    cListSize = USER_LIST_CHUNK_SIZE;
-
-    /* Allocate a first array to hold 32 users max. */
-    papszUsers = (char **)RTMemAllocZ(cListSize * sizeof(char *));
-    int rc = papszUsers ? VINF_SUCCESS : VERR_NO_MEMORY;
-
-    /* Process all entries in the utmp file.
-     * Note: This only handles */
-    while (   (ut_user = getutxent())
-           && RT_SUCCESS(rc))
-    {
-# ifdef RT_OS_DARWIN /* No ut_user->ut_session on Darwin */
-        VGSvcVerbose(4, "Found entry '%s' (type: %d, PID: %RU32)\n", ut_user->ut_user, ut_user->ut_type, ut_user->ut_pid);
-# else
-        VGSvcVerbose(4, "Found entry '%s' (type: %d, PID: %RU32, session: %RU32)\n",
-                     ut_user->ut_user, ut_user->ut_type, ut_user->ut_pid, ut_user->ut_session);
-# endif
-
-        /* Make sure we don't add user names which are not
-         * part of type USER_PROCES. */
-        if (ut_user->ut_type == USER_PROCESS) /* Regular user process. */
-            vgsvcVMInfoAddUserToList(ut_user->ut_user, "utmpx");
-    }
-
 # ifdef VBOX_WITH_DBUS
 #  if defined(RT_OS_LINUX) /* Not yet for Solaris/FreeBSB. */
     DBusError dbErr;
@@ -1118,6 +1066,73 @@ static int vgsvcVMInfoWriteUsers(void)
         dbus_error_free(&dbErr);
 #  endif /* RT_OS_LINUX */
 # endif /* VBOX_WITH_DBUS */
+
+}
+
+#endif /* VBOX_WITH_DBUS && RT_OS_LINUX */
+
+
+/**
+ * Provide information about active users.
+ */
+static int vgsvcVMInfoWriteUsers(void)
+{
+    /*
+     * Get the number of logged in users and their names (comma separated list).
+     */
+    char *pszUserList = NULL;
+    cUsersInList = 0;
+
+#ifdef RT_OS_WINDOWS
+    /* We're passing &g_VMInfoPropCache to this function, however, it's only
+       ever used to call back into VGSvcVMInfoUpdateUserF and VGSvcVMInfoUpdateUserV (which
+       doesn't technically need them). */
+    int rc = VGSvcVMInfoWinQueryUserListAndUpdateInfo(&g_VMInfoPropCache, &pszUserList, &cUsersInList);
+
+#elif defined(RT_OS_FREEBSD)
+    /** @todo FreeBSD: Port logged on user info retrieval.
+     *                 However, FreeBSD 9 supports utmpx, so we could use the code
+     *                 block below (?). */
+    int rc = VERR_NOT_IMPLEMENTED;
+
+#elif defined(RT_OS_HAIKU)
+    /** @todo Haiku: Port logged on user info retrieval. */
+    int rc = VERR_NOT_IMPLEMENTED;
+
+#elif defined(RT_OS_OS2)
+    /** @todo OS/2: Port logged on (LAN/local/whatever) user info retrieval. */
+    int rc = VERR_NOT_IMPLEMENTED;
+
+#else
+    setutxent();
+    utmpx *ut_user;
+    cListSize = USER_LIST_CHUNK_SIZE;
+
+    /* Allocate a first array to hold 32 users max. */
+    papszUsers = (char **)RTMemAllocZ(cListSize * sizeof(char *));
+    int rc = papszUsers ? VINF_SUCCESS : VERR_NO_MEMORY;
+
+    /* Process all entries in the utmp file.
+     * Note: This only handles */
+    while (   (ut_user = getutxent())
+           && RT_SUCCESS(rc))
+    {
+# ifdef RT_OS_DARWIN /* No ut_user->ut_session on Darwin */
+        VGSvcVerbose(4, "Found entry '%s' (type: %d, PID: %RU32)\n", ut_user->ut_user, ut_user->ut_type, ut_user->ut_pid);
+# else
+        VGSvcVerbose(4, "Found entry '%s' (type: %d, PID: %RU32, session: %RU32)\n",
+                     ut_user->ut_user, ut_user->ut_type, ut_user->ut_pid, ut_user->ut_session);
+# endif
+
+        /* Make sure we don't add user names which are not
+         * part of type USER_PROCESS. */
+        if (ut_user->ut_type == USER_PROCESS) /* Regular user process. */
+            vgsvcVMInfoAddUserToList(ut_user->ut_user, "utmpx");
+    }
+
+# if defined(VBOX_WITH_DBUS) && defined(RT_OS_LINUX) /* Not yet for Solaris/FreeBSD. */
+    vgsvcVMInfoDBusAddToUserList();
+# endif
 
     /* Calc the string length. */
     size_t cchUserList = 0;
