@@ -1,4 +1,4 @@
-/* $Id: VBoxServiceVMInfo.cpp 111578 2025-11-08 00:40:17Z knut.osmundsen@oracle.com $ */
+/* $Id: VBoxServiceVMInfo.cpp 111585 2025-11-09 14:36:34Z knut.osmundsen@oracle.com $ */
 /** @file
  * VBoxService - Virtual Machine Information for the Host.
  */
@@ -1149,6 +1149,14 @@ static void vgsvcVMInfoDBusAddToUserList(PVBOXSERVICEVMINFOUSERLIST pUserGathere
  */
 static int vgsvcVMInfoWriteUsers(void)
 {
+#ifdef RT_OS_WINDOWS
+    /*
+     * Mark the properties under "/VirtualBox/GuestInfo/User" as potentially stale, so
+     * the ones we don't update will get deleted (by the main loop).
+     */
+    VGSvcPropCacheMarkNotUpdatedByPath(&g_VMInfoPropCache, g_pszPropCacheKeyUser);
+#endif
+
     /*
      * Initialize the user gatherer structure.
      */
@@ -1776,15 +1784,21 @@ static DECLCALLBACK(int) vbsvcVMInfoWorker(bool volatile *pfShutdown)
 #endif
 
     /*
+     * Cleanup old properties before we start.
+     */
+    const char *apszPat[] =
+    {
+        "/VirtualBox/GuestInfo/Net/*",
+        "/VirtualBox/GuestInfo/User/*",
+        "/VirtualBox/GuestInfo/Debug/*",
+        "/VirtualBox/GuestAdd/Components/*",
+    };
+    VbglGuestPropDelSet(&g_VMInfoGuestPropSvcClient, &apszPat[0], RT_ELEMENTS(apszPat));
+
+    /*
      * Write the fixed properties first.
      */
     vgsvcVMInfoWriteFixedProperties();
-
-    /*
-     * Cleanup old properties before we start.
-     */
-    const char *apszPat[1] = { "/VirtualBox/GuestInfo/Net/*" };
-    VbglGuestPropDelSet(&g_VMInfoGuestPropSvcClient, &apszPat[0], RT_ELEMENTS(apszPat));
 
     /*
      * Now enter the loop retrieving runtime data continuously.
@@ -1793,11 +1807,14 @@ static DECLCALLBACK(int) vbsvcVMInfoWorker(bool volatile *pfShutdown)
     {
         rc = vgsvcVMInfoWriteUsers();
         if (RT_FAILURE(rc))
-            break;
+            break; /** @todo r=bird: This is very questional behaviour! */
 
         rc = vgsvcVMInfoWriteNetwork();
         if (RT_FAILURE(rc))
-            break;
+            break; /** @todo r=bird: This is very questional behaviour! */
+
+        /* delete stale entries. */
+        VGSvcPropCachedDeleteNotUpdated(&g_VMInfoPropCache);
 
         /* Whether to wait for event semaphore or not. */
         bool fWait = true;

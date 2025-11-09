@@ -1,4 +1,4 @@
-/* $Id: VBoxServiceInternal.h 111578 2025-11-08 00:40:17Z knut.osmundsen@oracle.com $ */
+/* $Id: VBoxServiceInternal.h 111585 2025-11-09 14:36:34Z knut.osmundsen@oracle.com $ */
 /** @file
  * VBoxService - Guest Additions Services.
  */
@@ -186,6 +186,10 @@ typedef struct VBOXSERVICEVEPROPCACHEENTRY
     char       *pszValueReset;
     /** Flags. */
     uint32_t    fFlags;
+    /** Used to delete stale entries under /VirtualBox/GuestInfo/User/.
+     * This is set by calling VGSvcPropCacheMarkNotUpdatedByPath() and cleared
+     * automatically when any of the update functions are called. */
+    bool        fNotUpdated;
 } VBOXSERVICEVEPROPCACHEENTRY;
 /** Pointer to a cached guest property. */
 typedef VBOXSERVICEVEPROPCACHEENTRY *PVBOXSERVICEVEPROPCACHEENTRY;

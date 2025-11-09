@@ -1,4 +1,4 @@
-/* $Id: VBoxServiceVMInfo-win.cpp 111584 2025-11-09 04:03:58Z knut.osmundsen@oracle.com $ */
+/* $Id: VBoxServiceVMInfo-win.cpp 111585 2025-11-09 14:36:34Z knut.osmundsen@oracle.com $ */
 /** @file
  * VBoxService - Virtual Machine Information for the Host, Windows specifics.
  */
@@ -629,7 +629,6 @@ static bool vgsvcVMInfoWinIsLoggedInWithUserInfoReturned(PLUID pSession, PVBOXSE
                                                          PSECURITY_LOGON_SESSION_DATA *ppSessionData)
 {
     *ppSessionData = NULL;
-    AssertPtrReturn(pUserInfo, false);
     if (!pSession)
         return false;
     if (   !g_pfnLsaGetLogonSessionData
@@ -655,7 +654,7 @@ static bool vgsvcVMInfoWinIsLoggedInWithUserInfoReturned(PLUID pSession, PVBOXSE
                 break;
 
             default:
-                VGSvcError("LsaGetLogonSessionData failed with error %u\n", ulError);
+                VGSvcError("LsaGetLogonSessionData failed with error %u (rcNt=%#x)\n", ulError, rcNt);
                 break;
         }
         if (pSessionData)
@@ -970,7 +969,7 @@ static int vgsvcVMInfoWinUserUpdateF(PVBOXSERVICEVEPROPCACHE pCache, const char 
     int rc = VGSvcVMInfoUpdateUserV(pCache, pszUser, pszDomain, pszKey, pszValueFormat, va);
     if (rc == VERR_BUFFER_OVERFLOW)
     {
-        /**
+        /*
          * If the constructed property name was too long, we have to be a little more creative here:
          *
          *   - only use the user name as part of the property name from now on
@@ -988,7 +987,7 @@ static int vgsvcVMInfoWinUserUpdateF(PVBOXSERVICEVEPROPCACHE pCache, const char 
             rc = vgsvcVMInfoWinUserUpdateFallbackV(pCache, pszUser, pszDomain, pwszSid, pszKey, pszValueFormat, va);
             if (RT_FAILURE(rc))
             {
-                /**
+                /*
                  * If using the sole user name as a property name still is too long or something else failed,
                  * at least try to look up the user's RID (relative identifier). Note that the RID always is bound to the
                  * to the authority that issued the SID.
@@ -998,7 +997,7 @@ static int vgsvcVMInfoWinUserUpdateF(PVBOXSERVICEVEPROPCACHE pCache, const char 
                 {
                     DWORD const dwUserRid = *GetSidSubAuthority(pSid, cSubAuth - 1);
                     char  szUserRid[16 + 1];
-                    if (RTStrPrintf2(szUserRid, sizeof(szUserRid), "%ld", dwUserRid) > 0)
+                    if (RTStrPrintf2(szUserRid, sizeof(szUserRid), "%u", dwUserRid) > 0)
                     {
                         rc = vgsvcVMInfoWinUserUpdateFallbackV(pCache, szUserRid, pszDomain, pwszSid, pszKey, pszValueFormat, va);
                         /* Also write the resolved user name into a dedicated key,

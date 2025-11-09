@@ -1,4 +1,4 @@
-/* $Id: VBoxServicePropCache.cpp 111571 2025-11-07 17:20:08Z knut.osmundsen@oracle.com $ */
+/* $Id: VBoxServicePropCache.cpp 111585 2025-11-09 14:36:34Z knut.osmundsen@oracle.com $ */
 /** @file
  * VBoxServicePropCache - Guest property cache.
  *
@@ -90,6 +90,7 @@ static PVBOXSERVICEVEPROPCACHEENTRY vgsvcPropCacheInsertEntryInternalLocked(PVBO
         pNode->pszValueReset = NULL;
         pNode->pszValue      = NULL;
         pNode->pszName       = RTStrDup(pszName);
+        pNode->fNotUpdated   = false;
         AssertPtrReturnStmt(pNode->pszName, RTMemFree(pNode), NULL);
 
         RTListAppend(&pCache->NodeHead, &pNode->NodeSucc);
@@ -323,6 +324,10 @@ static int vgsvcPropCacheUpdateNode(PVBOXSERVICEVEPROPCACHE pCache, PVBOXSERVICE
                          pCache, pNode->pszName, pNode->fFlags, rc);
         }
     }
+
+    /* Clear the not-updated flag regardless of outcome. */
+    pNode->fNotUpdated = false;
+
     return rc;
 }
 
@@ -571,6 +576,81 @@ int VGSvcPropCacheUpdateByPath(PVBOXSERVICEVEPROPCACHE pCache, const char *pszVa
     {
         AssertFailed();
         rc = VERR_FILENAME_TOO_LONG;
+    }
+    return rc;
+}
+
+
+/**
+ * Marks entries starting with @a pszPath as not-updated.
+ *
+ * VGSvcPropCachedDeleteNotUpdated is used to delete the stale entries when the
+ * updating is completed.
+ *
+ * @returns VBox status code.
+ * @param   pCache          The property cache.
+ * @param   pszPath         The path prefix to match against.
+ */
+int VGSvcPropCacheMarkNotUpdatedByPath(PVBOXSERVICEVEPROPCACHE pCache, const char *pszPath)
+{
+    AssertPtrReturn(pCache, VERR_INVALID_POINTER);
+    size_t const cchPath = strlen(pszPath);
+
+    int rc = RTCritSectEnter(&pCache->CritSect);
+    if (RT_SUCCESS(rc))
+    {
+        PVBOXSERVICEVEPROPCACHEENTRY pNodeIt;
+        RTListForEach(&pCache->NodeHead, pNodeIt, VBOXSERVICEVEPROPCACHEENTRY, NodeSucc)
+        {
+            if (strncmp(pNodeIt->pszName, pszPath, cchPath) == 0)
+                pNodeIt->fNotUpdated = true;
+        }
+        RTCritSectLeave(&pCache->CritSect);
+    }
+    return rc;
+}
+
+
+/**
+ * Deletes stale entries that have been explictily marked not-updated.
+ *
+ * This should be called near the very end of the property updating.
+ *
+ * @returns VBox status code.
+ * @param   pCache          The property cache.
+ */
+int VGSvcPropCachedDeleteNotUpdated(PVBOXSERVICEVEPROPCACHE pCache)
+{
+    AssertPtrReturn(pCache, VERR_INVALID_POINTER);
+
+    int rc = RTCritSectEnter(&pCache->CritSect);
+    if (RT_SUCCESS(rc))
+    {
+        PVBOXSERVICEVEPROPCACHEENTRY pNodeIt;
+        RTListForEach(&pCache->NodeHead, pNodeIt, VBOXSERVICEVEPROPCACHEENTRY, NodeSucc)
+        {
+            if (pNodeIt->fNotUpdated)
+            {
+                if (pNodeIt->pszValue)
+                {
+                    int rc2 = vgsvcPropCacheWriteProp(pCache->pClient, pNodeIt->pszName, 0, /*fFlags*/ NULL /*pszValue*/);
+                    VGSvcVerbose(4, "[PropCache %p]: Deleted '%s'='%s' (stale, flags: %x), rc=%Rrc\n",
+                                 pCache, pNodeIt->pszName, pNodeIt->pszValue, pNodeIt->fFlags, rc2);
+                    if (RT_SUCCESS(rc2)) /* Only delete property value on successful Vbgl deletion. */
+                    {
+                        /* Delete property (but do not remove from cache) if not deleted yet. */
+                        RTStrFree(pNodeIt->pszValue);
+                        pNodeIt->pszValue = NULL;
+                        pNodeIt->fNotUpdated = false;
+                    }
+                    else if (RT_SUCCESS(rc))
+                        rc = rc2;
+                }
+                else
+                    pNodeIt->fNotUpdated = false;
+            }
+        }
+        RTCritSectLeave(&pCache->CritSect);
     }
     return rc;
 }

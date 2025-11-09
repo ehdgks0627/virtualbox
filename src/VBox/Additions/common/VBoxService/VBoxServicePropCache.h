@@ -68,6 +68,8 @@ int  VGSvcPropCacheUpdateExF(PVBOXSERVICEVEPROPCACHE pCache, const char *pszName
 int  VGSvcPropCacheUpdateTdtr(PVBOXSERVICEVEPROPCACHE pCache, const char *pszName, const char *pszValue);
 int  VGSvcPropCacheUpdateTdtrF(PVBOXSERVICEVEPROPCACHE pCache, const char *pszName, const char *pszValueFormat, ...) RT_IPRT_FORMAT_ATTR(3, 4);
 int  VGSvcPropCacheUpdateByPath(PVBOXSERVICEVEPROPCACHE pCache, const char *pszValue, const char *pszPathFormat, ...);
+int  VGSvcPropCacheMarkNotUpdatedByPath(PVBOXSERVICEVEPROPCACHE pCache, const char *pszPath);
+int  VGSvcPropCachedDeleteNotUpdated(PVBOXSERVICEVEPROPCACHE pCache);
 int  VGSvcPropCacheFlush(PVBOXSERVICEVEPROPCACHE pCache);
 #endif /* VBOX_WITH_GUEST_PROPS */
 
