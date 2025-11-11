@@ -1,4 +1,4 @@
-/* $Id: VBoxServiceVMInfo.cpp 111619 2025-11-11 08:53:12Z knut.osmundsen@oracle.com $ */
+/* $Id: VBoxServiceVMInfo.cpp 111621 2025-11-11 09:22:38Z knut.osmundsen@oracle.com $ */
 /** @file
  * VBoxService - Virtual Machine Information for the Host.
  */
@@ -224,17 +224,18 @@ static const char              *g_pszPropCacheKeyUser              = "/VirtualBo
 #endif
 /** The VM session ID. Changes whenever the VM is restored or reset. */
 static uint64_t                 g_idVMInfoSession;
-/** The last attached locartion awareness (LA) client timestamp. */
-static uint64_t                 g_nsLAClientAttachedTS = 0;
 /** User idle threshold (in ms). This specifies the minimum time a user is considered
  *  as being idle and then will be reported to the host. Default is 5s. */
 uint32_t                        g_cMsVMInfoUserIdleThreshold = 5 * 1000;
+
 #ifdef WITH_VDE_CONNECTION_MONITORING
 /** Property written by the host when the active VDE client changes.
  * @note it gets a bit fuzzy with multiple clients, ofc.  */
 static const char              *g_pszLAActiveClient                = "/VirtualBox/HostInfo/VRDP/ActiveClient";
+/** The last attached locartion awareness (LA) client timestamp. */
+static uint64_t                 g_nsLAClientAttachedTS = 0;
 /** The current LA client info.
- * @note This is not used by anyone, so pointless.  */
+ * @note This is not really used by anyone beyond logging, so pointless.  */
 static VBOXSERVICELACLIENTINFO  g_LAClientInfo;
 #endif
 
@@ -471,6 +472,90 @@ static void vgsvcFreeLAClientInfo(PVBOXSERVICELACLIENTINFO pClient)
             pClient->pszDomain = NULL;
         }
     }
+}
+
+
+/**
+ * Check for location awareness (just logging things, so mostly pointless).
+ *
+ * This was added in VBox 4.1.
+ *
+ * @returns Whether we should wait (true) or hurry up and refresh info (false).
+ */
+static bool vbsvcDoVdeConnectionChangePolling(void)
+{
+    bool fWait = true;
+
+    /** @todo Use VbglGuestPropWait in a separate thread? Polling is a bit
+     *        pointless... */
+    /* Check for new connection. */
+    char *pszLAClientID = NULL;
+    int rc = VGSvcReadHostProp(&g_VMInfoGuestPropSvcClient, g_pszLAActiveClient, true /*fReadOnly*/,
+                               &pszLAClientID, NULL /*ppszFlags*/, NULL /*puTimestamp*/);
+    if (RT_SUCCESS(rc))
+    {
+        AssertPtr(pszLAClientID);
+        if (strcmp(pszLAClientID, "0") != 0) /* Is a client connected? */
+        {
+            uint32_t idLAClient = RTStrToInt32(pszLAClientID);
+
+            /* Peek at "Attach" value to figure out if hotdesking happened. */
+            char    *pszAttach            = NULL;
+            uint64_t nsLAClientAttachedTS = 0;
+            rc = vgsvcGetLAClientValue(idLAClient, "Attach", &pszAttach, &nsLAClientAttachedTS);
+            if (   RT_SUCCESS(rc)
+                && (   !g_nsLAClientAttachedTS
+                    || g_nsLAClientAttachedTS != nsLAClientAttachedTS))
+            {
+                vgsvcFreeLAClientInfo(&g_LAClientInfo);
+
+                /* Note: There is a race between setting the guest properties by the host and getting them by
+                 *       the guest. */
+                rc = vgsvcGetLAClientInfo(idLAClient, &g_LAClientInfo);
+                if (RT_SUCCESS(rc))
+                {
+                    VGSvcVerbose(1, "VRDP: Hotdesk client %s with ID=%RU32, Name=%s, Domain=%s\n",
+                                 /* If g_nsLAClientAttachedTS is 0 this means there already was an active
+                                  * hotdesk session when VBoxService started. */
+                                 !g_nsLAClientAttachedTS ? "already active"
+                                 : g_LAClientInfo.fAttached ? "connected" : "disconnected",
+                                 idLAClient, g_LAClientInfo.pszName, g_LAClientInfo.pszDomain);
+
+                    g_nsLAClientAttachedTS = g_LAClientInfo.nsAttachedTS;
+
+                    /* Don't wait for event semaphore below anymore because we now know that the client
+                     * changed. This means we need to iterate all VM information again immediately. */
+                    fWait = false;
+                }
+                else
+                {
+                    static uint64_t s_cBitchedAboutLAClientInfo = 0;
+                    if (s_cBitchedAboutLAClientInfo++ < 10)
+                        VGSvcError("Error getting active location awareness client info, rc=%Rrc\n", rc);
+                }
+            }
+            else if (RT_FAILURE(rc))
+                 VGSvcError("Error getting attached value of location awareness client %RU32, rc=%Rrc\n", idLAClient, rc);
+            if (pszAttach)
+                RTStrFree(pszAttach);
+        }
+        else
+        {
+            VGSvcVerbose(1, "VRDP: UTTSC disconnected from VRDP server\n");
+            vgsvcFreeLAClientInfo(&g_LAClientInfo);
+        }
+
+        RTStrFree(pszLAClientID);
+    }
+    else
+    {
+        static uint64_t s_cBitchedAboutLAClient = 0;
+        if (rc != VERR_NOT_FOUND && s_cBitchedAboutLAClient++ < 3)
+            VGSvcError("VRDP: Querying connected location awareness client failed with rc=%Rrc\n", rc);
+    }
+
+    VGSvcVerbose(3, "VRDP: Handling location awareness done\n");
+    return fWait;
 }
 
 #endif /* WITH_VDE_CONNECTION_MONITORING */
@@ -1798,87 +1883,11 @@ static DECLCALLBACK(int) vbsvcVMInfoWorker(bool volatile *pfShutdown)
         VGSvcPropCachedDeleteNotUpdated(&g_VMInfoPropCache);
 
         /* Whether to wait for event semaphore or not. */
+#ifndef WITH_VDE_CONNECTION_MONITORING
         bool fWait = true;
-
-#ifdef WITH_VDE_CONNECTION_MONITORING
-        /*
-         * Check for location awareness (mostly pointless).
-         * This most likely only works with VBox 4.1 and later.
-         */
-        /** @todo Use VbglGuestPropWait in a separate thread? Polling is a bit
-         *        pointless... */
-        /* Check for new connection. */
-        char *pszLAClientID = NULL;
-        int rc2 = VGSvcReadHostProp(&g_VMInfoGuestPropSvcClient, g_pszLAActiveClient, true /*fReadOnly*/,
-                                    &pszLAClientID, NULL /*ppszFlags*/, NULL /*puTimestamp*/);
-        if (RT_SUCCESS(rc2))
-        {
-            AssertPtr(pszLAClientID);
-            if (strcmp(pszLAClientID, "0") != 0) /* Is a client connected? */
-            {
-                uint32_t idLAClient = RTStrToInt32(pszLAClientID);
-
-                /* Peek at "Attach" value to figure out if hotdesking happened. */
-                char    *pszAttach            = NULL;
-                uint64_t nsLAClientAttachedTS = 0;
-                rc2 = vgsvcGetLAClientValue(idLAClient, "Attach", &pszAttach, &nsLAClientAttachedTS);
-                if (   RT_SUCCESS(rc2)
-                    && (   !g_nsLAClientAttachedTS
-                        || (g_nsLAClientAttachedTS != nsLAClientAttachedTS)))
-                {
-                    vgsvcFreeLAClientInfo(&g_LAClientInfo);
-
-                    /* Note: There is a race between setting the guest properties by the host and getting them by
-                     *       the guest. */
-                    rc2 = vgsvcGetLAClientInfo(idLAClient, &g_LAClientInfo);
-                    if (RT_SUCCESS(rc2))
-                    {
-                        VGSvcVerbose(1, "VRDP: Hotdesk client %s with ID=%RU32, Name=%s, Domain=%s\n",
-                                     /* If g_nsLAClientAttachedTS is 0 this means there already was an active
-                                      * hotdesk session when VBoxService started. */
-                                     !g_nsLAClientAttachedTS ? "already active"
-                                     : g_LAClientInfo.fAttached ? "connected" : "disconnected",
-                                     idLAClient, g_LAClientInfo.pszName, g_LAClientInfo.pszDomain);
-
-                        g_nsLAClientAttachedTS = g_LAClientInfo.nsAttachedTS;
-
-                        /* Don't wait for event semaphore below anymore because we now know that the client
-                         * changed. This means we need to iterate all VM information again immediately. */
-                        fWait = false;
-                    }
-                    else
-                    {
-                        static uint64_t s_cBitchedAboutLAClientInfo = 0;
-                        if (s_cBitchedAboutLAClientInfo++ < 10)
-                            VGSvcError("Error getting active location awareness client info, rc=%Rrc\n", rc2);
-                    }
-                }
-                else if (RT_FAILURE(rc2))
-                     VGSvcError("Error getting attached value of location awareness client %RU32, rc=%Rrc\n", idLAClient, rc2);
-                if (pszAttach)
-                    RTStrFree(pszAttach);
-            }
-            else
-            {
-                VGSvcVerbose(1, "VRDP: UTTSC disconnected from VRDP server\n");
-                vgsvcFreeLAClientInfo(&g_LAClientInfo);
-            }
-
-            RTStrFree(pszLAClientID);
-        }
-        else
-        {
-            static int s_iBitchedAboutLAClient = 0;
-            if (   (rc2 != VERR_NOT_FOUND) /* No location awareness installed, skip. */
-                && s_iBitchedAboutLAClient < 3)
-            {
-                s_iBitchedAboutLAClient++;
-                VGSvcError("VRDP: Querying connected location awareness client failed with rc=%Rrc\n", rc2);
-            }
-        }
-
-        VGSvcVerbose(3, "VRDP: Handling location awareness done\n");
-#endif /* WITH_VDE_CONNECTION_MONITORING */
+#else
+        bool fWait = vbsvcDoVdeConnectionChangePolling();
+#endif
 
         /*
          * Flush all properties if we were restored.
@@ -1901,6 +1910,7 @@ static DECLCALLBACK(int) vbsvcVMInfoWorker(bool volatile *pfShutdown)
          */
         if (*pfShutdown)
             break;
+        int rc2 = VERR_TIMEOUT;
         if (fWait)
             rc2 = RTSemEventMultiWait(g_hVMInfoEvent, g_cMsVMInfoInterval);
         if (*pfShutdown)
