@@ -1,4 +1,4 @@
-/* $Id: VBoxWinDrvStore.h 111639 2025-11-11 16:22:37Z andreas.loeffler@oracle.com $ */
+/* $Id: VBoxWinDrvStore.h 111640 2025-11-11 16:28:40Z andreas.loeffler@oracle.com $ */
 /** @file
  * VBoxWinDrvInst - Header for Windows driver store handling.
  */
@@ -100,7 +100,7 @@ typedef struct VBOXWINDRVSTOREENTRY
     /** Driver name (.sys).
      *  Only the first (valid) driver name is supported for now */
     RTUTF16                   wszDriverName[VBOXWINDRVSTORE_MAX_DRIVER_NAME];
-    /** List of installed files onto the OS (e.g. in \%SystemRoot\%\System32).
+    /** List of installed files onto the OS (e.g. in \%SystemRoot\%\\System32).
      *  Might be NULL if not being used. */
     PVBOXWINDRVINFLIST        pCopyFileList;
 } VBOXWINDRVSTOREENTRY;

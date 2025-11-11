@@ -1,4 +1,4 @@
-/* $Id: VBoxWinDrvCommon.cpp 111639 2025-11-11 16:22:37Z andreas.loeffler@oracle.com $ */
+/* $Id: VBoxWinDrvCommon.cpp 111640 2025-11-11 16:28:40Z andreas.loeffler@oracle.com $ */
 /** @file
  * VBoxWinDrvCommon - Common Windows driver installation functions.
  */
@@ -81,7 +81,7 @@ PRTUTF16 VBoxWinDrvInfGetPathFromId(unsigned idDir, PCRTUTF16 pwszSubDir)
             break;
         }
 
-        case 11: /* \%SystemRoot\%\system32 */
+        case 11: /* \%SystemRoot\%\\system32 */
         {
             if (!GetWindowsDirectoryW(wszDirBase, RT_ELEMENTS(wszDirBase)))
                 rc = RTErrConvertFromWin32(GetLastError());
@@ -90,7 +90,7 @@ PRTUTF16 VBoxWinDrvInfGetPathFromId(unsigned idDir, PCRTUTF16 pwszSubDir)
             break;
         }
 
-        case 12: /* \%SystemRoot\%\system32\drivers  */
+        case 12: /* \%SystemRoot\%\\system32\\drivers  */
         {
             if (!GetWindowsDirectoryW(wszDirBase, RT_ELEMENTS(wszDirBase)))
                 rc = RTErrConvertFromWin32(GetLastError());
