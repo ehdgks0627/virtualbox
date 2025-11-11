@@ -1,4 +1,4 @@
-/* $Id: DrvDirectCardReader2.cpp 111610 2025-11-11 06:37:00Z alexander.eichner@oracle.com $ */
+/* $Id: DrvDirectCardReader2.cpp 111612 2025-11-11 07:09:27Z alexander.eichner@oracle.com $ */
 /** @file
  * DrvDirectCardReader - Test USB Card Reader Driver allowing access
  *                       direct to the device attached to the host.
@@ -34,7 +34,7 @@
 #include <VBox/vmm/pdm.h>
 #include <VBox/vmm/pdmdrv.h>
 #include <VBox/log.h>
-#include <VBox/err.h>
+#include <iprt/errcore.h>
 #include <iprt/assert.h>
 #include <iprt/critsect.h>
 #include <iprt/mem.h>
