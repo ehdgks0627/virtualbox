@@ -1,4 +1,4 @@
-# $Id: Config.kmk 111594 2025-11-10 13:33:34Z alexander.eichner@oracle.com $
+# $Id: Config.kmk 111617 2025-11-11 08:26:46Z alexander.eichner@oracle.com $
 ## @file
 # The global build configuration file for VBox.
 #
@@ -876,8 +876,6 @@ VBOX_WITH_HEADLESS = 1
 VBOX_WITH_VRDP = 1
 # Build the VRDP authentication modules.
 VBOX_WITH_VRDP_AUTHMOD = 1
-# Build enhanced version of rdesktop.
-VBOX_WITH_VRDP_RDESKTOP = 1
 ## The Direct Framebuffer GUI.
 #VBOX_WITH_VBOXFB = 1
 # The basic frontend not using Main/COM/XPCOM.
@@ -1345,7 +1343,6 @@ ifdef VBOX_QUICK
  VBOX_WITH_VBOXSDL =
  VBOX_WITH_HEADLESS =
  VBOX_WITH_VRDP =
- VBOX_WITH_VRDP_RDESKTOP =
  VBOX_WITH_DOCS =
  VBOX_WITH_WEBSERVICES =
  VBOX_WITH_32_ON_64_MAIN_API =
@@ -1362,7 +1359,6 @@ ifn1of ($(KBUILD_TARGET_ARCH), $(VBOX_SUPPORTED_HOST_ARCHS))
 endif
 
 ifeq ($(KBUILD_TARGET),darwin)
- VBOX_WITH_VRDP_RDESKTOP =
  # Permanent (no working SDL).
  VBOX_WITH_VBOXSDL =
 
@@ -1379,12 +1375,10 @@ ifeq ($(KBUILD_TARGET),freebsd)
 endif
 
 ifeq ($(KBUILD_TARGET),haiku)
- VBOX_WITH_VRDP_RDESKTOP =
  # Permanent (no working SDL).
  VBOX_WITH_VBOXSDL =
  VBOX_WITH_DOCS =
  VBOX_WITH_VBOXDRV =
- VBOX_WITH_VRDP =
  VBOX_WITH_HEADLESS =
  VBOX_WITH_VBOXSDL =
  VBOX_WITH_QTGUI =
@@ -1402,7 +1396,6 @@ ifeq ($(KBUILD_TARGET),os2)
  VBOX_WITH_WEBSERVICES =
  VBOX_WITH_INSTALLER =
  VBOX_WITH_VRDP_AUTHMOD =
- VBOX_WITH_VRDP_RDESKTOP =
  VBOX_WITH_VALIDATIONKIT =
  VBOX_WITH_QTGUI =
  VBOX_WITH_USB =
@@ -1410,10 +1403,6 @@ ifeq ($(KBUILD_TARGET),os2)
  VBOX_WITH_DOCS =
  VBOX_WITH_PDM_ASYNC_COMPLETION =
  VBOX_WITHOUT_HARDENING = 1
-endif
-
-ifeq ($(KBUILD_TARGET),win)
- VBOX_WITH_VRDP_RDESKTOP =
 endif
 
 ifn1of ($(KBUILD_TARGET_ARCH), x86 amd64 arm64)
@@ -1443,7 +1432,6 @@ ifn1of ($(KBUILD_TARGET_ARCH), x86 amd64 arm64)
  # remove later:
  VBOX_WITH_VRDP =
  VBOX_WITH_VRDP_AUTHMOD =
- VBOX_WITH_VRDP_RDESKTOP =
 endif
 
 
@@ -1551,7 +1539,6 @@ endif
 # Disable components that are not open sourced.
 #
 ifdef VBOX_OSE
- VBOX_WITH_VRDP =
  VBOX_WITH_EXTPACK_PUEL =
  VBOX_WITH_EXTPACK_PUEL_BUILD =
  VBOX_WITH_PCI_PASSTHROUGH_IMPL =
@@ -1695,7 +1682,6 @@ endif
 ifdef VBOX_HEADLESS
  VBOX_WITH_QTGUI =
  VBOX_WITH_VBOXSDL =
- VBOX_WITH_VRDP_RDESKTOP =
 endif
 
 #
@@ -9443,7 +9429,7 @@ SVN                    ?= svn$(HOSTSUFF_EXE)
 GIT                    ?= git$(HOSTSUFF_EXE)
 VBOX_SVN_REV_KMK        = $(PATH_OUT)/revision.kmk
 ifndef VBOX_SVN_REV
- VBOX_SVN_REV_CONFIG_FALLBACK := $(patsubst %:,,  $Rev: 111594 $  )
+ VBOX_SVN_REV_CONFIG_FALLBACK := $(patsubst %:,,  $Rev: 111617 $  )
  VBOX_SVN_REV_FALLBACK := $(if-expr $(VBOX_SVN_REV_CONFIG_FALLBACK) > $(VBOX_SVN_REV_VERSION_FALLBACK),$(VBOX_SVN_REV_CONFIG_FALLBACK),$(VBOX_SVN_REV_VERSION_FALLBACK))
  VBOX_SVN_DEP          := $(firstword $(wildcard $(PATH_ROOT)/.svn/wc.db $(abspath $(PATH_ROOT)/../.svn/wc.db) $(abspath $(PATH_ROOT)/../../.svn/wc.db) $(PATH_ROOT)/.svn/entries))
  VBOX_GIT_DEP          := $(firstword $(wildcard $(PATH_ROOT)/.git/config $(abspath $(PATH_ROOT)/../.git/config) $(abspath $(PATH_ROOT)/../../.git/config)))
@@ -9457,7 +9443,7 @@ ifndef VBOX_SVN_REV
  ifneq ($(VBOX_GIT_DEP),)
   #
   # VBOX_SVN_REV_CONFIG_FALLBACK is not properly populated for a git checkout,
-  # as the $Rev: 111594 $ is not expanded, so we have to set it based on the information in the repo.
+  # as the $Rev: 111617 $ is not expanded, so we have to set it based on the information in the repo.
   #
   VBOX_SVN_REV_FALLBACK := $(shell $(GIT) log -1 $(PATH_ROOT)/Config.kmk | $(SED) -e 's/^[ \t]*//' -e '/svn:sync-xref-src-repo-rev\: r/!d' -e 's/svn:sync-xref-src-repo-rev\: r*//; t a; :a q')
  endif
