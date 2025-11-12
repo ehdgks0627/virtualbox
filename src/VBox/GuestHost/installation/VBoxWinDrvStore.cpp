@@ -1,4 +1,4 @@
-/* $Id: VBoxWinDrvStore.cpp 111636 2025-11-11 15:47:46Z andreas.loeffler@oracle.com $ */
+/* $Id: VBoxWinDrvStore.cpp 111656 2025-11-12 10:53:57Z andreas.loeffler@oracle.com $ */
 /** @file
  * VBoxWinDrvStore - Windows driver store handling.
  */
@@ -425,15 +425,7 @@ static int vboxWinDrvStoreEntryInitFromInf(PVBOXWINDRVSTOREENTRY pEntry, const c
             rc = VBoxWinDrvInfQueryParms(hInf, &InfParms, false /* fForce */);
             if (RT_SUCCESS(rc))
             {
-                pEntry->pCopyFileList = VBoxWinDrvInfListCreate(VBOXWINDRVINFLISTENTRY_T_COPYFILE);
-                if (pEntry->pCopyFileList)
-                {
-                    int rc2 = VBoxWinDrvInfQueryCopyFiles(hInf, InfParms.pwszSection, pEntry->pCopyFileList);
-                    if (RT_SUCCESS(rc))
-                        rc = rc2;
-                }
-                else
-                    rc = VERR_NO_MEMORY;
+                /* ignore rc */ VBoxWinDrvInfQueryCopyFiles(hInf, InfParms.pwszSection, &pEntry->pCopyFileList);
             }
             else
                 rc = VERR_INVALID_PARAMETER;

@@ -1,4 +1,4 @@
-/* $Id: VBoxWinDrvCommon.cpp 111640 2025-11-11 16:28:40Z andreas.loeffler@oracle.com $ */
+/* $Id: VBoxWinDrvCommon.cpp 111656 2025-11-12 10:53:57Z andreas.loeffler@oracle.com $ */
 /** @file
  * VBoxWinDrvCommon - Common Windows driver installation functions.
  */
@@ -697,15 +697,18 @@ static int vboxWinDrvInfQueryCopyFilesSingle(HINF hInf, INFCONTEXT infCtxSection
 /**
  * Queries the CopyFile directives in a given INF file section.
  *
- * @returns VBox status code.
+ * @returns VBox status code. VERR_NOT_FOUND if no entries were found.
  * @param   pCtx                Windows driver installer context.
  * @param   pwszSection         Section in INF file to query the CopyFile directives for.
- * @param   pCopyFiles          Where to store the queried entries on success.
- *                              Must be initialized by the caller.
+ * @param   ppCopyFiles         Where to return the allocated list of the entries on success.
+ *                              Must be destroyed with VBoxWinDrvInfListDestroy().
  */
-int VBoxWinDrvInfQueryCopyFiles(HINF hInf, PRTUTF16 pwszSection, PVBOXWINDRVINFLIST pCopyFiles)
+int VBoxWinDrvInfQueryCopyFiles(HINF hInf, PRTUTF16 pwszSection, PVBOXWINDRVINFLIST *ppCopyFiles)
 {
     int rc = VINF_SUCCESS;
+
+    PVBOXWINDRVINFLIST pCopyFiles = VBoxWinDrvInfListCreate(VBOXWINDRVINFLISTENTRY_T_COPYFILE);
+    AssertPtrReturn(pCopyFiles, VERR_NO_MEMORY);
 
     /*
      * Process all "CopyFiles" directives found in the section.
@@ -719,6 +722,16 @@ int VBoxWinDrvInfQueryCopyFiles(HINF hInf, PRTUTF16 pwszSection, PVBOXWINDRVINFL
         } while (RT_SUCCESS(rc) && SetupFindNextMatchLineW(&infCtxCopyFiles, L"CopyFiles", &infCtxCopyFiles)); /* Process next CopyFile directive. */
     }
 
+    if (RT_SUCCESS(rc))
+    {
+        if (pCopyFiles->cEntries)
+            *ppCopyFiles = pCopyFiles;
+        else
+            rc = VERR_NOT_FOUND;
+    }
+
+    if (RT_FAILURE(rc))
+        VBoxWinDrvInfListDestroy(pCopyFiles);
     return rc;
 }
 

@@ -1,4 +1,4 @@
-/* $Id: VBoxWinDrvCommon.h 111636 2025-11-11 15:47:46Z andreas.loeffler@oracle.com $ */
+/* $Id: VBoxWinDrvCommon.h 111656 2025-11-12 10:53:57Z andreas.loeffler@oracle.com $ */
 /** @file
  * VBoxWinDrvCommon - Common Windows driver functions.
  */
@@ -82,7 +82,7 @@ int VBoxWinDrvInfClose(HINF hInf);
 PRTUTF16 VBoxWinDrvInfGetPathFromId(unsigned idDir, PCRTUTF16 pwszSubDir);
 VBOXWINDRVINFTYPE VBoxWinDrvInfGetTypeEx(HINF hInf, PRTUTF16 *ppwszSection);
 VBOXWINDRVINFTYPE VBoxWinDrvInfGetType(HINF hInf);
-int VBoxWinDrvInfQueryCopyFiles(HINF hInf, PRTUTF16 pwszSection, PVBOXWINDRVINFLIST pCopyFiles);
+int VBoxWinDrvInfQueryCopyFiles(HINF hInf, PRTUTF16 pwszSection, PVBOXWINDRVINFLIST *ppCopyFiles);
 int VBoxWinDrvInfQueryFirstModel(HINF hInf, PCRTUTF16 pwszSection, PRTUTF16 *ppwszModel);
 int VBoxWinDrvInfQueryFirstPnPId(HINF hInf, PRTUTF16 pwszModel, PRTUTF16 *ppwszPnPId);
 int VBoxWinDrvInfQueryKeyValue(PINFCONTEXT pCtx, DWORD iValue, PRTUTF16 *ppwszValue, PDWORD pcwcValue);
@@ -92,7 +92,6 @@ int VBoxWinDrvInfQueryParms(HINF hInf, PVBOXWINDRVINFPARMS pParms, bool fForce);
 int VBoxWinDrvInfQuerySectionKeyByIndex(HINF hInf, PCRTUTF16 pwszSection, PRTUTF16 *ppwszValue, PDWORD pcwcValue);
 int VBoxWinDrvInfQuerySectionVerEx(HINF hInf, UINT uIndex, PVBOXWINDRVINFSECVERSION pVer);
 int VBoxWinDrvInfQuerySectionVer(HINF hInf, PVBOXWINDRVINFSECVERSION pVer);
-int VBoxWinDrvInfQueryCopyFiles(HINF hInf, PVBOXWINDRVINFLIST pCopyFiles);
 bool VBoxWinDrvInfSectionExists(HINF hInf, PCRTUTF16 pwszSection);
 
 PVBOXWINDRVINFLIST VBoxWinDrvInfListCreate(VBOXWINDRVINFLISTENTRY_T enmType);
