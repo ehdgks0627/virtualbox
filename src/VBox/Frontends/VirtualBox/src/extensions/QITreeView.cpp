@@ -1,4 +1,4 @@
-/* $Id: QITreeView.cpp 111632 2025-11-11 13:04:35Z sergey.dubov@oracle.com $ */
+/* $Id: QITreeView.cpp 111658 2025-11-12 11:32:50Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - Qt extensions: QITreeView class implementation.
  */
@@ -66,7 +66,7 @@ public:
     {}
 
     /** Returns the role. */
-    virtual QAccessible::Role role() const RT_OVERRIDE RT_FINAL
+    virtual QAccessible::Role role() const RT_OVERRIDE
     {
 #ifdef VBOX_WS_MAC
             // WORKAROUND: macOS doesn't respect QAccessible::Tree/TreeItem roles.
@@ -81,7 +81,7 @@ public:
     }
 
     /** Returns the parent. */
-    virtual QAccessibleInterface *parent() const RT_OVERRIDE RT_FINAL
+    virtual QAccessibleInterface *parent() const RT_OVERRIDE
     {
         /* Sanity check: */
         QITreeViewItem *pItem = item();
@@ -106,7 +106,7 @@ public:
     }
 
     /** Returns the rect. */
-    virtual QRect rect() const RT_OVERRIDE RT_FINAL
+    virtual QRect rect() const RT_OVERRIDE
     {
         /* Sanity check: */
         AssertPtrReturn(item(), QRect());
@@ -146,7 +146,7 @@ public:
     }
 
     /** Returns the number of children. */
-    virtual int childCount() const RT_OVERRIDE RT_FINAL
+    virtual int childCount() const RT_OVERRIDE
     {
         /* Sanity check: */
         AssertPtrReturn(item(), 0);
@@ -156,7 +156,7 @@ public:
     }
 
     /** Returns the child with the passed @a iIndex. */
-    virtual QAccessibleInterface *child(int iIndex) const RT_OVERRIDE RT_FINAL
+    virtual QAccessibleInterface *child(int iIndex) const RT_OVERRIDE
     {
         /* Sanity check: */
         AssertReturn(iIndex >= 0 && iIndex < childCount(), 0);
@@ -184,7 +184,7 @@ public:
     }
 
     /** Returns the index of the passed @a pChild. */
-    virtual int indexOfChild(const QAccessibleInterface *pChild) const RT_OVERRIDE RT_FINAL
+    virtual int indexOfChild(const QAccessibleInterface *pChild) const RT_OVERRIDE
     {
         /* Search for corresponding child: */
         for (int i = 0; i < childCount(); ++i)
@@ -196,7 +196,7 @@ public:
     }
 
     /** Returns the state. */
-    virtual QAccessible::State state() const RT_OVERRIDE RT_FINAL
+    virtual QAccessible::State state() const RT_OVERRIDE
     {
         /* Sanity check: */
         QITreeViewItem *pItem = item();
@@ -253,7 +253,7 @@ public:
     }
 
     /** Returns a text for the passed @a enmTextRole. */
-    virtual QString text(QAccessible::Text enmTextRole) const RT_OVERRIDE RT_FINAL
+    virtual QString text(QAccessible::Text enmTextRole) const RT_OVERRIDE
     {
         /* Sanity check: */
         AssertPtrReturn(item(), QString());
@@ -329,7 +329,7 @@ public:
     }
 
     /** Returns the number of children. */
-    virtual int childCount() const RT_OVERRIDE RT_FINAL
+    virtual int childCount() const RT_OVERRIDE
     {
         /* Sanity check: */
         AssertPtrReturn(tree(), 0);
@@ -339,7 +339,7 @@ public:
     }
 
     /** Returns the child with the passed @a iIndex. */
-    virtual QAccessibleInterface *child(int iIndex) const RT_OVERRIDE RT_FINAL
+    virtual QAccessibleInterface *child(int iIndex) const RT_OVERRIDE
     {
         /* Sanity check: */
         AssertReturn(iIndex >= 0, 0);
@@ -396,7 +396,7 @@ public:
     }
 
     /** Returns the index of the passed @a pChild. */
-    virtual int indexOfChild(const QAccessibleInterface *pChild) const RT_OVERRIDE RT_FINAL
+    virtual int indexOfChild(const QAccessibleInterface *pChild) const RT_OVERRIDE
     {
         /* Search for corresponding child: */
         for (int i = 0; i < childCount(); ++i)
@@ -424,7 +424,7 @@ public:
     }
 
     /** Returns a text for the passed @a enmTextRole. */
-    virtual QString text(QAccessible::Text enmTextRole) const RT_OVERRIDE RT_FINAL
+    virtual QString text(QAccessible::Text enmTextRole) const RT_OVERRIDE
     {
         /* Text for known roles: */
         switch (enmTextRole)

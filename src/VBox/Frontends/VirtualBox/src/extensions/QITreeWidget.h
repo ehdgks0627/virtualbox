@@ -1,4 +1,4 @@
-/* $Id: QITreeWidget.h 111281 2025-10-07 15:52:12Z sergey.dubov@oracle.com $ */
+/* $Id: QITreeWidget.h 111658 2025-11-12 11:32:50Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - Qt extensions: QITreeWidget class declaration.
  */
@@ -131,9 +131,9 @@ public:
 protected:
 
     /** Handles paint @a pEvent. */
-    void paintEvent(QPaintEvent *pEvent) RT_OVERRIDE RT_FINAL;
+    virtual void paintEvent(QPaintEvent *pEvent) RT_OVERRIDE RT_FINAL;
     /** Handles resize @a pEvent. */
-    void resizeEvent(QResizeEvent *pEvent) RT_OVERRIDE RT_FINAL;
+    virtual void resizeEvent(QResizeEvent *pEvent) RT_OVERRIDE RT_FINAL;
 
 protected slots:
 

@@ -1,4 +1,4 @@
-/* $Id: QITableView.h 111657 2025-11-12 11:20:13Z sergey.dubov@oracle.com $ */
+/* $Id: QITableView.h 111658 2025-11-12 11:32:50Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - Qt extensions: QITableView class declaration.
  */
@@ -121,8 +121,9 @@ public:
 
 protected:
 
-    /** Handles index change from @a previous to @a current. */
-    virtual void currentChanged(const QModelIndex &current, const QModelIndex &previous) RT_OVERRIDE;
+    /** This slot is called when a new item becomes the current item.
+      * The previous current item is specified by the @a previous index, and the new item by the @a current index. */
+    virtual void currentChanged(const QModelIndex &current, const QModelIndex &previous) RT_OVERRIDE RT_FINAL;
 
 private slots:
 
