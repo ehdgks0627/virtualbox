@@ -1,4 +1,4 @@
-/* $Id: QITreeView.cpp 111667 2025-11-12 12:21:33Z sergey.dubov@oracle.com $ */
+/* $Id: QITreeView.cpp 111677 2025-11-12 14:02:36Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - Qt extensions: QITreeView class implementation.
  */
@@ -152,10 +152,15 @@ public:
     virtual int childCount() const RT_OVERRIDE
     {
         /* Sanity check: */
-        AssertPtrReturn(item(), 0);
+        QITreeViewItem *pItem = item();
+        AssertPtrReturn(pItem, 0);
+        QITreeView *pTree = pItem->parentTree();
+        AssertPtrReturn(pTree, 0);
+        QAbstractItemModel *pModel = pTree->model();
+        AssertPtrReturn(pModel, 0);
 
-        /* Return the number of children: */
-        return item()->childCount();
+        /* Return the number of children model has: */
+        return pModel->rowCount(pItem->modelIndex());
     }
 
     /** Returns the child with the passed @a iIndex. */
@@ -330,9 +335,11 @@ public:
         /* Sanity check: */
         QITreeView *pTree = tree();
         AssertPtrReturn(pTree, 0);
+        QAbstractItemModel *pModel = pTree->model();
+        AssertPtrReturn(pModel, 0);
 
-        /* Return the number of children: */
-        return pTree->childCount();
+        /* Return the number of children model has: */
+        return pModel->rowCount(pTree->rootIndex());
     }
 
     /** Returns the child with the passed @a iIndex. */
@@ -519,16 +526,6 @@ private:
 *   Class QITreeViewItem implementation.                                                                                         *
 *********************************************************************************************************************************/
 
-int QITreeViewItem::childCount() const
-{
-    /* Sanity check: */
-    AssertPtrReturn(parentTree(), 0);
-    AssertPtrReturn(parentTree()->model(), 0);
-
-    /* Return the number of children model has: */
-    return parentTree()->model()->rowCount(modelIndex());
-}
-
 QRect QITreeViewItem::rect() const
 {
     /* We can only ask the parent-tree for a rectangle: */
@@ -612,18 +609,6 @@ QITreeView::QITreeView(QWidget *pParent)
 {
     /* Prepare all: */
     prepare();
-}
-
-int QITreeView::childCount() const
-{
-    /* Sanity check: */
-    AssertPtrReturn(model(), 0);
-
-    /* Acquire required model-index, that can be root-index if specified
-     * or null index otherwise, in that case we return the amount of top-level children: */
-    const QModelIndex rtIndex = rootIndex();
-    const QModelIndex requiredIndex = rtIndex.isValid() ? rtIndex : QModelIndex();
-    return model()->rowCount(requiredIndex);
 }
 
 void QITreeView::currentChanged(const QModelIndex &current, const QModelIndex &previous)

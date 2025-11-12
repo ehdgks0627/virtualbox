@@ -1,4 +1,4 @@
-/* $Id: QITreeView.h 111658 2025-11-12 11:32:50Z sergey.dubov@oracle.com $ */
+/* $Id: QITreeView.h 111677 2025-11-12 14:02:36Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - Qt extensions: QITreeView class declaration.
  */
@@ -67,7 +67,7 @@ public:
     QITreeViewItem *parentItem() const { return m_pParentItem; }
 
     /** Returns the number of children. */
-    virtual int childCount() const;
+    virtual int childCount() const = 0;
     /** Returns the child item with @a iIndex. */
     virtual QITreeViewItem *childItem(int iIndex) const = 0;
 
@@ -129,7 +129,7 @@ public:
     QITreeView(QWidget *pParent = 0);
 
     /** Returns the number of children. */
-    virtual int childCount() const;
+    virtual int childCount() const { return 0; }
     /** Returns the child item with @a iIndex. */
     virtual QITreeViewItem *childItem(int /* iIndex */) const { return 0; }
 
