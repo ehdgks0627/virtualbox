@@ -1,4 +1,4 @@
-/* $Id: QITableView.cpp 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $ */
+/* $Id: QITableView.cpp 111657 2025-11-12 11:20:13Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - Qt extensions: QITableView class implementation.
  */
@@ -454,6 +454,14 @@ void QITableView::makeSureEditorDataCommitted()
     }
 }
 
+void QITableView::currentChanged(const QModelIndex &current, const QModelIndex &previous)
+{
+    /* Notify listeners about index changed: */
+    emit sigCurrentChanged(current, previous);
+    /* Call to base-class: */
+    QTableView::currentChanged(current, previous);
+}
+
 void QITableView::sltEditorCreated(QWidget *pEditor, const QModelIndex &index)
 {
     /* Connect created editor to the table and store it: */
@@ -467,14 +475,6 @@ void QITableView::sltEditorDestroyed(QObject *pEditor)
     const QModelIndex index = m_editors.key(pEditor);
     AssertReturnVoid(index.isValid());
     m_editors.remove(index);
-}
-
-void QITableView::currentChanged(const QModelIndex &current, const QModelIndex &previous)
-{
-    /* Notify listeners about index changed: */
-    emit sigCurrentChanged(current, previous);
-    /* Call to base-class: */
-    QTableView::currentChanged(current, previous);
 }
 
 void QITableView::prepare()
