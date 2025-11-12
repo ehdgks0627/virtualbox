@@ -1,4 +1,4 @@
-# $Id: Makefile.kmk 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $
+# $Id: Makefile.kmk 111649 2025-11-12 09:45:14Z knut.osmundsen@oracle.com $
 ## @file
 # Sub-Makefile for xz/liblzma.
 #
@@ -179,6 +179,14 @@ VBox-liblzma-static_TEMPLATE := VBoxR3StaticNonPedantic
 VBox-liblzma-static_EXTENDS  := VBox-liblzma
 ifdef VBOX_WITH_NOCRT_STATIC
  VBox-liblzma-static_DEFS     = $(VBox-liblzma_DEFS) IPRT_NO_CRT_FOR_3RD_PARTY
+endif
+
+
+if !defined(VBOX_ONLY_EXTPACKS) || !defined(VBOX_ONLY_EXTPACKS)
+ # For bldRTTar.
+ LIBRARIES += VBoxBldProg-liblzma
+ VBoxBldProg-liblzma_TEMPLATE := VBoxAdvBldProgNonPedantic
+ VBoxBldProg-liblzma_EXTENDS  := VBox-liblzma
 endif
 
 

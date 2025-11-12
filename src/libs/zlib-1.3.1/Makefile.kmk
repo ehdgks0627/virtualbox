@@ -1,4 +1,4 @@
-# $Id: Makefile.kmk 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $
+# $Id: Makefile.kmk 111649 2025-11-12 09:45:14Z knut.osmundsen@oracle.com $
 ## @file
 # Sub-Makefile for zlib.
 #
@@ -68,6 +68,14 @@ ifdef VBOX_WITH_32_ON_64_MAIN_API # 32-bit edition.
  VBox-zlib-x86_EXTENDS = VBox-zlib
 endif
 
+if !defined(VBOX_ONLY_EXTPACKS) || !defined(VBOX_ONLY_EXTPACKS)
+ # For bldRTTar.
+ LIBRARIES += VBoxBldProg-zlib
+ VBoxBldProg-zlib_TEMPLATE = VBoxAdvBldProg
+ VBoxBldProg-zlib_EXTENDS  = VBox-zlib
+endif
+
+#
 # Builds a Windows DLL in a separate tree so that it can be found by the scons build system.
 # Required for building NSIS (Windows Guest Additions installer) from source.
 #

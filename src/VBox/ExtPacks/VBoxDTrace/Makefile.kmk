@@ -1,4 +1,4 @@
-# $Id: Makefile.kmk 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $
+# $Id: Makefile.kmk 111649 2025-11-12 09:45:14Z knut.osmundsen@oracle.com $
 ## @file
 # Sub-makefile for VBoxDTrace.
 #
@@ -359,7 +359,11 @@ if defined(VBOX_WITH_EXTPACK_VBOXDTRACE) && defined(VBOX_WITH_EXTPACK)
 		$(VBoxDTraceIns_0_OUTDIR)/Stage/ExtPack.manifest \
 		$(VBoxDTraceIns_0_OUTDIR)/Stage/ExtPack.signature
  # Tar it up.
+ if 0
 	tar -cvf - -C $(VBoxDTraceIns_0_OUTDIR)/Stage/ . | gzip -9c > $@
+ else
+	$(VBOX_RTTAR) -cvf "$@" $(VBOX_RTTAR_EXTPACK_OPTS) -C "$(VBoxDTraceIns_0_OUTDIR)/Stage/" .
+ endif
  # Clean up
 	$(RM) -Rf $(VBoxDTraceIns_0_OUTDIR)/Stage/
 

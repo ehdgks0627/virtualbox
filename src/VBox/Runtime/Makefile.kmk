@@ -1,4 +1,4 @@
-# $Id: Makefile.kmk 111404 2025-10-14 23:11:40Z knut.osmundsen@oracle.com $
+# $Id: Makefile.kmk 111649 2025-11-12 09:45:14Z knut.osmundsen@oracle.com $
 ## @file
 # Sub-Makefile for the IPRT.
 #
@@ -2539,6 +2539,7 @@ RuntimeBldProg_SOURCES          = \
 	common/sort/shellsort.cpp \
 	common/string/base64.cpp \
 	common/string/RTStrCat.cpp \
+	common/string/RTStrCatEx.cpp \
 	common/string/RTStrCmp.cpp \
 	common/string/RTStrCopy.cpp \
 	common/string/RTStrCopyEx.cpp \
@@ -2596,10 +2597,12 @@ RuntimeBldProg_SOURCES          = \
 	common/vfs/vfsmisc.cpp \
 	common/vfs/vfsmsg.cpp \
 	common/vfs/vfsprintf.cpp \
+	common/vfs/vfsreadahead.cpp \
 	common/vfs/vfsstddir.cpp \
 	common/vfs/vfsstdfile.cpp \
 	common/vfs/vfsstdpipe.cpp \
 	common/zip/gzipvfs.cpp \
+	common/zip/cpiovfs.cpp \
 	common/zip/tarcmd.cpp \
 	common/zip/tarvfs.cpp \
 	common/zip/tarvfswriter.cpp \

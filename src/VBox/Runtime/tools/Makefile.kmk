@@ -1,4 +1,4 @@
-# $Id: Makefile.kmk 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $
+# $Id: Makefile.kmk 111649 2025-11-12 09:45:14Z knut.osmundsen@oracle.com $
 ## @file
 # Sub-Makefile for the IPRT tools.
 #
@@ -134,6 +134,18 @@ if !defined(VBOX_ONLY_DOCS)
   bldRTLdrCheckImports_TEMPLATE = VBoxAdvBldProg
   bldRTLdrCheckImports_DEFS = IPRT_IN_BUILD_TOOL
   bldRTLdrCheckImports_SOURCES = RTLdrCheckImports.cpp
+ endif
+
+endif
+
+if !defined(VBOX_ONLY_EXTPACKS) || !defined(VBOX_ONLY_EXTPACKS)
+ # RTTar - build version for extension pack packing.
+ BLDPROGS += bldRTTar
+ bldRTTar_TEMPLATE := VBoxAdvBldProg
+ bldRTTar_SOURCES  := RTTar.cpp
+ bldRTTar_SDKS     := VBoxZlibBldProg
+ ifdef VBOX_WITH_LIBLZMA
+  bldRTTar_SDKS    += VBoxLibLzmaBldProg
  endif
 endif
 

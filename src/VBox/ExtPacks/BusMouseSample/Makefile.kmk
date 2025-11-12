@@ -1,4 +1,4 @@
-# $Id: Makefile.kmk 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $
+# $Id: Makefile.kmk 111649 2025-11-12 09:45:14Z knut.osmundsen@oracle.com $
 ## @file
 # Sub-Makefile for the Bus Mouse Extension Pack Sample.
 #
@@ -193,7 +193,11 @@ $(VBOX_PATH_PACKAGES)/$(VBOX_BUSMOUSE_MANGLED_NAME)-$(VBOX_VERSION_STRING)r$(VBO
 		$(VBoxBusMouseIns_0_OUTDIR)/Stage/ExtPack.manifest \
 		$(VBoxBusMouseIns_0_OUTDIR)/Stage/ExtPack.signature
 # Tar it up.
+if 0
 	tar -cvf - -C $(VBoxBusMouseIns_0_OUTDIR)/Stage/ . | gzip -9c > $@
+else
+	$(VBOX_RTTAR) -cvf "$@" $(VBOX_RTTAR_EXTPACK_OPTS) -C "$(VBoxBusMouseIns_0_OUTDIR)/Stage/" .
+endif
 # Clean up
 	$(RM) -Rf $(VBoxBusMouseIns_0_OUTDIR)/Stage/
 

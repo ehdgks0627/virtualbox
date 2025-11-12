@@ -1,4 +1,4 @@
-# $Id: Config.kmk 111617 2025-11-11 08:26:46Z alexander.eichner@oracle.com $
+# $Id: Config.kmk 111649 2025-11-12 09:45:14Z knut.osmundsen@oracle.com $
 ## @file
 # The global build configuration file for VBox.
 #
@@ -2546,6 +2546,12 @@ VBOX_RTIASL      ?= $(PATH_OBJ)/bldRTIasl/bldRTIasl$(HOSTSUFF_EXE)
 
 # RTLdrCheckImports (checks imports against oldest supported OS version (GAs typically))
 VBOX_RTLDRCHECKIMPORTS ?= $(PATH_OBJ)/bldRTLdrCheckImports/bldRTLdrCheckImports$(HOSTSUFF_EXE)
+
+# RTTar (our own tar clone w/ lzma support for extpacks)
+VBOX_RTTAR      ?= $(PATH_OBJ)/bldRTTar/bldRTTar$(HOSTSUFF_EXE)
+# Options for packing extension packs using $(VBOX_RTTAR).
+VBOX_RTTAR_EXTPACK_OPTS = --gzip --compression-level 9 \
+	--owner "root" --group "wheel" --file-mode-and-mask 755 --dir-mode-and-mask 755
 
 # VBoxCmp (simple /bin/cmp with more sensible output)
 VBOX_VBOXCMP    ?= $(PATH_OBJ)/VBoxCmp/VBoxCmp$(HOSTSUFF_EXE)
@@ -5254,6 +5260,10 @@ ifdef VBOX_WITH_LIBLZMA
  SDK_VBoxLibLzmaStatic           := liblzma for static linking
  SDK_VBoxLibLzmaStatic_EXTENDS   := VBoxLibLzma
  SDK_VBoxLibLzmaStatic_LIBS      ?= $(PATH_STAGE_LIB)/VBox-liblzma-static$(VBOX_SUFF_LIB)
+
+ SDK_VBoxLibLzmaBldProg          := liblzma for build programs
+ SDK_VBoxLibLzmaBldProg_EXTENDS  := VBoxLibLzma
+ SDK_VBoxLibLzmaBldProg_LIBS     ?= $(PATH_STAGE_LIB)/VBoxBldProg-liblzma$(VBOX_SUFF_LIB)
 endif
 
 # libxml2
@@ -5285,6 +5295,12 @@ SDK_VBoxZlibStatic            := zlib for static linking
 SDK_VBoxZlibStatic_EXTENDS    := VBoxZlib
 if1of ($(KBUILD_TARGET), os2 win) # Not required on solaris.
  SDK_VBoxZlibStatic_LATE_LIBS ?= $(PATH_STAGE_LIB)/VBox-zlib-static$(VBOX_SUFF_LIB)
+endif
+
+SDK_VBoxZlibBldProg            := zlib for static linking
+SDK_VBoxZlibBldProg_EXTENDS    := VBoxZlib
+ifeq ($(PATH_ROOT)/src/libs,$(substr $(SDK_VBoxZlib_INCS), 1, $(length $(PATH_ROOT)/src/libs)))
+ SDK_VBoxZlibBldProg_LATE_LIBS ?= $(PATH_STAGE_LIB)/VBoxBldProg-zlib$(VBOX_SUFF_LIB)
 endif
 
 if (defined(VBOX_WITH_INIP) || defined(VBOX_WITH_NAT_SERVICE))
@@ -8678,12 +8694,12 @@ endif # !win
 # Advanced build programs using IPRT and stuff.
 #
 TEMPLATE_VBoxAdvBldProg = Advanced VBox Build Program
-TEMPLATE_VBoxAdvBldProg_EXTENDS = VBoxBldProg
-TEMPLATE_VBoxAdvBldProg_SDKS    = $(TEMPLATE_VBoxBldProg_SDKS)
-TEMPLATE_VBoxAdvBldProg_SDKS.win = $(TEMPLATE_VBoxBldProg_SDKS.win) VBoxNtDll
-TEMPLATE_VBoxAdvBldProg_DEFS    = $(TEMPLATE_VBoxBldProg_DEFS) IN_RT_R3 IN_ADV_BLD_PROG
+TEMPLATE_VBoxAdvBldProg_EXTENDS  := VBoxBldProg
+TEMPLATE_VBoxAdvBldProg_SDKS      = $(TEMPLATE_VBoxBldProg_SDKS)
+TEMPLATE_VBoxAdvBldProg_SDKS.win  = $(TEMPLATE_VBoxBldProg_SDKS.win) VBoxNtDll
+TEMPLATE_VBoxAdvBldProg_DEFS      = $(TEMPLATE_VBoxBldProg_DEFS) IN_RT_R3 IN_ADV_BLD_PROG
 ifeq ($(KBUILD_HOST),win)
- TEMPLATE_VBoxAdvBldProg_CFLAGS = $(TEMPLATE_VBoxBldProg_CFLAGS) $(VBOX_VCC_WERR)
+ TEMPLATE_VBoxAdvBldProg_CFLAGS   = $(TEMPLATE_VBoxBldProg_CFLAGS) $(VBOX_VCC_WERR)
  TEMPLATE_VBoxAdvBldProg_CXXFLAGS = $(TEMPLATE_VBoxBldProg_CXXFLAGS) $(VBOX_VCC_WERR)
  TEMPLATE_VBoxAdvBldProg_PCHFLAGS = $(TEMPLATE_VBoxAdvBldProg_CXXFLAGS)
 endif
@@ -8712,6 +8728,24 @@ TEMPLATE_VBoxAdvBldProg_LATE_LIBS.solaris = \
 	socket \
 	nsl \
 	$(TEMPLATE_VBoxBldProg_LATE_LIBS.solaris)
+
+#
+# A less pedantic version of VBoxAdvBldProg for building 3rd party libraries.
+#
+TEMPLATE_VBoxAdvBldProgNonPedantic = Non-pedantic Advanced VBox Build Program
+TEMPLATE_VBoxAdvBldProgNonPedantic_EXTENDS := VBoxAdvBldProg
+ifeq ($(KBUILD_TARGET),win)
+ TEMPLATE_VBoxAdvBldProgNonPedantic_CFLAGS   = $(TEMPLATE_VBoxAdvBldProg_CFLAGS)   $(VBOX_VCC_NON_PEDANTIC)
+ TEMPLATE_VBoxAdvBldProgNonPedantic_CXXFLAGS = $(TEMPLATE_VBoxAdvBldProg_CXXFLAGS) $(VBOX_VCC_NON_PEDANTIC)
+ TEMPLATE_VBoxAdvBldProgNonPedantic_PCHFLAGS = $(TEMPLATE_VBoxAdvBldProg_PCHFLAGS) $(VBOX_VCC_NON_PEDANTIC)
+else # gcc:
+ TEMPLATE_VBoxAdvBldProgNonPedantic_CFLAGS   = $(filter-out $(VBOX_GCC_WERR) $(VBOX_GCC_WARN_MASOCHISTIC) $(VBOX_GCC_PEDANTIC_C)  ,$(TEMPLATE_VBoxAdvBldProg_CFLAGS)) \
+ 	$(VBOX_GCC_NON_PEDANTIC_CXX)
+ TEMPLATE_VBoxAdvBldProgNonPedantic_CXXFLAGS = $(filter-out $(VBOX_GCC_WERR) $(VBOX_GCC_WARN_MASOCHISTIC) $(VBOX_GCC_PEDANTIC_CXX),$(TEMPLATE_VBoxAdvBldProg_CXXFLAGS)) \
+ 	$(VBOX_GCC_NON_PEDANTIC_CXX)
+ TEMPLATE_VBoxAdvBldProgNonPedantic_PCHFLAGS = $(filter-out $(VBOX_GCC_WERR) $(VBOX_GCC_WARN_MASOCHISTIC) $(VBOX_GCC_PEDANTIC_CXX),$(TEMPLATE_VBoxAdvBldProg_PCHFLAGS)) \
+ 	$(VBOX_GCC_NON_PEDANTIC_CXX)
+endif
 
 
 #
@@ -9429,7 +9463,7 @@ SVN                    ?= svn$(HOSTSUFF_EXE)
 GIT                    ?= git$(HOSTSUFF_EXE)
 VBOX_SVN_REV_KMK        = $(PATH_OUT)/revision.kmk
 ifndef VBOX_SVN_REV
- VBOX_SVN_REV_CONFIG_FALLBACK := $(patsubst %:,,  $Rev: 111617 $  )
+ VBOX_SVN_REV_CONFIG_FALLBACK := $(patsubst %:,,  $Rev: 111649 $  )
  VBOX_SVN_REV_FALLBACK := $(if-expr $(VBOX_SVN_REV_CONFIG_FALLBACK) > $(VBOX_SVN_REV_VERSION_FALLBACK),$(VBOX_SVN_REV_CONFIG_FALLBACK),$(VBOX_SVN_REV_VERSION_FALLBACK))
  VBOX_SVN_DEP          := $(firstword $(wildcard $(PATH_ROOT)/.svn/wc.db $(abspath $(PATH_ROOT)/../.svn/wc.db) $(abspath $(PATH_ROOT)/../../.svn/wc.db) $(PATH_ROOT)/.svn/entries))
  VBOX_GIT_DEP          := $(firstword $(wildcard $(PATH_ROOT)/.git/config $(abspath $(PATH_ROOT)/../.git/config) $(abspath $(PATH_ROOT)/../../.git/config)))
@@ -9443,7 +9477,7 @@ ifndef VBOX_SVN_REV
  ifneq ($(VBOX_GIT_DEP),)
   #
   # VBOX_SVN_REV_CONFIG_FALLBACK is not properly populated for a git checkout,
-  # as the $Rev: 111617 $ is not expanded, so we have to set it based on the information in the repo.
+  # as the $Rev: 111649 $ is not expanded, so we have to set it based on the information in the repo.
   #
   VBOX_SVN_REV_FALLBACK := $(shell $(GIT) log -1 $(PATH_ROOT)/Config.kmk | $(SED) -e 's/^[ \t]*//' -e '/svn:sync-xref-src-repo-rev\: r/!d' -e 's/svn:sync-xref-src-repo-rev\: r*//; t a; :a q')
  endif
