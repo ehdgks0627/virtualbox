@@ -1,4 +1,4 @@
-# $Id: Config.kmk 111668 2025-11-12 12:23:09Z knut.osmundsen@oracle.com $
+# $Id: Config.kmk 111669 2025-11-12 12:30:54Z knut.osmundsen@oracle.com $
 ## @file
 # The global build configuration file for VBox.
 #
@@ -5281,8 +5281,9 @@ SDK_VBoxLibXml2_DEFS.win      ?= WIN32 _WINDOWS _MBCS HAVE_WIN32_THREADS HAVE_CO
 
 # zlib
 SDK_VBoxZlib                  := zlib for dll linking.
+ SDK_VBoxZlib_VBOX_DEFAULT_INCS := $(PATH_ROOT)/src/libs/zlib-1.3.1
 if1of ($(KBUILD_TARGET), os2 solaris win)
- SDK_VBoxZlib_INCS            ?= $(PATH_ROOT)/src/libs/zlib-1.3.1
+ SDK_VBoxZlib_INCS            ?= $(SDK_VBoxZlib_VBOX_DEFAULT_INCS)
  SDK_VBoxZlib_LATE_LIBS       ?= $(PATH_STAGE_LIB)/VBox-zlib$(VBOX_SUFF_LIB)
 else
  SDK_VBoxZlib_INCS            ?=
@@ -5292,7 +5293,7 @@ endif
 
 SDK_VBoxZlib-x86              := zlib/x86
 SDK_VBoxZlib-x86_EXTENDS       = VBoxZlib
-if1of ($(KBUILD_TARGET), os2 solaris win)
+ifeq ($(SDK_VBoxZlib_INCS),$(SDK_VBoxZlib_VBOX_DEFAULT_INCS))
  SDK_VBoxZlib-x86_LIBS        ?= $(PATH_STAGE_LIB)/VBox-zlib-x86$(VBOX_SUFF_LIB)
 endif
 
@@ -5304,7 +5305,7 @@ endif
 
 SDK_VBoxZlibBldProg            := zlib for static linking
 SDK_VBoxZlibBldProg_EXTENDS    := VBoxZlib
-ifeq ($(PATH_ROOT)/src/libs,$(substr $(SDK_VBoxZlib_INCS), 1, $(length $(PATH_ROOT)/src/libs)))
+ifeq ($(SDK_VBoxZlib_INCS),$(SDK_VBoxZlib_VBOX_DEFAULT_INCS))
  SDK_VBoxZlibBldProg_LATE_LIBS ?= $(PATH_STAGE_LIB)/VBoxBldProg-zlib$(VBOX_SUFF_LIB)
 endif
 
@@ -9468,7 +9469,7 @@ SVN                    ?= svn$(HOSTSUFF_EXE)
 GIT                    ?= git$(HOSTSUFF_EXE)
 VBOX_SVN_REV_KMK        = $(PATH_OUT)/revision.kmk
 ifndef VBOX_SVN_REV
- VBOX_SVN_REV_CONFIG_FALLBACK := $(patsubst %:,,  $Rev: 111668 $  )
+ VBOX_SVN_REV_CONFIG_FALLBACK := $(patsubst %:,,  $Rev: 111669 $  )
  VBOX_SVN_REV_FALLBACK := $(if-expr $(VBOX_SVN_REV_CONFIG_FALLBACK) > $(VBOX_SVN_REV_VERSION_FALLBACK),$(VBOX_SVN_REV_CONFIG_FALLBACK),$(VBOX_SVN_REV_VERSION_FALLBACK))
  VBOX_SVN_DEP          := $(firstword $(wildcard $(PATH_ROOT)/.svn/wc.db $(abspath $(PATH_ROOT)/../.svn/wc.db) $(abspath $(PATH_ROOT)/../../.svn/wc.db) $(PATH_ROOT)/.svn/entries))
  VBOX_GIT_DEP          := $(firstword $(wildcard $(PATH_ROOT)/.git/config $(abspath $(PATH_ROOT)/../.git/config) $(abspath $(PATH_ROOT)/../../.git/config)))
@@ -9482,7 +9483,7 @@ ifndef VBOX_SVN_REV
  ifneq ($(VBOX_GIT_DEP),)
   #
   # VBOX_SVN_REV_CONFIG_FALLBACK is not properly populated for a git checkout,
-  # as the $Rev: 111668 $ is not expanded, so we have to set it based on the information in the repo.
+  # as the $Rev: 111669 $ is not expanded, so we have to set it based on the information in the repo.
   #
   VBOX_SVN_REV_FALLBACK := $(shell $(GIT) log -1 $(PATH_ROOT)/Config.kmk | $(SED) -e 's/^[ \t]*//' -e '/svn:sync-xref-src-repo-rev\: r/!d' -e 's/svn:sync-xref-src-repo-rev\: r*//; t a; :a q')
  endif
