@@ -1,4 +1,4 @@
-# $Id: Makefile.kmk 111649 2025-11-12 09:45:14Z knut.osmundsen@oracle.com $
+# $Id: Makefile.kmk 111653 2025-11-12 10:30:03Z knut.osmundsen@oracle.com $
 ## @file
 # Sub-Makefile for the IPRT tools.
 #
@@ -138,7 +138,7 @@ if !defined(VBOX_ONLY_DOCS)
 
 endif
 
-if !defined(VBOX_ONLY_EXTPACKS) || !defined(VBOX_ONLY_EXTPACKS)
+if !defined(VBOX_ONLY_BUILD) || !defined(VBOX_ONLY_EXTPACKS)
  # RTTar - build version for extension pack packing.
  BLDPROGS += bldRTTar
  bldRTTar_TEMPLATE := VBoxAdvBldProg
