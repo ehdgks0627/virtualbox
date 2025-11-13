@@ -1,4 +1,4 @@
-# $Id: .scm-settings 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $
+# $Id: .scm-settings 111704 2025-11-13 14:43:46Z knut.osmundsen@oracle.com $
 ## @file
 # Source code massager settings for the VMM.
 #
@@ -33,9 +33,9 @@
 /include/PGMGstDefs-x86.h: --no-fix-header-guards
 /include/PGMSlatDefs.h: --no-fix-header-guards
 /VMMR0/PGMR0Bth.h: --no-fix-header-guards
-/VMMR3/PGMPhysRWTmpl.h: --no-fix-header-guards
+/VMMR3/PGMR3PhysRWTmpl.h: --no-fix-header-guards
 /VMMAll/CPUMAllCpuIdArmV8.cpp.h: --dont-set-svn-keywords
-/VMMAll/PGMAll*-*.cpp.h: --no-fix-header-guards
+/VMMAll/PGMAsll*-*.cpp.h: --no-fix-header-guards
 /VMMAll/target-armv8/IEMAllInstrA64Impl.h: --no-fix-header-guards
 /VMMAll/target-x86/IEMAllInstCommonBodyMacros-x86.h: --no-fix-header-guards
 /VMMAll/target-x86/IEMAllN8veLiveness-x86.h: --no-fix-header-guards
@@ -51,7 +51,7 @@
 /*.h:   --only-guest-host-page
 # Except in the pool where more care/work is needed.
 /VMMAll/PGMAllPool.cpp: --no-page-restrictions
-/VMMR3/PGMPool.cpp:     --no-page-restrictions
+/VMMR3/PGMR3Pool.cpp:   --no-page-restrictions
 /testcase/tstVMStructSize.cpp:     --no-page-restrictions
 
 # Forbid ASMMemIsZeroPage and ASMMemZeroPage.
