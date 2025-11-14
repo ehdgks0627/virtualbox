@@ -1,4 +1,4 @@
-/* $Id: GCMR3.cpp 111695 2025-11-13 13:31:17Z knut.osmundsen@oracle.com $ */
+/* $Id: GCMR3.cpp 111723 2025-11-14 09:19:02Z alexander.eichner@oracle.com $ */
 /** @file
  * GCM - Guest Compatibility Manager.
  */
@@ -420,7 +420,8 @@ static DECLCALLBACK(void) gcmR3PatchGuest(PVM pVM, GCMGSTPATCHID enmPatch)
          * Ensure that the state necessary for memory accesses is imported as we might
          * be called through an I/O port handler where this might not be the case.
          */
-        CPUM_IMPORT_EXTRN_RCSTRICT(VMMGetCpu(pVM),
+        PVMCPUCC pVCpu = VMMGetCpu(pVM);
+        CPUM_IMPORT_EXTRN_RCSTRICT(pVCpu,
                                      CPUMCTX_EXTRN_RIP
                                    | CPUMCTX_EXTRN_RFLAGS
                                    | CPUMCTX_EXTRN_SS   /* for CPL */
