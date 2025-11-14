@@ -1742,7 +1742,9 @@ EOF
         if test_execute; then
           cnf_append "SDK_VBoxLibVpx_INCS" "$INCVPX"
           cnf_append "SDK_VBoxLibVpx_LIBS" "`strip_l "$LIBVPX"`"
-          fi
+        fi
+      else
+        echo "not found -- builing libvpx from in-tree code."
       fi
     fi
   fi
