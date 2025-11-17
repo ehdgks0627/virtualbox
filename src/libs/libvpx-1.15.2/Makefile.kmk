@@ -1,4 +1,4 @@
-# $Id: Makefile.kmk 111758 2025-11-17 14:21:07Z alexander.rudnev@oracle.com $
+# $Id: Makefile.kmk 111759 2025-11-17 14:39:19Z alexander.rudnev@oracle.com $
 ## @file
 # Sub-Makefile for the WebM libvpx SDK.
 #
@@ -214,7 +214,6 @@ VBox-libvpx_SOURCES = \
 	vpx/src/vpx_encoder.c \
 	vpx/src/vpx_codec.c \
 	vpx/src/vpx_image.c \
-	vpx/src/vpx_tpl.c \
 	vpx_mem/vpx_mem.c \
 	vpx_scale/generic/vpx_scale.c \
 	vpx_scale/generic/yv12config.c \
