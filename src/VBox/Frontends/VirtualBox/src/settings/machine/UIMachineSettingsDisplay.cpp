@@ -1,4 +1,4 @@
-/* $Id: UIMachineSettingsDisplay.cpp 111787 2025-11-18 11:20:58Z sergey.dubov@oracle.com $ */
+/* $Id: UIMachineSettingsDisplay.cpp 111788 2025-11-18 11:38:21Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - UIMachineSettingsDisplay class implementation.
  */
@@ -124,96 +124,6 @@ struct UIDataSettingsMachineDisplay
     bool operator==(const UIDataSettingsMachineDisplay &other) const { return equal(other); }
     /** Returns whether the @a other passed data is different from this one. */
     bool operator!=(const UIDataSettingsMachineDisplay &other) const { return !equal(other); }
-
-    /** Recording options. Serialized as a string ('key=value,key2=value2'). */
-    enum RecordingOption
-    {
-        RecordingOption_Unknown,
-    };
-
-    /** Returns enum value corresponding to passed @a strKey. */
-    static RecordingOption toRecordingOptionKey(const QString &strKey)
-    {
-        /* Compare case-sensitive: */
-        QMap<QString, RecordingOption> keys;
-        /* Return known value or RecordingOption_Unknown otherwise: */
-        return keys.value(strKey, RecordingOption_Unknown);
-    }
-
-    /** Returns string representation for passed enum @a enmKey. */
-    static QString fromRecordingOptionKey(RecordingOption enmKey)
-    {
-        /* Compare case-sensitive: */
-        QMap<RecordingOption, QString> values;
-        /* Return known value or QString() otherwise: */
-        return values.value(enmKey);
-    }
-
-    /** Parses recording options. */
-    static void parseRecordingOptions(const QString &strOptions,
-                                      QList<RecordingOption> &outKeys,
-                                      QStringList &outValues)
-    {
-        outKeys.clear();
-        outValues.clear();
-        const QStringList aPairs = strOptions.split(',');
-        foreach (const QString &strPair, aPairs)
-        {
-            const QStringList aPair = strPair.split('=');
-            if (aPair.size() != 2)
-                continue;
-            const RecordingOption enmKey = toRecordingOptionKey(aPair.value(0));
-            if (enmKey == RecordingOption_Unknown)
-                continue;
-            outKeys << enmKey;
-            outValues << aPair.value(1);
-        }
-    }
-
-    /** Serializes recording options. */
-    static void serializeRecordingOptions(const QList<RecordingOption> &inKeys,
-                                          const QStringList &inValues,
-                                          QString &strOptions)
-    {
-        QStringList aPairs;
-        for (int i = 0; i < inKeys.size(); ++i)
-        {
-            QStringList aPair;
-            aPair << fromRecordingOptionKey(inKeys.value(i));
-            aPair << inValues.value(i);
-            aPairs << aPair.join('=');
-        }
-        strOptions = aPairs.join(',');
-    }
-
-    /** Sets the video recording options for @a enmOptions to @a values. */
-    static QString setRecordingOptions(const QString &strOptions,
-                                       const QVector<RecordingOption> &enmOptions,
-                                       const QStringList &values)
-    {
-        if (enmOptions.size() != values.size())
-            return QString();
-        QList<RecordingOption> aKeys;
-        QStringList aValues;
-        parseRecordingOptions(strOptions, aKeys, aValues);
-        for(int i = 0; i < values.size(); ++i)
-        {
-            QString strValue = values[i];
-            int iIndex = aKeys.indexOf(enmOptions[i]);
-            if (iIndex == -1)
-            {
-                aKeys << enmOptions[i];
-                aValues << strValue;
-            }
-            else
-            {
-                aValues[iIndex] = strValue;
-            }
-        }
-        QString strResult;
-        serializeRecordingOptions(aKeys, aValues, strResult);
-        return strResult;
-    }
 
     /** Holds the video RAM amount. */
     int                      m_iCurrentVRAM;
