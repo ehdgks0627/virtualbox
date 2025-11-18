@@ -1,4 +1,4 @@
-# $Id: Makefile.kmk 111714 2025-11-13 15:31:19Z knut.osmundsen@oracle.com $
+# $Id: Makefile.kmk 111773 2025-11-18 05:19:26Z ramshankar.venkataraman@oracle.com $
 ## @file
 # Top-level makefile for the VMM.
 #
@@ -553,7 +553,7 @@ ifdef VBOX_WITH_VIRT_ARMV8
  	VMMAll/PGMAllPhys.cpp \
  	VMMAll/EMAll.cpp \
  	VMMAll/target-armv8/GICAll-armv8.cpp \
- 	VMMAll/GITSAll.cpp \
+ 	VMMAll/target-armv8/GITSAll-armv8.cpp \
  	VMMAll/GIMAll.cpp \
  	VMMAll/PMUAll.cpp \
  	VMMAll/TMAll.cpp \
