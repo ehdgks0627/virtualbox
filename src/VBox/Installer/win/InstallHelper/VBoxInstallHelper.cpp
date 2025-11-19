@@ -1,4 +1,4 @@
-/* $Id: VBoxInstallHelper.cpp 111811 2025-11-19 12:00:59Z andreas.loeffler@oracle.com $ */
+/* $Id: VBoxInstallHelper.cpp 111812 2025-11-19 13:53:21Z andreas.loeffler@oracle.com $ */
 /** @file
  * VBoxInstallHelper - Various helper routines for Windows host installer.
  */
@@ -79,6 +79,7 @@
 #ifdef DEBUG_OS_ARCHITECTURE
 # include <iprt/ldr.h>
 #endif
+
 
 /*********************************************************************************************************************************
 *   Defined Constants And Macros                                                                                                 *
