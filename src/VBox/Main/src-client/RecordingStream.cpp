@@ -1,4 +1,4 @@
-/* $Id: RecordingStream.cpp 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $ */
+/* $Id: RecordingStream.cpp 111808 2025-11-19 10:23:45Z andreas.loeffler@oracle.com $ */
 /** @file
  * Recording stream code.
  */
@@ -202,11 +202,17 @@ bool RecordingStream::isLimitReachedInternal(uint64_t msTimestamp) const
  */
 int RecordingStream::iterateInternal(uint64_t msTimestamp)
 {
+#ifdef DEBUG
     AssertReturn(!RTCritSectIsOwner(&m_CritSect), VERR_WRONG_ORDER);
+    lock();
+    AssertReturnStmt(   m_enmState == RECORDINGSTREAMSTATE_STARTED
+                     || m_enmState == RECORDINGSTREAMSTATE_STOPPING, unlock(), VINF_RECORDING_LIMIT_REACHED);
+    unlock();
+#endif
 
     if (   m_enmState != RECORDINGSTREAMSTATE_STARTED
         && m_enmState != RECORDINGSTREAMSTATE_STOPPING)
-        return VINF_SUCCESS;
+        return VINF_RECORDING_LIMIT_REACHED;
 
     int vrc;
 
@@ -720,13 +726,6 @@ int RecordingStream::SendCursorPos(uint8_t idCursor, PRECORDINGPOS pPos, uint64_
 {
     RT_NOREF(idCursor);
 
-#ifdef DEBUG
-    lock();
-    AssertPtrReturn(pPos, VERR_INVALID_POINTER);
-    AssertReturnStmt(m_enmState == RECORDINGSTREAMSTATE_STARTED, unlock(), VERR_WRONG_ORDER);
-    unlock();
-#endif
-
     int vrc = iterateInternal(msTimestamp);
     if (vrc != VINF_SUCCESS) /* Can return VINF_RECORDING_LIMIT_REACHED. */
         return vrc;
@@ -761,13 +760,6 @@ int RecordingStream::SendCursorPos(uint8_t idCursor, PRECORDINGPOS pPos, uint64_
 int RecordingStream::SendCursorShape(uint8_t idCursor, PRECORDINGVIDEOFRAME pShape, uint64_t msTimestamp)
 {
     RT_NOREF(idCursor);
-
-#ifdef DEBUG
-    lock();
-    AssertPtrReturn(pShape, VERR_INVALID_POINTER);
-    AssertReturnStmt(m_enmState == RECORDINGSTREAMSTATE_STARTED, unlock(), VERR_WRONG_ORDER);
-    unlock();
-#endif
 
     int vrc = iterateInternal(msTimestamp);
     if (vrc != VINF_SUCCESS) /* Can return VINF_RECORDING_LIMIT_REACHED. */
@@ -815,13 +807,6 @@ int RecordingStream::SendCursorShape(uint8_t idCursor, PRECORDINGVIDEOFRAME pSha
  */
 int RecordingStream::SendVideoFrame(PRECORDINGVIDEOFRAME pVideoFrame, uint64_t msTimestamp)
 {
-#ifdef DEBUG
-    lock();
-    AssertPtrReturn(pVideoFrame, VERR_INVALID_POINTER);
-    AssertReturnStmt(m_enmState == RECORDINGSTREAMSTATE_STARTED, unlock(), VERR_WRONG_ORDER);
-    unlock();
-#endif
-
     int vrc = iterateInternal(msTimestamp);
     if (vrc != VINF_SUCCESS) /* Can return VINF_RECORDING_LIMIT_REACHED. */
         return vrc;

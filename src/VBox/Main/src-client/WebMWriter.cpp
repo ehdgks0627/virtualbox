@@ -1,4 +1,4 @@
-/* $Id: WebMWriter.cpp 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $ */
+/* $Id: WebMWriter.cpp 111808 2025-11-19 10:23:45Z andreas.loeffler@oracle.com $ */
 /** @file
  * WebMWriter.cpp - WebM container handling.
  */
@@ -863,13 +863,18 @@ void WebMWriter::writeSeekHeader(void)
     char szApp[64];
     RTStrPrintf(szApp, sizeof(szApp), VBOX_PRODUCT " %sr%u", VBOX_VERSION_STRING, RTBldCfgRevision());
 
+    Assert(m_CurSeg.m_tcAbsLastWrittenMs >= m_CurSeg.m_tcAbsStartMs);
     const WebMTimecodeAbs tcAbsDurationMs = m_CurSeg.m_tcAbsLastWrittenMs - m_CurSeg.m_tcAbsStartMs;
 
-    if (!m_CurSeg.m_lstCuePoints.empty())
-    {
-        LogFunc(("tcAbsDurationMs=%RU64\n", tcAbsDurationMs));
-        AssertMsg(tcAbsDurationMs, ("Segment seems to be empty (duration is 0)\n"));
-    }
+    LogFunc(("%zu cue points, tcAbsDurationMs=%RU64\n", m_CurSeg.m_lstCuePoints.size(), tcAbsDurationMs));
+
+    /* Sanity. */
+    if (   !m_CurSeg.m_lstCuePoints.empty()
+        &&  m_CurSeg.m_tcAbsLastWrittenMs) /* There must be at least one write happened. */
+        AssertMsg(tcAbsDurationMs, ("Current segment (%zu cue points) seems to be empty (duration is 0)"
+                                    " -- tcAbsLastWrittenMs=%RU64, tcAbsStartMs=%RU64\n",
+                                    m_CurSeg.m_lstCuePoints.size(),
+                                    m_CurSeg.m_tcAbsLastWrittenMs, m_CurSeg.m_tcAbsStartMs));
 
     subStart(MkvElem_Info)
         .serializeUnsignedInteger(MkvElem_TimecodeScale, m_CurSeg.m_uTimecodeScaleFactor)
