@@ -1,4 +1,4 @@
-/* $Id: tstClipboardTransfers.cpp 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $ */
+/* $Id: tstClipboardTransfers.cpp 111838 2025-11-21 10:40:02Z alexander.eichner@oracle.com $ */
 /** @file
  * Shared Clipboard transfers test case.
  */
@@ -405,8 +405,12 @@ static void testTransferObjOpen(RTTEST hTest)
     lstRoots.append(TESTTRANSFERROOTENTRY("my-transfer-1/dir1/sub1/file1.txt"));
     lstRoots.append(TESTTRANSFERROOTENTRY("my-transfer-1/dir2/file1.txt"));
     lstRoots.append(TESTTRANSFERROOTENTRY("my-transfer-1/dir2/sub1/file1.txt"));
+    lstRoots.append(TESTTRANSFERROOTENTRY("my-transfer-1/dir2/sub1/file2..txt"));
+    lstRoots.append(TESTTRANSFERROOTENTRY("my-transfer-1/dir2/sub1/file2...txt"));
 
     testTransferObjOpenSingle(hTest, lstRoots, "file1.txt", VINF_SUCCESS);
+    testTransferObjOpenSingle(hTest, lstRoots, "file2..txt", VINF_SUCCESS);
+    testTransferObjOpenSingle(hTest, lstRoots, "file2...txt", VINF_SUCCESS);
     testTransferObjOpenSingle(hTest, lstRoots, "does-not-exist.txt", VERR_PATH_NOT_FOUND);
     testTransferObjOpenSingle(hTest, lstRoots, "dir1/does-not-exist.txt", VERR_PATH_NOT_FOUND);
     testTransferObjOpenSingle(hTest, lstRoots, "../must-not-access-this.txt", VERR_INVALID_PARAMETER);

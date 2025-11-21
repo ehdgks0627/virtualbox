@@ -1,4 +1,4 @@
-/* $Id: clipboard-transfers.cpp 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $ */
+/* $Id: clipboard-transfers.cpp 111838 2025-11-21 10:40:02Z alexander.eichner@oracle.com $ */
 /** @file
  * Shared Clipboard: Common clipboard transfer handling code.
  */
@@ -3407,45 +3407,54 @@ int ShClTransferValidatePath(const char *pcszPath, bool fMustExist)
 {
     int rc = VINF_SUCCESS;
 
-    if (!strlen(pcszPath))
-        rc = VERR_INVALID_PARAMETER;
-
-    if (   RT_SUCCESS(rc)
-        && !RTStrIsValidEncoding(pcszPath))
+    if (*pcszPath != '\0')
     {
-        rc = VERR_INVALID_UTF8_ENCODING;
-    }
-
-    if (   RT_SUCCESS(rc)
-        && RTStrStr(pcszPath, ".."))
-    {
-        rc = VERR_INVALID_PARAMETER;
-    }
-
-    if (   RT_SUCCESS(rc)
-        && fMustExist)
-    {
-        RTFSOBJINFO objInfo;
-        rc = RTPathQueryInfo(pcszPath, &objInfo, RTFSOBJATTRADD_NOTHING);
-        if (RT_SUCCESS(rc))
+        if (RTStrIsValidEncoding(pcszPath))
         {
-            if (RTFS_IS_DIRECTORY(objInfo.Attr.fMode))
+            union
             {
-                if (!RTDirExists(pcszPath)) /* Path must exist. */
-                    rc = VERR_PATH_NOT_FOUND;
-            }
-            else if (RTFS_IS_FILE(objInfo.Attr.fMode))
+                RTPATHSPLIT     Split;
+                uint8_t         ab[RTPATH_MAX + sizeof(RTPATHSPLIT)];
+            } u;
+
+            rc = RTPathSplit(pcszPath, &u.Split, sizeof(u), RTPATH_STR_F_STYLE_HOST);
+            if (RT_SUCCESS(rc))
             {
-                if (!RTFileExists(pcszPath)) /* File must exist. */
-                    rc = VERR_FILE_NOT_FOUND;
-            }
-            else /* Everything else (e.g. symbolic links) are not supported. */
-            {
-                LogRelMax(64, ("Shared Clipboard: Path '%s' contains a symbolic link or junction, which are not supported\n", pcszPath));
-                rc = VERR_NOT_SUPPORTED;
+                if (!(u.Split.fProps & RTPATH_PROP_DOTDOT_REFS))
+                {
+                    if (fMustExist)
+                    {
+                        RTFSOBJINFO objInfo;
+                        rc = RTPathQueryInfo(pcszPath, &objInfo, RTFSOBJATTRADD_NOTHING);
+                        if (RT_SUCCESS(rc))
+                        {
+                            if (RTFS_IS_DIRECTORY(objInfo.Attr.fMode))
+                            {
+                                if (!RTDirExists(pcszPath)) /* Path must exist. */
+                                    rc = VERR_PATH_NOT_FOUND;
+                            }
+                            else if (RTFS_IS_FILE(objInfo.Attr.fMode))
+                            {
+                                if (!RTFileExists(pcszPath)) /* File must exist. */
+                                    rc = VERR_FILE_NOT_FOUND;
+                            }
+                            else /* Everything else (e.g. symbolic links) are not supported. */
+                            {
+                                LogRelMax(64, ("Shared Clipboard: Path '%s' contains a symbolic link or junction, which are not supported\n", pcszPath));
+                                rc = VERR_NOT_SUPPORTED;
+                            }
+                        }
+                    }
+                }
+                else
+                    rc = VERR_INVALID_PARAMETER;
             }
         }
+        else
+            rc = VERR_INVALID_UTF8_ENCODING;
     }
+    else
+        rc = VERR_INVALID_PARAMETER;
 
     if (RT_FAILURE(rc))
         LogRelMax(64, ("Shared Clipboard: Validating path '%s' failed: %Rrc\n", pcszPath, rc));
