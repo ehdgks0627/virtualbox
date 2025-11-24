@@ -7243,11 +7243,11 @@
 
         Changes to this object will not necessarily be preserved unless
         <link to="IPlatform::architecture"/> is set to <link to="PlatformArchitecture_x86"/>.
-      </desc>
 
-      <result name="VBOX_E_PLATFORM_ARCH_NOT_SUPPORTED">
-        Current platform  architecture is not x86.
-      </result>
+        <result name="VBOX_E_PLATFORM_ARCH_NOT_SUPPORTED">
+          Current platform  architecture is not x86.
+        </result>
+      </desc>
     </attribute>
 
     <attribute name="ARM" type="IPlatformARM" readonly="yes">
@@ -7256,11 +7256,11 @@
 
         Changes to this object will not necessarily be preserved unless
         <link to="IPlatform::architecture"/> is set to <link to="PlatformArchitecture_ARM"/>.
-      </desc>
 
-      <result name="VBOX_E_PLATFORM_ARCH_NOT_SUPPORTED">
-        Current platform  architecture is not ARM.
-      </result>
+        <result name="VBOX_E_PLATFORM_ARCH_NOT_SUPPORTED">
+          Current platform  architecture is not ARM.
+        </result>
+      </desc>
     </attribute>
 
     <!-- Properties common to both (placed here to reduce IMachine bloat): -->
@@ -11079,10 +11079,11 @@
           <link to="IMachine::addEncryptionPassword"/> or
           <link to="IMachine::addEncryptionPasswords"/> methods.
         </note>
+
+        <result name="VBOX_E_INVALID_VM_STATE">
+          The VM is not in proper state e.g powered on.
+        </result>
       </desc>
-      <result name="VBOX_E_INVALID_VM_STATE">
-        The VM is not in proper state e.g powered on.
-      </result>
       <param name="id" type="wstring" dir="in">
         <desc>
           The identifier used for the password. Must match the identifier
@@ -12182,10 +12183,10 @@
     <method name="download">
       <desc>
         Downloads the update.
+        <result name="VBOX_E_NOT_SUPPORTED">
+          Downloading update not supported.
+        </result>
       </desc>
-      <result name="VBOX_E_NOT_SUPPORTED">
-        Downloading update not supported.
-      </result>
       <param name="progress" type="IProgress" dir="return">
         <desc>Progress object to track operation completion.</desc>
       </param>
@@ -12194,10 +12195,10 @@
     <method name="install">
       <desc>
         Installs the update.
+        <result name="VBOX_E_NOT_SUPPORTED">
+          Installing update not supported.
+        </result>
       </desc>
-      <result name="VBOX_E_NOT_SUPPORTED">
-        Installing update not supported.
-      </result>
       <param name="progress" type="IProgress" dir="return">
         <desc>Progress object to track operation completion.</desc>
       </param>
@@ -12227,59 +12228,59 @@
     <attribute name="order" type="unsigned long" readonly="yes">
       <desc>
         Order hint the update component needs to run at, in conjunction with other update components.
+        <result name="0">
+          No order preferred / disabled.
+        </result>
+        <note>
+          Lower numbers mean higher priority. 0 means no order or disabled.
+        </note>
       </desc>
-      <result name="0">
-        No order preferred / disabled.
-      </result>
-      <note>
-        Lower numbers mean higher priority. 0 means no order or disabled.
-      </note>
     </attribute>
 
     <attribute name="dependsOn" type="wstring" readonly="yes" safearray="yes">
       <desc>
         Array of other update component names this component depends on before being able to get installed.
+        <note>
+          Ordered entries, highest priority first. No dependencies when array is empty.
+          Dependency entries also can contain a minimum version number after the update component name, separated by an "@",
+          e.g. "Guest Additions@7.1.0_BETA2".
+        </note>
       </desc>
-      <note>
-        Ordered entries, highest priority first. No dependencies when array is empty.
-        Dependency entries also can contain a minimum version number after the update component name, separated by an "@",
-        e.g. "Guest Additions@7.1.0_BETA2".
-      </note>
     </attribute>
 
     <attribute name="version" type="wstring" readonly="yes">
-      <result name="VBOX_E_INVALID_OBJECT_STATE">
-        Result not available yet.
-      </result>
       <desc>
         Version the update contains.
+        <result name="VBOX_E_INVALID_OBJECT_STATE">
+          Result not available yet.
+        </result>
       </desc>
     </attribute>
 
     <attribute name="downloadUrl" type="wstring" readonly="yes">
-      <result name="VBOX_E_INVALID_OBJECT_STATE">
-        Result not available yet.
-      </result>
       <desc>
         Download URL of the update.
+        <result name="VBOX_E_INVALID_OBJECT_STATE">
+          Result not available yet.
+        </result>
       </desc>
     </attribute>
 
     <attribute name="webUrl" type="wstring" readonly="yes">
-      <result name="VBOX_E_INVALID_OBJECT_STATE">
-        Result not available yet.
-      </result>
       <desc>
         Web URL of the update.
+        <result name="VBOX_E_INVALID_OBJECT_STATE">
+          Result not available yet.
+        </result>
       </desc>
     </attribute>
 
     <attribute name="releaseNotes" type="wstring" readonly="yes">
-      <result name="VBOX_E_INVALID_OBJECT_STATE">
-        Result not available yet.
-      </result>
       <desc>
         Release notes of the update.
+        <result name="VBOX_E_INVALID_OBJECT_STATE">
+          Result not available yet.
+        </result>
       </desc>
     </attribute>
 
@@ -12316,19 +12317,19 @@
     <attribute name="repositoryURL" type="wstring" readonly="no">
       <desc>
         Update repository URL to use for retrieving the update.
+        <note>
+          Only repositories with the https:// URL scheme are allowed.
+        </note>
       </desc>
-      <note>
-        Only repositories with the https:// URL scheme are allowed.
-      </note>
     </attribute>
 
     <attribute name="lastCheckDate" type="wstring" readonly="yes">
       <desc>
         Date of last update check.
+        <note>
+         In ISO 8601 format (e.g. 2020-05-11T21:13:39.348416000Z).
+        </note>
       </desc>
-      <note>
-        In ISO 8601 format (e.g. 2020-05-11T21:13:39.348416000Z).
-      </note>
     </attribute>
 
     <attribute name="checkCount" type="unsigned long" readonly="yes">
@@ -12363,10 +12364,10 @@
     <desc>
       Implementation of the <link to="IUpdateAgent" /> object
       for VirtualBox host updates.
+      <note>
+        If no proxy is explicitly set, the proxy settings from <link to="ISystemProperties" /> will be used.
+      </note>
     </desc>
-    <note>
-      If no proxy is explicitly set, the proxy settings from <link to="ISystemProperties" /> will be used.
-    </note>
     <attribute name="midlDoesNotLikeEmptyInterfaces" readonly="yes" type="boolean"/>
   </interface>
 
