@@ -11281,7 +11281,7 @@
       <see><link to="ISession"/></see>
     </desc>
 
-    <attribute name="machine" type="IMachine" readonly="yes" http-type="uuidstring">
+    <attribute name="machine" type="IMachine" readonly="yes" rest="uuid">
       <desc>
         Machine object for this console session.
         <note>
@@ -18678,7 +18678,7 @@
       </desc>
     </attribute>
 
-    <attribute name="machine" type="IMachine" readonly="yes" http-type="uuidstring">
+    <attribute name="machine" type="IMachine" readonly="yes" rest="uuid">
       <desc>
         Virtual machine this snapshot is taken on. This object
         stores all settings the machine had when taking this snapshot.
@@ -18689,14 +18689,14 @@
       </desc>
     </attribute>
 
-    <attribute name="parent" type="ISnapshot" readonly="yes" http-type="uuidstring">
+    <attribute name="parent" type="ISnapshot" readonly="yes" rest="uuid">
       <desc>
         Parent snapshot (a snapshot this one is based on), or
         @c null if the snapshot has no parent (i.e. is the first snapshot).
       </desc>
     </attribute>
 
-    <attribute name="children" type="ISnapshot" readonly="yes" safearray="yes"  http-type="uuidstring">
+    <attribute name="children" type="ISnapshot" readonly="yes" safearray="yes"  rest="uuid">
       <desc>
         Child snapshots (all snapshots having this one as a parent).
         By inspecting this attribute starting with a machine's root snapshot
@@ -19075,11 +19075,11 @@ Snapshot 1 (B.vdi)            Snapshot 1 (B.vdi)
 
     </desc>
 
-    <attribute name="machine" type="IMachine" readonly="yes" http-type="uuidstring">
+    <attribute name="machine" type="IMachine" readonly="yes" rest="uuid">
       <desc>Machine object for this medium attachment.</desc>
     </attribute>
 
-    <attribute name="medium" type="IMedium" readonly="yes" http-type="uuidstring">
+    <attribute name="medium" type="IMedium" readonly="yes" rest="uuid">
       <desc>Medium object associated with this attachment; it
         can be @c null for removable devices.</desc>
     </attribute>
@@ -19472,7 +19472,7 @@ Snapshot 1 (B.vdi)            Snapshot 1 (B.vdi)
       </desc>
     </attribute>
 
-    <attribute name="parent" type="IMedium" readonly="yes" wrap-hint-server="passcaller" http-type="uuidstring">
+    <attribute name="parent" type="IMedium" readonly="yes" wrap-hint-server="passcaller" rest="uuid">
       <desc>
         Parent of this medium (the medium this medium is directly based
         on).
@@ -19482,7 +19482,7 @@ Snapshot 1 (B.vdi)            Snapshot 1 (B.vdi)
       </desc>
     </attribute>
 
-    <attribute name="children" type="IMedium" safearray="yes" readonly="yes" wrap-hint-server="passcaller" http-type="uuidstring">
+    <attribute name="children" type="IMedium" safearray="yes" readonly="yes" wrap-hint-server="passcaller" rest="uuid">
       <desc>
         Children of this medium (all differencing media directly based
         on this medium). A @c null array is returned if this medium
@@ -19490,7 +19490,7 @@ Snapshot 1 (B.vdi)            Snapshot 1 (B.vdi)
       </desc>
     </attribute>
 
-    <attribute name="base" type="IMedium" readonly="yes" wrap-hint-server="passcaller" http-type="uuidstring">
+    <attribute name="base" type="IMedium" readonly="yes" wrap-hint-server="passcaller" rest="uuid">
       <desc>
         Base medium of this medium.
 
@@ -25763,7 +25763,7 @@ Snapshot 1 (B.vdi)            Snapshot 1 (B.vdi)
       </desc>
     </attribute>
 
-    <attribute name="machine" type="IMachine" readonly="yes" http-type="uuidstring">
+    <attribute name="machine" type="IMachine" readonly="yes" rest="uuid">
       <desc>Machine object associated with this session.</desc>
     </attribute>
 
