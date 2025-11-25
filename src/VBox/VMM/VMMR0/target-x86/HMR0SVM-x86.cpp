@@ -1,4 +1,4 @@
-/* $Id: HMR0SVM-x86.cpp 111855 2025-11-24 16:21:14Z knut.osmundsen@oracle.com $ */
+/* $Id: HMR0SVM-x86.cpp 111859 2025-11-25 07:57:47Z alexander.eichner@oracle.com $ */
 /** @file
  * HM SVM (AMD-V) - Host Context Ring-0.
  */
@@ -916,11 +916,15 @@ DECLINLINE(bool) hmR0SvmSupportsNextRipSave(PVMCPUCC pVCpu)
  */
 DECLINLINE(bool) hmR0SvmSupportsBusLockThreshold(PVMCPUCC pVCpu)
 {
+#if 0 /* We currently always intercept the bus lock exit on the L1 hypervisor for security reasons. */
     PVMCC pVM = pVCpu->CTX_SUFF(pVM);
-#ifdef VBOX_WITH_NESTED_HWVIRT_SVM
+# ifdef VBOX_WITH_NESTED_HWVIRT_SVM
     if (CPUMIsGuestInSvmNestedHwVirtMode(&pVCpu->cpum.GstCtx))
         return (g_fHmSvmFeatures & X86_CPUID_SVM_FEATURE_EDX_BUS_LOCK_THRESHOLD)
             &&  pVM->cpum.ro.GuestFeatures.fSvmBusLockThreshold;
+# endif
+#else
+    RT_NOREF(pVCpu);
 #endif
     return RT_BOOL(g_fHmSvmFeatures & X86_CPUID_SVM_FEATURE_EDX_BUS_LOCK_THRESHOLD);
 }
