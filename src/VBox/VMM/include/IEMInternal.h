@@ -1,4 +1,4 @@
-/* $Id: IEMInternal.h 111870 2025-11-25 15:04:16Z knut.osmundsen@oracle.com $ */
+/* $Id: IEMInternal.h 111871 2025-11-25 17:24:15Z knut.osmundsen@oracle.com $ */
 /** @file
  * IEM - Internal header file.
  */
@@ -175,7 +175,7 @@ RT_C_DECLS_BEGIN
 # ifdef VBOX_WITH_IEM_NATIVE_RECOMPILER_LONGJMP
 #  define IEM_DO_LONGJMP(a_pVCpu, a_rc) do { \
             if (IRECM(a_pVCpu).pvTbFramePointerR3) \
-                iemNativeTbLongJmp(IRECM(a_pVCpu)pvTbFramePointerR3, (a_rc)); \
+                iemNativeTbLongJmp(IRECM(a_pVCpu).pvTbFramePointerR3, (a_rc)); \
             throw int(a_rc); \
         } while (0)
 # else
