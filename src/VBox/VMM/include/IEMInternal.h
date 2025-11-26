@@ -1,4 +1,4 @@
-/* $Id: IEMInternal.h 111898 2025-11-26 17:53:03Z knut.osmundsen@oracle.com $ */
+/* $Id: IEMInternal.h 111901 2025-11-26 21:52:42Z knut.osmundsen@oracle.com $ */
 /** @file
  * IEM - Internal header file.
  */
@@ -241,8 +241,8 @@ RT_C_DECLS_BEGIN
  *
  * We don't support the code TLB in ring-0 at the moment, so when IEM_WITH_CODE_TLB
  * is defined we'll use this to selectively enable code in ring-3 but not in ring-0. */
-#ifdef IEM_WITH_CODE_TLB
-# ifndef IN_RING0
+#if defined(IEM_WITH_CODE_TLB) || defined(DOXYGEN_RUNNING)
+# if !defined(IN_RING0) || defined(DOXYGEN_RUNNING)
 #  define IEM_WITH_CODE_TLB_IN_CUR_CTX
 # else
 #  undef  IEM_WITH_CODE_TLB_IN_CUR_CTX
@@ -255,8 +255,8 @@ RT_C_DECLS_BEGIN
  * Whether the data TBL is enabled in the current context.
  * We don't support the data TLB in ring-0 at the moment, so when IEM_WITH_DATA_TLB
  * is defined we'll use this to selectively enable data in ring-3 but not in ring-0. */
-#ifdef IEM_WITH_DATA_TLB
-# ifndef IN_RING0
+#if defined(IEM_WITH_DATA_TLB) || defined(DOXYGEN_RUNNING)
+# if !defined(IN_RING0) || defined(DOXYGEN_RUNNING)
 #  define IEM_WITH_DATA_TLB_IN_CUR_CTX
 # else
 #  undef  IEM_WITH_DATA_TLB_IN_CUR_CTX
