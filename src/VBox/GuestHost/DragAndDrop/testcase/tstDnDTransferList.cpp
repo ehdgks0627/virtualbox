@@ -1,4 +1,4 @@
-/* $Id: tstDnDTransferList.cpp 111865 2025-11-25 13:30:00Z andreas.loeffler@oracle.com $ */
+/* $Id: tstDnDTransferList.cpp 111895 2025-11-26 15:19:14Z alexander.eichner@oracle.com $ */
 /** @file
  * DnD transfer list  tests.
  */
@@ -130,10 +130,17 @@ int main()
     RTTEST_CHECK_RC(hTest, DnDTransferListGetRootsEx(&list, DNDTRANSFERLISTFMT_URI, "" /* pszBasePath */, "\n", &pszBuf, &cbBuf), VINF_SUCCESS);
     RTTestPrintf(hTest, RTTESTLVL_DEBUG, "Roots (URI):\n%s\n", pszBuf);
     RTStrFree(pszBuf);
-    RTTEST_CHECK_RC(hTest, DnDTransferListGetRootsEx(&list, DNDTRANSFERLISTFMT_URI, "\\new\\base\\path", "\n", &pszBuf, &cbBuf), VINF_SUCCESS);
+#if RTPATH_STYLE == RTPATH_STR_F_STYLE_DOS
+    static const char s_szBasePathValid[] = "C:\\new\\base\\path";
+    static const char s_szBasePathInvalid[] = "C:\\..\\invalid\\path";
+#else
+    static const char s_szBasePathValid[] = "/new/base/path";
+    static const char s_szBasePathInvalid[] = "/../invalid/path";
+#endif
+    RTTEST_CHECK_RC(hTest, DnDTransferListGetRootsEx(&list, DNDTRANSFERLISTFMT_URI, s_szBasePathValid, "\n", &pszBuf, &cbBuf), VINF_SUCCESS);
     RTTestPrintf(hTest, RTTESTLVL_ALWAYS, "Roots (URI, new base):\n%s\n", pszBuf);
     RTStrFree(pszBuf);
-    RTTEST_CHECK_RC(hTest, DnDTransferListGetRootsEx(&list, DNDTRANSFERLISTFMT_URI, "\\..\\invalid\\path", "\n", &pszBuf, &cbBuf), VERR_INVALID_PARAMETER);
+    RTTEST_CHECK_RC(hTest, DnDTransferListGetRootsEx(&list, DNDTRANSFERLISTFMT_URI, s_szBasePathInvalid, "\n", &pszBuf, &cbBuf), VERR_INVALID_PARAMETER);
     DnDTransferListDestroy(&list);
 
     /* From URI data. */
