@@ -1,4 +1,4 @@
-/* $Id: IEMAllCImpl-x86.cpp 111898 2025-11-26 17:53:03Z knut.osmundsen@oracle.com $ */
+/* $Id: IEMAllCImpl-x86.cpp 111923 2025-11-27 13:24:34Z knut.osmundsen@oracle.com $ */
 /** @file
  * IEM - Instruction Implementation in C/C++, x86 target.
  */
@@ -5993,6 +5993,9 @@ IEM_CIMPL_DEF_4(iemCImpl_load_CrX, uint8_t, iCrReg, uint64_t, uNewCrX, IEMACCESS
                 }
             }
 
+            /* Just count all of these as exits. */
+            ICORE(pVCpu).cPotentialExits++;
+
             /*
              * Change EFER.LMA if entering or leaving long mode.
              */
@@ -6225,6 +6228,9 @@ IEM_CIMPL_DEF_4(iemCImpl_load_CrX, uint8_t, iCrReg, uint64_t, uNewCrX, IEMACCESS
                     return iemRaiseGeneralProtectionFault0(pVCpu);
                 }
             }
+
+            /* Just count all of these as exits. */
+            ICORE(pVCpu).cPotentialExits++;
 
             IEMTLBTRACE_LOAD_CR4(pVCpu, uNewCrX, uOldCrX);
 
@@ -6507,22 +6513,27 @@ IEM_CIMPL_DEF_2(iemCImpl_mov_Rd_Dd, uint8_t, iGReg, uint8_t, iDrReg)
     switch (iDrReg)
     {
         case 0:
+            ICORE(pVCpu).cPotentialExits++;
             IEM_CTX_IMPORT_RET(pVCpu, CPUMCTX_EXTRN_DR0_DR3);
             drX = pVCpu->cpum.GstCtx.dr[0];
             break;
         case 1:
+            ICORE(pVCpu).cPotentialExits++;
             IEM_CTX_IMPORT_RET(pVCpu, CPUMCTX_EXTRN_DR0_DR3);
             drX = pVCpu->cpum.GstCtx.dr[1];
             break;
         case 2:
+            ICORE(pVCpu).cPotentialExits++;
             IEM_CTX_IMPORT_RET(pVCpu, CPUMCTX_EXTRN_DR0_DR3);
             drX = pVCpu->cpum.GstCtx.dr[2];
             break;
         case 3:
+            ICORE(pVCpu).cPotentialExits++;
             IEM_CTX_IMPORT_RET(pVCpu, CPUMCTX_EXTRN_DR0_DR3);
             drX = pVCpu->cpum.GstCtx.dr[3];
             break;
         case 6:
+            ICORE(pVCpu).cPotentialExits++; /* not quite true... */
             IEM_CTX_IMPORT_RET(pVCpu, CPUMCTX_EXTRN_DR6);
             drX = pVCpu->cpum.GstCtx.dr[6];
             drX |= X86_DR6_RA1_MASK;
@@ -6604,6 +6615,9 @@ IEM_CIMPL_DEF_2(iemCImpl_mov_Dd_Rd, uint8_t, iDrReg, uint8_t, iGReg)
         }
         iDrReg += 2;
     }
+
+    /* Just count all these as potential exits for now. */
+    ICORE(pVCpu).cPotentialExits++;
 
     /* Raise #DB if general access detect is enabled. */
     /** @todo is \#DB/DR7.GD raised before any reserved high bits in DR7/DR6
@@ -6997,6 +7011,8 @@ IEM_CIMPL_DEF_0(iemCImpl_invd)
     else
         IEM_SVM_CHECK_INSTR_INTERCEPT(pVCpu, SVM_CTRL_INTERCEPT_INVD, SVM_EXIT_INVD, 0, 0, cbInstr);
 
+    ICORE(pVCpu).cPotentialExits++;
+
     /* We currently take no action here. */
     return iemRegAddToRipAndFinishingClearingRF(pVCpu, cbInstr);
 }
@@ -7019,6 +7035,8 @@ IEM_CIMPL_DEF_0(iemCImpl_wbinvd)
         IEM_VMX_VMEXIT_INSTR_RET(pVCpu, VMX_EXIT_WBINVD, cbInstr);
     else
         IEM_SVM_CHECK_INSTR_INTERCEPT(pVCpu, SVM_CTRL_INTERCEPT_WBINVD, SVM_EXIT_WBINVD, 0, 0, cbInstr);
+
+    ICORE(pVCpu).cPotentialExits++;
 
     /* We currently take no action here. */
     return iemRegAddToRipAndFinishingClearingRF(pVCpu, cbInstr);
@@ -7179,6 +7197,10 @@ IEM_CIMPL_DEF_0(iemCImpl_rdpmc)
         IEM_SVM_VMEXIT_RET(pVCpu, SVM_EXIT_RDPMC, 0 /* uExitInfo1 */, 0 /* uExitInfo2 */);
     }
 
+    /* This isn't necessarily so... */
+    ICORE(pVCpu).cPotentialExits++;
+
+
     /** @todo Emulate performance counters, for now just return 0. */
     pVCpu->cpum.GstCtx.rax = 0;
     pVCpu->cpum.GstCtx.rdx = 0;
@@ -7228,6 +7250,9 @@ IEM_CIMPL_DEF_0(iemCImpl_rdmsr)
         }
     }
 #endif
+
+    /* Just count all these as exits (should filter a few, but too much work). */
+    ICORE(pVCpu).cPotentialExits++;
 
     /*
      * Do the job.
@@ -7315,6 +7340,9 @@ IEM_CIMPL_DEF_0(iemCImpl_wrmsr)
         }
     }
 #endif
+
+    /* Just count all these as exits (should filter a few, but too much work). */
+    ICORE(pVCpu).cPotentialExits++;
 
     if (idMsr == MSR_K6_EFER)
         IEMTLBTRACE_LOAD_EFER(pVCpu, uValue.u, pVCpu->cpum.GstCtx.msrEFER);
@@ -7724,6 +7752,8 @@ IEM_CIMPL_DEF_0(iemCImpl_hlt)
         IEM_SVM_VMEXIT_RET(pVCpu, SVM_EXIT_HLT, 0 /* uExitInfo1 */, 0 /* uExitInfo2 */);
     }
 
+    ICORE(pVCpu).cPotentialExits++;
+
     /** @todo finish: This ASSUMES that iemRegAddToRipAndFinishingClearingRF won't
      * be returning any status codes relating to non-guest events being raised, as
      * we'll mess up the guest HALT otherwise.  */
@@ -7916,6 +7946,8 @@ IEM_CIMPL_DEF_0(iemCImpl_mwait)
         IEM_SVM_UPDATE_NRIP(pVCpu, cbInstr);
         IEM_SVM_VMEXIT_RET(pVCpu, SVM_EXIT_MWAIT, 0 /* uExitInfo1 */, 0 /* uExitInfo2 */);
     }
+
+    ICORE(pVCpu).cPotentialExits++;
 
     /*
      * Call EM to prepare the monitor/wait.
@@ -8439,6 +8471,8 @@ IEM_CIMPL_DEF_0(iemCImpl_xsetbv)
             { /* probable */ }
             else
                 IEM_VMX_VMEXIT_INSTR_RET(pVCpu, VMX_EXIT_XSETBV, cbInstr);
+
+            ICORE(pVCpu).cPotentialExits++;
 
             uint32_t uEcx = pVCpu->cpum.GstCtx.ecx;
             uint64_t uNewValue = RT_MAKE_U64(pVCpu->cpum.GstCtx.eax, pVCpu->cpum.GstCtx.edx);

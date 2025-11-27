@@ -1,4 +1,4 @@
-/* $Id: IEMAllCImplSvmInstr-x86.cpp 111898 2025-11-26 17:53:03Z knut.osmundsen@oracle.com $ */
+/* $Id: IEMAllCImplSvmInstr-x86.cpp 111923 2025-11-27 13:24:34Z knut.osmundsen@oracle.com $ */
 /** @file
  * IEM - AMD-V (Secure Virtual Machine) instruction implementation (x86 target).
  */
@@ -168,6 +168,9 @@ DECLINLINE(VBOXSTRICTRC) iemSvmWorldSwitch(PVMCPUCC pVCpu, uint8_t cbInstr)
  */
 VBOXSTRICTRC iemSvmVmexit(PVMCPUCC pVCpu, uint64_t uExitCode, uint64_t uExitInfo1, uint64_t uExitInfo2) RT_NOEXCEPT
 {
+    /* Just count this as an exit and be done with that. */
+    ICORE(pVCpu).cPotentialExits++;
+
     VBOXSTRICTRC rcStrict;
     if (   CPUMIsGuestInSvmNestedHwVirtMode(IEM_GET_CTX(pVCpu))
         || uExitCode == SVM_EXIT_INVALID)
