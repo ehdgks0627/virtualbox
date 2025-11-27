@@ -1,4 +1,4 @@
-/* $Id: DevE1000.cpp 110954 2025-09-10 16:19:36Z alexander.eichner@oracle.com $ */
+/* $Id: DevE1000.cpp 111902 2025-11-27 08:20:10Z aleksey.ilyushin@oracle.com $ */
 /** @file
  * DevE1000 - Intel 82540EM Ethernet Controller Emulation.
  *
@@ -52,6 +52,7 @@
 #include <VBox/vmm/pdmnetifs.h>
 #include <VBox/vmm/pdmnetinline.h>
 #include <VBox/param.h>
+#include <VBox/VBoxPktDmp.h>
 #include "VBoxDD.h"
 
 #include "DevEEPROM.h"
@@ -378,8 +379,8 @@ static const struct E1kChips
 #define PSRCTL_BSIZE2_SHIFT 16
 #define PSRCTL_BSIZE3_MASK  UINT32_C(0x3F000000)
 #define PSRCTL_BSIZE3_SHIFT 24
-
-#define PBA_st  ((PBAST*)(pThis->auRegs + PBA_IDX))
+#define PSRCTL_INIT_VALUE   0x00040402 /* BSIZE3=0 (0KB) BSIZE2=4 (4KB) BSIZE1=4 (4KB) BSIZE0=2 (256 bytes)*/
+#define PBA_st  ((PBAST*)(&pThis->regs.rPBA))
 typedef struct
 {
     unsigned rxa   : 7;
@@ -401,130 +402,130 @@ AssertCompileSize(PBAST, 4);
 /** @name Register access macros
  * @remarks These ASSUME alocal variable @a pThis of type PE1KSTATE.
  * @{ */
-#define CTRL     pThis->auRegs[CTRL_IDX]
-#define STATUS   pThis->auRegs[STATUS_IDX]
-#define EECD     pThis->auRegs[EECD_IDX]
-#define EERD     pThis->auRegs[EERD_IDX]
-#define CTRL_EXT pThis->auRegs[CTRL_EXT_IDX]
-#define FLA      pThis->auRegs[FLA_IDX]
-#define MDIC     pThis->auRegs[MDIC_IDX]
-#define FCAL     pThis->auRegs[FCAL_IDX]
-#define FCAH     pThis->auRegs[FCAH_IDX]
-#define FCT      pThis->auRegs[FCT_IDX]
-#define VET      pThis->auRegs[VET_IDX]
-#define ICR      pThis->auRegs[ICR_IDX]
-#define ITR      pThis->auRegs[ITR_IDX]
-#define ICS      pThis->auRegs[ICS_IDX]
-#define IMS      pThis->auRegs[IMS_IDX]
-#define IMC      pThis->auRegs[IMC_IDX]
-#define RCTL     pThis->auRegs[RCTL_IDX]
-#define FCTTV    pThis->auRegs[FCTTV_IDX]
-#define TXCW     pThis->auRegs[TXCW_IDX]
-#define RXCW     pThis->auRegs[RXCW_IDX]
-#define TCTL     pThis->auRegs[TCTL_IDX]
-#define TIPG     pThis->auRegs[TIPG_IDX]
-#define AIFS     pThis->auRegs[AIFS_IDX]
-#define LEDCTL   pThis->auRegs[LEDCTL_IDX]
-#define EXTCNF_CTRL pThis->auRegs[EXTCNF_CTRL_IDX]
-#define PBA      pThis->auRegs[PBA_IDX]
-#define FCRTL    pThis->auRegs[FCRTL_IDX]
-#define FCRTH    pThis->auRegs[FCRTH_IDX]
-#define PSRCTL   pThis->auRegs[PSRCTL_IDX]
-#define RDFH     pThis->auRegs[RDFH_IDX]
-#define RDFT     pThis->auRegs[RDFT_IDX]
-#define RDFHS    pThis->auRegs[RDFHS_IDX]
-#define RDFTS    pThis->auRegs[RDFTS_IDX]
-#define RDFPC    pThis->auRegs[RDFPC_IDX]
-#define RDBAL    pThis->auRegs[RDBAL_IDX]
-#define RDBAH    pThis->auRegs[RDBAH_IDX]
-#define RDLEN    pThis->auRegs[RDLEN_IDX]
-#define RDH      pThis->auRegs[RDH_IDX]
-#define RDT      pThis->auRegs[RDT_IDX]
-#define RDTR     pThis->auRegs[RDTR_IDX]
-#define RXDCTL   pThis->auRegs[RXDCTL_IDX]
-#define RADV     pThis->auRegs[RADV_IDX]
-#define RSRPD    pThis->auRegs[RSRPD_IDX]
-#define TXDMAC   pThis->auRegs[TXDMAC_IDX]
-#define TDFH     pThis->auRegs[TDFH_IDX]
-#define TDFT     pThis->auRegs[TDFT_IDX]
-#define TDFHS    pThis->auRegs[TDFHS_IDX]
-#define TDFTS    pThis->auRegs[TDFTS_IDX]
-#define TDFPC    pThis->auRegs[TDFPC_IDX]
-#define TDBAL    pThis->auRegs[TDBAL_IDX]
-#define TDBAH    pThis->auRegs[TDBAH_IDX]
-#define TDLEN    pThis->auRegs[TDLEN_IDX]
-#define TDH      pThis->auRegs[TDH_IDX]
-#define TDT      pThis->auRegs[TDT_IDX]
-#define TIDV     pThis->auRegs[TIDV_IDX]
-#define TXDCTL   pThis->auRegs[TXDCTL_IDX]
-#define TADV     pThis->auRegs[TADV_IDX]
-#define TSPMT    pThis->auRegs[TSPMT_IDX]
-#define CRCERRS  pThis->auRegs[CRCERRS_IDX]
-#define ALGNERRC pThis->auRegs[ALGNERRC_IDX]
-#define SYMERRS  pThis->auRegs[SYMERRS_IDX]
-#define RXERRC   pThis->auRegs[RXERRC_IDX]
-#define MPC      pThis->auRegs[MPC_IDX]
-#define SCC      pThis->auRegs[SCC_IDX]
-#define ECOL     pThis->auRegs[ECOL_IDX]
-#define MCC      pThis->auRegs[MCC_IDX]
-#define LATECOL  pThis->auRegs[LATECOL_IDX]
-#define COLC     pThis->auRegs[COLC_IDX]
-#define DC       pThis->auRegs[DC_IDX]
-#define TNCRS    pThis->auRegs[TNCRS_IDX]
-/* #define SEC      pThis->auRegs[SEC_IDX]       Conflict with sys/time.h */
-#define CEXTERR  pThis->auRegs[CEXTERR_IDX]
-#define RLEC     pThis->auRegs[RLEC_IDX]
-#define XONRXC   pThis->auRegs[XONRXC_IDX]
-#define XONTXC   pThis->auRegs[XONTXC_IDX]
-#define XOFFRXC  pThis->auRegs[XOFFRXC_IDX]
-#define XOFFTXC  pThis->auRegs[XOFFTXC_IDX]
-#define FCRUC    pThis->auRegs[FCRUC_IDX]
-#define PRC64    pThis->auRegs[PRC64_IDX]
-#define PRC127   pThis->auRegs[PRC127_IDX]
-#define PRC255   pThis->auRegs[PRC255_IDX]
-#define PRC511   pThis->auRegs[PRC511_IDX]
-#define PRC1023  pThis->auRegs[PRC1023_IDX]
-#define PRC1522  pThis->auRegs[PRC1522_IDX]
-#define GPRC     pThis->auRegs[GPRC_IDX]
-#define BPRC     pThis->auRegs[BPRC_IDX]
-#define MPRC     pThis->auRegs[MPRC_IDX]
-#define GPTC     pThis->auRegs[GPTC_IDX]
-#define GORCL    pThis->auRegs[GORCL_IDX]
-#define GORCH    pThis->auRegs[GORCH_IDX]
-#define GOTCL    pThis->auRegs[GOTCL_IDX]
-#define GOTCH    pThis->auRegs[GOTCH_IDX]
-#define RNBC     pThis->auRegs[RNBC_IDX]
-#define RUC      pThis->auRegs[RUC_IDX]
-#define RFC      pThis->auRegs[RFC_IDX]
-#define ROC      pThis->auRegs[ROC_IDX]
-#define RJC      pThis->auRegs[RJC_IDX]
-#define MGTPRC   pThis->auRegs[MGTPRC_IDX]
-#define MGTPDC   pThis->auRegs[MGTPDC_IDX]
-#define MGTPTC   pThis->auRegs[MGTPTC_IDX]
-#define TORL     pThis->auRegs[TORL_IDX]
-#define TORH     pThis->auRegs[TORH_IDX]
-#define TOTL     pThis->auRegs[TOTL_IDX]
-#define TOTH     pThis->auRegs[TOTH_IDX]
-#define TPR      pThis->auRegs[TPR_IDX]
-#define TPT      pThis->auRegs[TPT_IDX]
-#define PTC64    pThis->auRegs[PTC64_IDX]
-#define PTC127   pThis->auRegs[PTC127_IDX]
-#define PTC255   pThis->auRegs[PTC255_IDX]
-#define PTC511   pThis->auRegs[PTC511_IDX]
-#define PTC1023  pThis->auRegs[PTC1023_IDX]
-#define PTC1522  pThis->auRegs[PTC1522_IDX]
-#define MPTC     pThis->auRegs[MPTC_IDX]
-#define BPTC     pThis->auRegs[BPTC_IDX]
-#define TSCTC    pThis->auRegs[TSCTC_IDX]
-#define TSCTFC   pThis->auRegs[TSCTFC_IDX]
-#define RXCSUM   pThis->auRegs[RXCSUM_IDX]
-#define RFCTL    pThis->auRegs[RFCTL_IDX]
-#define WUC      pThis->auRegs[WUC_IDX]
-#define WUFC     pThis->auRegs[WUFC_IDX]
-#define WUS      pThis->auRegs[WUS_IDX]
-#define MANC     pThis->auRegs[MANC_IDX]
-#define IPAV     pThis->auRegs[IPAV_IDX]
-#define WUPL     pThis->auRegs[WUPL_IDX]
+#define CTRL     pThis->regs.rCTRL
+#define STATUS   pThis->regs.rSTATUS
+#define EECD     pThis->regs.rEECD
+#define EERD     pThis->regs.rEERD
+#define CTRL_EXT pThis->regs.rCTRL_EXT
+#define FLA      pThis->regs.rFLA
+#define MDIC     pThis->regs.rMDIC
+#define FCAL     pThis->regs.rFCAL
+#define FCAH     pThis->regs.rFCAH
+#define FCT      pThis->regs.rFCT
+#define VET      pThis->regs.rVET
+#define ICR      pThis->regs.rICR
+#define ITR      pThis->regs.rITR
+#define ICS      pThis->regs.rICS
+#define IMS      pThis->regs.rIMS
+#define IMC      pThis->regs.rIMC
+#define RCTL     pThis->regs.rRCTL
+#define FCTTV    pThis->regs.rFCTTV
+#define TXCW     pThis->regs.rTXCW
+#define RXCW     pThis->regs.rRXCW
+#define TCTL     pThis->regs.rTCTL
+#define TIPG     pThis->regs.rTIPG
+#define AIFS     pThis->regs.rAIFS
+#define LEDCTL   pThis->regs.rLEDCTL
+#define EXTCNF_CTRL pThis->regs.rEXTCNF_CTRL
+#define PBA      pThis->regs.rPBA
+#define FCRTL    pThis->regs.rFCRTL
+#define FCRTH    pThis->regs.rFCRTH
+#define PSRCTL   pThis->regs.rPSRCTL
+#define RDFH     pThis->regs.rRDFH
+#define RDFT     pThis->regs.rRDFT
+#define RDFHS    pThis->regs.rRDFHS
+#define RDFTS    pThis->regs.rRDFTS
+#define RDFPC    pThis->regs.rRDFPC
+#define RDBAL    pThis->regs.rRDBAL
+#define RDBAH    pThis->regs.rRDBAH
+#define RDLEN    pThis->regs.rRDLEN
+#define RDH      pThis->regs.rRDH
+#define RDT      pThis->regs.rRDT
+#define RDTR     pThis->regs.rRDTR
+#define RXDCTL   pThis->regs.rRXDCTL
+#define RADV     pThis->regs.rRADV
+#define RSRPD    pThis->regs.rRSRPD
+#define TXDMAC   pThis->regs.rTXDMAC
+#define TDFH     pThis->regs.rTDFH
+#define TDFT     pThis->regs.rTDFT
+#define TDFHS    pThis->regs.rTDFHS
+#define TDFTS    pThis->regs.rTDFTS
+#define TDFPC    pThis->regs.rTDFPC
+#define TDBAL    pThis->regs.rTDBAL
+#define TDBAH    pThis->regs.rTDBAH
+#define TDLEN    pThis->regs.rTDLEN
+#define TDH      pThis->regs.rTDH
+#define TDT      pThis->regs.rTDT
+#define TIDV     pThis->regs.rTIDV
+#define TXDCTL   pThis->regs.rTXDCTL
+#define TADV     pThis->regs.rTADV
+#define TSPMT    pThis->regs.rTSPMT
+#define CRCERRS  pThis->regs.rCRCERRS
+#define ALGNERRC pThis->regs.rALGNERRC
+#define SYMERRS  pThis->regs.rSYMERRS
+#define RXERRC   pThis->regs.rRXERRC
+#define MPC      pThis->regs.rMPC
+#define SCC      pThis->regs.rSCC
+#define ECOL     pThis->regs.rECOL
+#define MCC      pThis->regs.rMCC
+#define LATECOL  pThis->regs.rLATECOL
+#define COLC     pThis->regs.rCOLC
+#define DC       pThis->regs.rDC
+#define TNCRS    pThis->regs.rTNCRS
+#define _SEC     pThis->regs.rSEC       /* SEC conflicts with sys/time.h */
+#define CEXTERR  pThis->regs.rCEXTERR
+#define RLEC     pThis->regs.rRLEC
+#define XONRXC   pThis->regs.rXONRXC
+#define XONTXC   pThis->regs.rXONTXC
+#define XOFFRXC  pThis->regs.rXOFFRXC
+#define XOFFTXC  pThis->regs.rXOFFTXC
+#define FCRUC    pThis->regs.rFCRUC
+#define PRC64    pThis->regs.rPRC64
+#define PRC127   pThis->regs.rPRC127
+#define PRC255   pThis->regs.rPRC255
+#define PRC511   pThis->regs.rPRC511
+#define PRC1023  pThis->regs.rPRC1023
+#define PRC1522  pThis->regs.rPRC1522
+#define GPRC     pThis->regs.rGPRC
+#define BPRC     pThis->regs.rBPRC
+#define MPRC     pThis->regs.rMPRC
+#define GPTC     pThis->regs.rGPTC
+#define GORCL    pThis->regs.rGORCL
+#define GORCH    pThis->regs.rGORCH
+#define GOTCL    pThis->regs.rGOTCL
+#define GOTCH    pThis->regs.rGOTCH
+#define RNBC     pThis->regs.rRNBC
+#define RUC      pThis->regs.rRUC
+#define RFC      pThis->regs.rRFC
+#define ROC      pThis->regs.rROC
+#define RJC      pThis->regs.rRJC
+#define MGTPRC   pThis->regs.rMGTPRC
+#define MGTPDC   pThis->regs.rMGTPDC
+#define MGTPTC   pThis->regs.rMGTPTC
+#define TORL     pThis->regs.rTORL
+#define TORH     pThis->regs.rTORH
+#define TOTL     pThis->regs.rTOTL
+#define TOTH     pThis->regs.rTOTH
+#define TPR      pThis->regs.rTPR
+#define TPT      pThis->regs.rTPT
+#define PTC64    pThis->regs.rPTC64
+#define PTC127   pThis->regs.rPTC127
+#define PTC255   pThis->regs.rPTC255
+#define PTC511   pThis->regs.rPTC511
+#define PTC1023  pThis->regs.rPTC1023
+#define PTC1522  pThis->regs.rPTC1522
+#define MPTC     pThis->regs.rMPTC
+#define BPTC     pThis->regs.rBPTC
+#define TSCTC    pThis->regs.rTSCTC
+#define TSCTFC   pThis->regs.rTSCTFC
+#define RXCSUM   pThis->regs.rRXCSUM
+#define RFCTL    pThis->regs.rRFCTL
+#define WUC      pThis->regs.rWUC
+#define WUFC     pThis->regs.rWUFC
+#define WUS      pThis->regs.rWUS
+#define MANC     pThis->regs.rMANC
+#define IPAV     pThis->regs.rIPAV
+#define WUPL     pThis->regs.rWUPL
 /** @} */
 #endif  /* VBOX_DEVICE_STRUCT_TESTCASE */
 
@@ -674,153 +675,9 @@ typedef enum
 } E1kRegIndex;
 
 
-/**
- * Indices of memory-mapped registers in register table - old indices before 82583V support (used for old saved state loading).
- */
-typedef enum
-{
-    CTRL_IDX_OLD,
-    STATUS_IDX_OLD,
-    EECD_IDX_OLD,
-    EERD_IDX_OLD,
-    CTRL_EXT_IDX_OLD,
-    FLA_IDX_OLD,
-    MDIC_IDX_OLD,
-    FCAL_IDX_OLD,
-    FCAH_IDX_OLD,
-    FCT_IDX_OLD,
-    VET_IDX_OLD,
-    ICR_IDX_OLD,
-    ITR_IDX_OLD,
-    ICS_IDX_OLD,
-    IMS_IDX_OLD,
-    IMC_IDX_OLD,
-    RCTL_IDX_OLD,
-    FCTTV_IDX_OLD,
-    TXCW_IDX_OLD,
-    RXCW_IDX_OLD,
-    TCTL_IDX_OLD,
-    TIPG_IDX_OLD,
-    AIFS_IDX_OLD,
-    LEDCTL_IDX_OLD,
-    PBA_IDX_OLD,
-    FCRTL_IDX_OLD,
-    FCRTH_IDX_OLD,
-    RDFH_IDX_OLD,
-    RDFT_IDX_OLD,
-    RDFHS_IDX_OLD,
-    RDFTS_IDX_OLD,
-    RDFPC_IDX_OLD,
-    RDBAL_IDX_OLD,
-    RDBAH_IDX_OLD,
-    RDLEN_IDX_OLD,
-    RDH_IDX_OLD,
-    RDT_IDX_OLD,
-    RDTR_IDX_OLD,
-    RXDCTL_IDX_OLD,
-    RADV_IDX_OLD,
-    RSRPD_IDX_OLD,
-    TXDMAC_IDX_OLD,
-    TDFH_IDX_OLD,
-    TDFT_IDX_OLD,
-    TDFHS_IDX_OLD,
-    TDFTS_IDX_OLD,
-    TDFPC_IDX_OLD,
-    TDBAL_IDX_OLD,
-    TDBAH_IDX_OLD,
-    TDLEN_IDX_OLD,
-    TDH_IDX_OLD,
-    TDT_IDX_OLD,
-    TIDV_IDX_OLD,
-    TXDCTL_IDX_OLD,
-    TADV_IDX_OLD,
-    TSPMT_IDX_OLD,
-    CRCERRS_IDX_OLD,
-    ALGNERRC_IDX_OLD,
-    SYMERRS_IDX_OLD,
-    RXERRC_IDX_OLD,
-    MPC_IDX_OLD,
-    SCC_IDX_OLD,
-    ECOL_IDX_OLD,
-    MCC_IDX_OLD,
-    LATECOL_IDX_OLD,
-    COLC_IDX_OLD,
-    DC_IDX_OLD,
-    TNCRS_IDX_OLD,
-    SEC_IDX_OLD,
-    CEXTERR_IDX_OLD,
-    RLEC_IDX_OLD,
-    XONRXC_IDX_OLD,
-    XONTXC_IDX_OLD,
-    XOFFRXC_IDX_OLD,
-    XOFFTXC_IDX_OLD,
-    FCRUC_IDX_OLD,
-    PRC64_IDX_OLD,
-    PRC127_IDX_OLD,
-    PRC255_IDX_OLD,
-    PRC511_IDX_OLD,
-    PRC1023_IDX_OLD,
-    PRC1522_IDX_OLD,
-    GPRC_IDX_OLD,
-    BPRC_IDX_OLD,
-    MPRC_IDX_OLD,
-    GPTC_IDX_OLD,
-    GORCL_IDX_OLD,
-    GORCH_IDX_OLD,
-    GOTCL_IDX_OLD,
-    GOTCH_IDX_OLD,
-    RNBC_IDX_OLD,
-    RUC_IDX_OLD,
-    RFC_IDX_OLD,
-    ROC_IDX_OLD,
-    RJC_IDX_OLD,
-    MGTPRC_IDX_OLD,
-    MGTPDC_IDX_OLD,
-    MGTPTC_IDX_OLD,
-    TORL_IDX_OLD,
-    TORH_IDX_OLD,
-    TOTL_IDX_OLD,
-    TOTH_IDX_OLD,
-    TPR_IDX_OLD,
-    TPT_IDX_OLD,
-    PTC64_IDX_OLD,
-    PTC127_IDX_OLD,
-    PTC255_IDX_OLD,
-    PTC511_IDX_OLD,
-    PTC1023_IDX_OLD,
-    PTC1522_IDX_OLD,
-    MPTC_IDX_OLD,
-    BPTC_IDX_OLD,
-    TSCTC_IDX_OLD,
-    TSCTFC_IDX_OLD,
-    RXCSUM_IDX_OLD,
-    WUC_IDX_OLD,
-    WUFC_IDX_OLD,
-    WUS_IDX_OLD,
-    MANC_IDX_OLD,
-    IPAV_IDX_OLD,
-    WUPL_IDX_OLD,
-    MTA_IDX_OLD,
-    RA_IDX_OLD,
-    VFTA_IDX_OLD,
-    IP4AT_IDX_OLD,
-    IP6AT_IDX_OLD,
-    WUPM_IDX_OLD,
-    FFLT_IDX_OLD,
-    FFMT_IDX_OLD,
-    FFVT_IDX_OLD,
-    PBM_IDX_OLD,
-    RA_82542_IDX_OLD,
-    MTA_82542_IDX_OLD,
-    VFTA_82542_IDX_OLD,
-    E1K_NUM_OF_REGS_OLD
-} E1kRegIndexOld;
-
-
-#define E1K_NUM_OF_32BIT_REGS           MTA_IDX
-#define E1K_NUM_OF_32BIT_REGS_OLD       MTA_IDX_OLD
+#define E1K_NUM_OF_32BIT_REGS           (WUPL_IDX + 1)
 /** The number of registers with strictly increasing offset. */
-#define E1K_NUM_OF_BINARY_SEARCHABLE    (WUPL_IDX + 1)
+#define E1K_NUM_OF_BINARY_SEARCHABLE    E1K_NUM_OF_32BIT_REGS
 
 
 /**
@@ -1320,10 +1177,7 @@ AssertCompileSize(struct E1kTcpHeader, 20);
 
 
 #ifdef E1K_WITH_TXD_CACHE
-/** The current Saved state version. */
-# define E1K_SAVEDSTATE_VERSION               5
-/** Saved state version before the introduction of 82583V support. */
-# define E1K_SAVEDSTATE_VERSION_PRE_82583V    4
+#include "DevE1000Ver.h"
 /** Saved state version for VirtualBox 4.2 with VLAN tag fields.  */
 # define E1K_SAVEDSTATE_VERSION_VBOX_42_VTAG  3
 #else /* !E1K_WITH_TXD_CACHE */
@@ -1336,6 +1190,271 @@ AssertCompileSize(struct E1kTcpHeader, 20);
 /** Saved state version for VirtualBox 3.0 and earlier.
  * This did not include the configuration part nor the E1kEEPROM.  */
 #define E1K_SAVEDSTATE_VERSION_VBOX_30  1
+
+/**
+ * A structure for storing all 32-bit registers.
+ */
+typedef struct E1kRegs32
+{
+    uint32_t rCTRL;
+    uint32_t rSTATUS;
+    uint32_t rEECD;
+    uint32_t rEERD;
+    uint32_t rCTRL_EXT;
+    uint32_t rFLA;
+    uint32_t rMDIC;
+    uint32_t rFCAL;
+    uint32_t rFCAH;
+    uint32_t rFCT;
+    uint32_t rVET;
+    uint32_t rICR;
+    uint32_t rITR;
+    uint32_t rICS;
+    uint32_t rIMS;
+    uint32_t rIMC;
+    uint32_t rRCTL;
+    uint32_t rFCTTV;
+    uint32_t rTXCW;
+    uint32_t rRXCW;
+    uint32_t rTCTL;
+    uint32_t rTIPG;
+    uint32_t rAIFS;
+    uint32_t rLEDCTL;
+    uint32_t rPBA;
+    uint32_t rFCRTL;
+    uint32_t rFCRTH;
+    uint32_t rRDFH;
+    uint32_t rRDFT;
+    uint32_t rRDFHS;
+    uint32_t rRDFTS;
+    uint32_t rRDFPC;
+    uint32_t rRDBAL;
+    uint32_t rRDBAH;
+    uint32_t rRDLEN;
+    uint32_t rRDH;
+    uint32_t rRDT;
+    uint32_t rRDTR;
+    uint32_t rRXDCTL;
+    uint32_t rRADV;
+    uint32_t rRSRPD;
+    uint32_t rTXDMAC;
+    uint32_t rTDFH;
+    uint32_t rTDFT;
+    uint32_t rTDFHS;
+    uint32_t rTDFTS;
+    uint32_t rTDFPC;
+    uint32_t rTDBAL;
+    uint32_t rTDBAH;
+    uint32_t rTDLEN;
+    uint32_t rTDH;
+    uint32_t rTDT;
+    uint32_t rTIDV;
+    uint32_t rTXDCTL;
+    uint32_t rTADV;
+    uint32_t rTSPMT;
+    uint32_t rCRCERRS;
+    uint32_t rALGNERRC;
+    uint32_t rSYMERRS;
+    uint32_t rRXERRC;
+    uint32_t rMPC;
+    uint32_t rSCC;
+    uint32_t rECOL;
+    uint32_t rMCC;
+    uint32_t rLATECOL;
+    uint32_t rCOLC;
+    uint32_t rDC;
+    uint32_t rTNCRS;
+    uint32_t rSEC;
+    uint32_t rCEXTERR;
+    uint32_t rRLEC;
+    uint32_t rXONRXC;
+    uint32_t rXONTXC;
+    uint32_t rXOFFRXC;
+    uint32_t rXOFFTXC;
+    uint32_t rFCRUC;
+    uint32_t rPRC64;
+    uint32_t rPRC127;
+    uint32_t rPRC255;
+    uint32_t rPRC511;
+    uint32_t rPRC1023;
+    uint32_t rPRC1522;
+    uint32_t rGPRC;
+    uint32_t rBPRC;
+    uint32_t rMPRC;
+    uint32_t rGPTC;
+    uint32_t rGORCL;
+    uint32_t rGORCH;
+    uint32_t rGOTCL;
+    uint32_t rGOTCH;
+    uint32_t rRNBC;
+    uint32_t rRUC;
+    uint32_t rRFC;
+    uint32_t rROC;
+    uint32_t rRJC;
+    uint32_t rMGTPRC;
+    uint32_t rMGTPDC;
+    uint32_t rMGTPTC;
+    uint32_t rTORL;
+    uint32_t rTORH;
+    uint32_t rTOTL;
+    uint32_t rTOTH;
+    uint32_t rTPR;
+    uint32_t rTPT;
+    uint32_t rPTC64;
+    uint32_t rPTC127;
+    uint32_t rPTC255;
+    uint32_t rPTC511;
+    uint32_t rPTC1023;
+    uint32_t rPTC1522;
+    uint32_t rMPTC;
+    uint32_t rBPTC;
+    uint32_t rTSCTC;
+    uint32_t rTSCTFC;
+    uint32_t rRXCSUM;
+    uint32_t rWUC;
+    uint32_t rWUFC;
+    uint32_t rWUS;
+    uint32_t rMANC;
+    uint32_t rIPAV;
+    uint32_t rWUPL;
+    uint32_t rEXTCNF_CTRL;
+    uint32_t rPSRCTL;
+    uint32_t rRFCTL;
+} E1KREGS32;
+
+#ifdef IN_RING3
+/**
+ * SSM descriptor table for the E1kRegs32 structure.
+ */
+static SSMFIELD const g_aE1kRegs32Fields[] =
+{
+    SSMFIELD_ENTRY(     E1KREGS32, rCTRL),
+    SSMFIELD_ENTRY(     E1KREGS32, rSTATUS),
+    SSMFIELD_ENTRY(     E1KREGS32, rEECD),
+    SSMFIELD_ENTRY(     E1KREGS32, rEERD),
+    SSMFIELD_ENTRY(     E1KREGS32, rCTRL_EXT),
+    SSMFIELD_ENTRY(     E1KREGS32, rFLA),
+    SSMFIELD_ENTRY(     E1KREGS32, rMDIC),
+    SSMFIELD_ENTRY(     E1KREGS32, rFCAL),
+    SSMFIELD_ENTRY(     E1KREGS32, rFCAH),
+    SSMFIELD_ENTRY(     E1KREGS32, rFCT),
+    SSMFIELD_ENTRY(     E1KREGS32, rVET),
+    SSMFIELD_ENTRY(     E1KREGS32, rICR),
+    SSMFIELD_ENTRY(     E1KREGS32, rITR),
+    SSMFIELD_ENTRY(     E1KREGS32, rICS),
+    SSMFIELD_ENTRY(     E1KREGS32, rIMS),
+    SSMFIELD_ENTRY(     E1KREGS32, rIMC),
+    SSMFIELD_ENTRY(     E1KREGS32, rRCTL),
+    SSMFIELD_ENTRY(     E1KREGS32, rFCTTV),
+    SSMFIELD_ENTRY(     E1KREGS32, rTXCW),
+    SSMFIELD_ENTRY(     E1KREGS32, rRXCW),
+    SSMFIELD_ENTRY(     E1KREGS32, rTCTL),
+    SSMFIELD_ENTRY(     E1KREGS32, rTIPG),
+    SSMFIELD_ENTRY(     E1KREGS32, rAIFS),
+    SSMFIELD_ENTRY(     E1KREGS32, rLEDCTL),
+    SSMFIELD_ENTRY(     E1KREGS32, rPBA),
+    SSMFIELD_ENTRY(     E1KREGS32, rFCRTL),
+    SSMFIELD_ENTRY(     E1KREGS32, rFCRTH),
+    SSMFIELD_ENTRY(     E1KREGS32, rRDFH),
+    SSMFIELD_ENTRY(     E1KREGS32, rRDFT),
+    SSMFIELD_ENTRY(     E1KREGS32, rRDFHS),
+    SSMFIELD_ENTRY(     E1KREGS32, rRDFTS),
+    SSMFIELD_ENTRY(     E1KREGS32, rRDFPC),
+    SSMFIELD_ENTRY(     E1KREGS32, rRDBAL),
+    SSMFIELD_ENTRY(     E1KREGS32, rRDBAH),
+    SSMFIELD_ENTRY(     E1KREGS32, rRDLEN),
+    SSMFIELD_ENTRY(     E1KREGS32, rRDH),
+    SSMFIELD_ENTRY(     E1KREGS32, rRDT),
+    SSMFIELD_ENTRY(     E1KREGS32, rRDTR),
+    SSMFIELD_ENTRY(     E1KREGS32, rRXDCTL),
+    SSMFIELD_ENTRY(     E1KREGS32, rRADV),
+    SSMFIELD_ENTRY(     E1KREGS32, rRSRPD),
+    SSMFIELD_ENTRY(     E1KREGS32, rTXDMAC),
+    SSMFIELD_ENTRY(     E1KREGS32, rTDFH),
+    SSMFIELD_ENTRY(     E1KREGS32, rTDFT),
+    SSMFIELD_ENTRY(     E1KREGS32, rTDFHS),
+    SSMFIELD_ENTRY(     E1KREGS32, rTDFTS),
+    SSMFIELD_ENTRY(     E1KREGS32, rTDFPC),
+    SSMFIELD_ENTRY(     E1KREGS32, rTDBAL),
+    SSMFIELD_ENTRY(     E1KREGS32, rTDBAH),
+    SSMFIELD_ENTRY(     E1KREGS32, rTDLEN),
+    SSMFIELD_ENTRY(     E1KREGS32, rTDH),
+    SSMFIELD_ENTRY(     E1KREGS32, rTDT),
+    SSMFIELD_ENTRY(     E1KREGS32, rTIDV),
+    SSMFIELD_ENTRY(     E1KREGS32, rTXDCTL),
+    SSMFIELD_ENTRY(     E1KREGS32, rTADV),
+    SSMFIELD_ENTRY(     E1KREGS32, rTSPMT),
+    SSMFIELD_ENTRY(     E1KREGS32, rCRCERRS),
+    SSMFIELD_ENTRY(     E1KREGS32, rALGNERRC),
+    SSMFIELD_ENTRY(     E1KREGS32, rSYMERRS),
+    SSMFIELD_ENTRY(     E1KREGS32, rRXERRC),
+    SSMFIELD_ENTRY(     E1KREGS32, rMPC),
+    SSMFIELD_ENTRY(     E1KREGS32, rSCC),
+    SSMFIELD_ENTRY(     E1KREGS32, rECOL),
+    SSMFIELD_ENTRY(     E1KREGS32, rMCC),
+    SSMFIELD_ENTRY(     E1KREGS32, rLATECOL),
+    SSMFIELD_ENTRY(     E1KREGS32, rCOLC),
+    SSMFIELD_ENTRY(     E1KREGS32, rDC),
+    SSMFIELD_ENTRY(     E1KREGS32, rTNCRS),
+    SSMFIELD_ENTRY(     E1KREGS32, rSEC),
+    SSMFIELD_ENTRY(     E1KREGS32, rCEXTERR),
+    SSMFIELD_ENTRY(     E1KREGS32, rRLEC),
+    SSMFIELD_ENTRY(     E1KREGS32, rXONRXC),
+    SSMFIELD_ENTRY(     E1KREGS32, rXONTXC),
+    SSMFIELD_ENTRY(     E1KREGS32, rXOFFRXC),
+    SSMFIELD_ENTRY(     E1KREGS32, rXOFFTXC),
+    SSMFIELD_ENTRY(     E1KREGS32, rFCRUC),
+    SSMFIELD_ENTRY(     E1KREGS32, rPRC64),
+    SSMFIELD_ENTRY(     E1KREGS32, rPRC127),
+    SSMFIELD_ENTRY(     E1KREGS32, rPRC255),
+    SSMFIELD_ENTRY(     E1KREGS32, rPRC511),
+    SSMFIELD_ENTRY(     E1KREGS32, rPRC1023),
+    SSMFIELD_ENTRY(     E1KREGS32, rPRC1522),
+    SSMFIELD_ENTRY(     E1KREGS32, rGPRC),
+    SSMFIELD_ENTRY(     E1KREGS32, rBPRC),
+    SSMFIELD_ENTRY(     E1KREGS32, rMPRC),
+    SSMFIELD_ENTRY(     E1KREGS32, rGPTC),
+    SSMFIELD_ENTRY(     E1KREGS32, rGORCL),
+    SSMFIELD_ENTRY(     E1KREGS32, rGORCH),
+    SSMFIELD_ENTRY(     E1KREGS32, rGOTCL),
+    SSMFIELD_ENTRY(     E1KREGS32, rGOTCH),
+    SSMFIELD_ENTRY(     E1KREGS32, rRNBC),
+    SSMFIELD_ENTRY(     E1KREGS32, rRUC),
+    SSMFIELD_ENTRY(     E1KREGS32, rRFC),
+    SSMFIELD_ENTRY(     E1KREGS32, rROC),
+    SSMFIELD_ENTRY(     E1KREGS32, rRJC),
+    SSMFIELD_ENTRY(     E1KREGS32, rMGTPRC),
+    SSMFIELD_ENTRY(     E1KREGS32, rMGTPDC),
+    SSMFIELD_ENTRY(     E1KREGS32, rMGTPTC),
+    SSMFIELD_ENTRY(     E1KREGS32, rTORL),
+    SSMFIELD_ENTRY(     E1KREGS32, rTORH),
+    SSMFIELD_ENTRY(     E1KREGS32, rTOTL),
+    SSMFIELD_ENTRY(     E1KREGS32, rTOTH),
+    SSMFIELD_ENTRY(     E1KREGS32, rTPR),
+    SSMFIELD_ENTRY(     E1KREGS32, rTPT),
+    SSMFIELD_ENTRY(     E1KREGS32, rPTC64),
+    SSMFIELD_ENTRY(     E1KREGS32, rPTC127),
+    SSMFIELD_ENTRY(     E1KREGS32, rPTC255),
+    SSMFIELD_ENTRY(     E1KREGS32, rPTC511),
+    SSMFIELD_ENTRY(     E1KREGS32, rPTC1023),
+    SSMFIELD_ENTRY(     E1KREGS32, rPTC1522),
+    SSMFIELD_ENTRY(     E1KREGS32, rMPTC),
+    SSMFIELD_ENTRY(     E1KREGS32, rBPTC),
+    SSMFIELD_ENTRY(     E1KREGS32, rTSCTC),
+    SSMFIELD_ENTRY(     E1KREGS32, rTSCTFC),
+    SSMFIELD_ENTRY(     E1KREGS32, rRXCSUM),
+    SSMFIELD_ENTRY(     E1KREGS32, rWUC),
+    SSMFIELD_ENTRY(     E1KREGS32, rWUFC),
+    SSMFIELD_ENTRY(     E1KREGS32, rWUS),
+    SSMFIELD_ENTRY(     E1KREGS32, rMANC),
+    SSMFIELD_ENTRY(     E1KREGS32, rIPAV),
+    SSMFIELD_ENTRY(     E1KREGS32, rWUPL),
+    SSMFIELD_ENTRY(     E1KREGS32, rEXTCNF_CTRL),
+    SSMFIELD_ENTRY(     E1KREGS32, rPSRCTL),
+    SSMFIELD_ENTRY(     E1KREGS32, rRFCTL),
+    SSMFIELD_ENTRY_TERM()
+};
+#endif /* IN_RING3 */
 
 /**
  * E1000 shared device state.
@@ -1401,7 +1520,7 @@ typedef struct E1KSTATE
     uint32_t    cMsLinkUpDelay;
 
     /** All: Device register storage. */
-    uint32_t    auRegs[E1K_NUM_OF_32BIT_REGS];
+    E1KREGS32   regs;
     /** TX/RX: Status LED. */
     PDMLED      led;
     /** TX/RX: Number of packet being sent/received to show in debug log. */
@@ -1753,6 +1872,113 @@ static FNE1KREGWRITE e1kRegWriteRA;
 static FNE1KREGREAD  e1kRegReadVFTA;
 static FNE1KREGWRITE e1kRegWriteVFTA;
 
+
+static int e1kRegWriteDefault(PPDMDEVINS pDevIns, PE1KSTATE pThis, uint32_t *pu32RegStore, uint32_t offset, uint32_t index, uint32_t value);
+static int e1kRegReadDefault(PPDMDEVINS pDevIns, PE1KSTATE pThis, uint32_t *pu32RegStore, uint32_t offset, uint32_t index, uint32_t *pu32Value);
+static int e1kRegReadAutoClear(PPDMDEVINS pDevIns, PE1KSTATE pThis, uint32_t *pu32RegStore, uint32_t offset, uint32_t index, uint32_t *pu32Value);
+
+#define WR_DEFAULT(reg) e1kRegWriteDefault##reg
+#define RD_DEFAULT(reg) e1kRegReadDefault##reg
+#define RD_AUTOCLEAR(reg) e1kRegReadAutoClear##reg
+
+#define WR_DEFAULT_IMPL(reg) int e1kRegWriteDefault##reg(PPDMDEVINS pDevIns, PE1KSTATE pThis, uint32_t offset, uint32_t index, uint32_t u32Value) \
+{ return e1kRegWriteDefault(pDevIns, pThis, &reg, offset, index, u32Value); }
+#define RD_DEFAULT_IMPL(reg) int e1kRegReadDefault##reg(PPDMDEVINS pDevIns, PE1KSTATE pThis, uint32_t offset, uint32_t index, uint32_t *pu32Value) \
+{ return e1kRegReadDefault(pDevIns, pThis, &reg, offset, index, pu32Value); }
+#define RD_AUTOCLEAR_IMPL(reg) int e1kRegReadAutoClear##reg(PPDMDEVINS pDevIns, PE1KSTATE pThis, uint32_t offset, uint32_t index, uint32_t *pu32Value) \
+{ return e1kRegReadAutoClear(pDevIns, pThis, &reg, offset, index, pu32Value); }
+
+/* Instantiate default handlers for registers that do not need fancy processing. */
+RD_DEFAULT_IMPL(CTRL)
+RD_DEFAULT_IMPL(STATUS)
+RD_DEFAULT_IMPL(EERD)
+RD_DEFAULT_IMPL(MDIC)
+RD_DEFAULT_IMPL(VET)
+WR_DEFAULT_IMPL(VET)
+RD_DEFAULT_IMPL(ITR)
+WR_DEFAULT_IMPL(ITR)
+RD_DEFAULT_IMPL(IMS)
+RD_DEFAULT_IMPL(RCTL)
+RD_DEFAULT_IMPL(TCTL)
+WR_DEFAULT_IMPL(TCTL)
+RD_DEFAULT_IMPL(TIPG)
+WR_DEFAULT_IMPL(TIPG)
+RD_DEFAULT_IMPL(AIFS)
+WR_DEFAULT_IMPL(AIFS)
+RD_DEFAULT_IMPL(LEDCTL)
+WR_DEFAULT_IMPL(LEDCTL)
+RD_DEFAULT_IMPL(EXTCNF_CTRL)
+WR_DEFAULT_IMPL(EXTCNF_CTRL)
+RD_DEFAULT_IMPL(PBA)
+RD_DEFAULT_IMPL(PSRCTL)
+WR_DEFAULT_IMPL(PSRCTL)
+RD_DEFAULT_IMPL(RDBAL)
+WR_DEFAULT_IMPL(RDBAL)
+RD_DEFAULT_IMPL(RDBAH)
+WR_DEFAULT_IMPL(RDBAH)
+RD_DEFAULT_IMPL(RDLEN)
+WR_DEFAULT_IMPL(RDLEN)
+RD_DEFAULT_IMPL(RDH)
+WR_DEFAULT_IMPL(RDH)
+RD_DEFAULT_IMPL(RDT)
+RD_DEFAULT_IMPL(RDTR)
+RD_DEFAULT_IMPL(RADV)
+WR_DEFAULT_IMPL(RADV)
+RD_DEFAULT_IMPL(TDBAL)
+WR_DEFAULT_IMPL(TDBAL)
+RD_DEFAULT_IMPL(TDBAH)
+WR_DEFAULT_IMPL(TDBAH)
+RD_DEFAULT_IMPL(TDLEN)
+WR_DEFAULT_IMPL(TDLEN)
+RD_DEFAULT_IMPL(TDH)
+WR_DEFAULT_IMPL(TDH)
+RD_DEFAULT_IMPL(TDT)
+RD_DEFAULT_IMPL(TIDV)
+WR_DEFAULT_IMPL(TIDV)
+RD_DEFAULT_IMPL(TXDCTL)
+WR_DEFAULT_IMPL(TXDCTL)
+RD_DEFAULT_IMPL(TADV)
+WR_DEFAULT_IMPL(TADV)
+RD_DEFAULT_IMPL(TSPMT)
+WR_DEFAULT_IMPL(TSPMT)
+RD_AUTOCLEAR_IMPL(PRC64)
+RD_AUTOCLEAR_IMPL(PRC127)
+RD_AUTOCLEAR_IMPL(PRC255)
+RD_AUTOCLEAR_IMPL(PRC511)
+RD_AUTOCLEAR_IMPL(PRC1023)
+RD_AUTOCLEAR_IMPL(PRC1522)
+RD_AUTOCLEAR_IMPL(GPRC)
+RD_AUTOCLEAR_IMPL(BPRC)
+RD_AUTOCLEAR_IMPL(MPRC)
+RD_AUTOCLEAR_IMPL(GPTC)
+RD_AUTOCLEAR_IMPL(GORCL)
+RD_AUTOCLEAR_IMPL(GORCH)
+RD_AUTOCLEAR_IMPL(GOTCL)
+RD_AUTOCLEAR_IMPL(GOTCH)
+RD_AUTOCLEAR_IMPL(ROC)
+RD_AUTOCLEAR_IMPL(TORL)
+RD_AUTOCLEAR_IMPL(TORH)
+RD_AUTOCLEAR_IMPL(TOTL)
+RD_AUTOCLEAR_IMPL(TOTH)
+RD_AUTOCLEAR_IMPL(TPR)
+RD_AUTOCLEAR_IMPL(TPT)
+RD_AUTOCLEAR_IMPL(PTC64)
+RD_AUTOCLEAR_IMPL(PTC127)
+RD_AUTOCLEAR_IMPL(PTC255)
+RD_AUTOCLEAR_IMPL(PTC511)
+RD_AUTOCLEAR_IMPL(PTC1023)
+RD_AUTOCLEAR_IMPL(PTC1522)
+RD_AUTOCLEAR_IMPL(MPTC)
+RD_AUTOCLEAR_IMPL(BPTC)
+RD_AUTOCLEAR_IMPL(TSCTC)
+RD_AUTOCLEAR_IMPL(TSCTFC)
+RD_DEFAULT_IMPL(RXCSUM)
+WR_DEFAULT_IMPL(RXCSUM)
+RD_DEFAULT_IMPL(RFCTL)
+RD_DEFAULT_IMPL(MANC)
+WR_DEFAULT_IMPL(MANC)
+
+
 /**
  * Register map table.
  *
@@ -1780,140 +2006,140 @@ static struct E1kRegMap_st
 {
     /* offset  size     read mask   write mask  read callback            write callback            abbrev      full name                     */
     /*-------  -------  ----------  ----------  -----------------------  ------------------------  ----------  ------------------------------*/
-    { 0x00000, 0x00004, 0xDBF31BE9, 0xDBF31BE9, e1kRegReadDefault      , e1kRegWriteCTRL         , "CTRL"    , "Device Control" },
-    { 0x00008, 0x00004, 0x0000FDFF, 0x00000000, e1kRegReadDefault      , e1kRegWriteUnimplemented, "STATUS"  , "Device Status" },
+    { 0x00000, 0x00004, 0xDBF31BE9, 0xDBF31BE9, RD_DEFAULT(CTRL)       , e1kRegWriteCTRL         , "CTRL"    , "Device Control" },
+    { 0x00008, 0x00004, 0x0000FDFF, 0x00000000, RD_DEFAULT(STATUS)     , NULL                    , "STATUS"  , "Device Status" },
     { 0x00010, 0x00004, 0x000027F0, 0x00000070, e1kRegReadEECD         , e1kRegWriteEECD         , "EECD"    , "EEPROM/Flash Control/Data" },
-    { 0x00014, 0x00004, 0xFFFFFFFE, 0xFFFFFF00, e1kRegReadDefault      , e1kRegWriteEERD         , "EERD"    , "EEPROM Read" },
-    { 0x00018, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "CTRL_EXT", "Extended Device Control" },
-    { 0x0001c, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "FLA"     , "Flash Access (N/A)" },
-    { 0x00020, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadDefault      , e1kRegWriteMDIC         , "MDIC"    , "MDI Control" },
-    { 0x00028, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "FCAL"    , "Flow Control Address Low" },
-    { 0x0002c, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "FCAH"    , "Flow Control Address High" },
-    { 0x00030, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "FCT"     , "Flow Control Type" },
-    { 0x00038, 0x00004, 0x0000FFFF, 0x0000FFFF, e1kRegReadDefault      , e1kRegWriteDefault      , "VET"     , "VLAN EtherType" },
+    { 0x00014, 0x00004, 0xFFFFFFFE, 0xFFFFFF00, RD_DEFAULT(EERD)       , e1kRegWriteEERD         , "EERD"    , "EEPROM Read" },
+    { 0x00018, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, NULL                   , NULL                    , "CTRL_EXT", "Extended Device Control" },
+    { 0x0001c, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, NULL                   , NULL                    , "FLA"     , "Flash Access (N/A)" },
+    { 0x00020, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, RD_DEFAULT(MDIC)       , e1kRegWriteMDIC         , "MDIC"    , "MDI Control" },
+    { 0x00028, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, NULL                   , NULL                    , "FCAL"    , "Flow Control Address Low" },
+    { 0x0002c, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, NULL                   , NULL                    , "FCAH"    , "Flow Control Address High" },
+    { 0x00030, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, NULL                   , NULL                    , "FCT"     , "Flow Control Type" },
+    { 0x00038, 0x00004, 0x0000FFFF, 0x0000FFFF, RD_DEFAULT(VET)        , WR_DEFAULT(VET)         , "VET"     , "VLAN EtherType" },
     { 0x000c0, 0x00004, 0x0001F6DF, 0x0001F6DF, e1kRegReadICR          , e1kRegWriteICR          , "ICR"     , "Interrupt Cause Read" },
-    { 0x000c4, 0x00004, 0x0000FFFF, 0x0000FFFF, e1kRegReadDefault      , e1kRegWriteDefault      , "ITR"     , "Interrupt Throttling" },
+    { 0x000c4, 0x00004, 0x0000FFFF, 0x0000FFFF, RD_DEFAULT(ITR)        , WR_DEFAULT(ITR)         , "ITR"     , "Interrupt Throttling" },
     { 0x000c8, 0x00004, 0x0001F6DF, 0xFFFFFFFF, e1kRegReadICS          , e1kRegWriteICS          , "ICS"     , "Interrupt Cause Set" },
-    { 0x000d0, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadDefault      , e1kRegWriteIMS          , "IMS"     , "Interrupt Mask Set/Read" },
-    { 0x000d8, 0x00004, 0x00000000, 0xFFFFFFFF, e1kRegReadUnimplemented, e1kRegWriteIMC          , "IMC"     , "Interrupt Mask Clear" },
-    { 0x00100, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadDefault      , e1kRegWriteRCTL         , "RCTL"    , "Receive Control" },
-    { 0x00170, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "FCTTV"   , "Flow Control Transmit Timer Value" },
-    { 0x00178, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "TXCW"    , "Transmit Configuration Word (N/A)" },
-    { 0x00180, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "RXCW"    , "Receive Configuration Word (N/A)" },
-    { 0x00400, 0x00004, 0x017FFFFA, 0x017FFFFA, e1kRegReadDefault      , e1kRegWriteDefault      , "TCTL"    , "Transmit Control" },
-    { 0x00410, 0x00004, 0x3FFFFFFF, 0x3FFFFFFF, e1kRegReadDefault      , e1kRegWriteDefault      , "TIPG"    , "Transmit IPG" },
-    { 0x00458, 0x00004, 0x0000FFFF, 0x0000FFFF, e1kRegReadDefault      , e1kRegWriteDefault      , "AIFS"    , "Adaptive IFS Throttle - AIT" },
-    { 0x00e00, 0x00004, 0xCFCFCFCF, 0xCFCFCFCF, e1kRegReadDefault      , e1kRegWriteDefault      , "LEDCTL"  , "LED Control" },
-    { 0x00f00, 0x00004, 0x000000E8, 0x000000E0, e1kRegReadDefault      , e1kRegWriteDefault      , "EXTCNF_CTRL", "Extended Configuration Control" },
-    { 0x01000, 0x00004, 0xFFFF007F, 0x0000007F, e1kRegReadDefault      , e1kRegWritePBA          , "PBA"     , "Packet Buffer Allocation" },
-    { 0x02160, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "FCRTL"   , "Flow Control Receive Threshold Low" },
-    { 0x02168, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "FCRTH"   , "Flow Control Receive Threshold High" },
-    { 0x02170, 0x00004, 0x3F3F3F7F, 0x3F3F3F7F, e1kRegReadDefault      , e1kRegWriteDefault      , "PSRCTL"  , "Packet Split Receive Control" },
-    { 0x02410, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "RDFH"    , "Receive Data FIFO Head" },
-    { 0x02418, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "RDFT"    , "Receive Data FIFO Tail" },
-    { 0x02420, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "RDFHS"   , "Receive Data FIFO Head Saved Register" },
-    { 0x02428, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "RDFTS"   , "Receive Data FIFO Tail Saved Register" },
-    { 0x02430, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "RDFPC"   , "Receive Data FIFO Packet Count" },
-    { 0x02800, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadDefault      , e1kRegWriteDefault      , "RDBAL"   , "Receive Descriptor Base Low" },
-    { 0x02804, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadDefault      , e1kRegWriteDefault      , "RDBAH"   , "Receive Descriptor Base High" },
-    { 0x02808, 0x00004, 0x000FFF80, 0x000FFF80, e1kRegReadDefault      , e1kRegWriteDefault      , "RDLEN"   , "Receive Descriptor Length" },
-    { 0x02810, 0x00004, 0x0000FFFF, 0x0000FFFF, e1kRegReadDefault      , e1kRegWriteDefault      , "RDH"     , "Receive Descriptor Head" },
-    { 0x02818, 0x00004, 0x0000FFFF, 0x0000FFFF, e1kRegReadDefault      , e1kRegWriteRDT          , "RDT"     , "Receive Descriptor Tail" },
-    { 0x02820, 0x00004, 0x0000FFFF, 0x0000FFFF, e1kRegReadDefault      , e1kRegWriteRDTR         , "RDTR"    , "Receive Delay Timer" },
-    { 0x02828, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "RXDCTL"  , "Receive Descriptor Control" },
-    { 0x0282c, 0x00004, 0x0000FFFF, 0x0000FFFF, e1kRegReadDefault      , e1kRegWriteDefault      , "RADV"    , "Receive Interrupt Absolute Delay Timer" },
-    { 0x02c00, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "RSRPD"   , "Receive Small Packet Detect Interrupt" },
-    { 0x03000, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "TXDMAC"  , "TX DMA Control (N/A)" },
-    { 0x03410, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "TDFH"    , "Transmit Data FIFO Head" },
-    { 0x03418, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "TDFT"    , "Transmit Data FIFO Tail" },
-    { 0x03420, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "TDFHS"   , "Transmit Data FIFO Head Saved Register" },
-    { 0x03428, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "TDFTS"   , "Transmit Data FIFO Tail Saved Register" },
-    { 0x03430, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "TDFPC"   , "Transmit Data FIFO Packet Count" },
-    { 0x03800, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadDefault      , e1kRegWriteDefault      , "TDBAL"   , "Transmit Descriptor Base Low" },
-    { 0x03804, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadDefault      , e1kRegWriteDefault      , "TDBAH"   , "Transmit Descriptor Base High" },
-    { 0x03808, 0x00004, 0x000FFF80, 0x000FFF80, e1kRegReadDefault      , e1kRegWriteDefault      , "TDLEN"   , "Transmit Descriptor Length" },
-    { 0x03810, 0x00004, 0x0000FFFF, 0x0000FFFF, e1kRegReadDefault      , e1kRegWriteDefault      , "TDH"     , "Transmit Descriptor Head" },
-    { 0x03818, 0x00004, 0x0000FFFF, 0x0000FFFF, e1kRegReadDefault      , e1kRegWriteTDT          , "TDT"     , "Transmit Descriptor Tail" },
-    { 0x03820, 0x00004, 0x0000FFFF, 0x0000FFFF, e1kRegReadDefault      , e1kRegWriteDefault      , "TIDV"    , "Transmit Interrupt Delay Value" },
-    { 0x03828, 0x00004, 0xFF3F3F3F, 0xFF3F3F3F, e1kRegReadDefault      , e1kRegWriteDefault      , "TXDCTL"  , "Transmit Descriptor Control" },
-    { 0x0382c, 0x00004, 0x0000FFFF, 0x0000FFFF, e1kRegReadDefault      , e1kRegWriteDefault      , "TADV"    , "Transmit Absolute Interrupt Delay Timer" },
-    { 0x03830, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadDefault      , e1kRegWriteDefault      , "TSPMT"   , "TCP Segmentation Pad and Threshold" },
-    { 0x04000, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "CRCERRS" , "CRC Error Count" },
-    { 0x04004, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "ALGNERRC", "Alignment Error Count" },
-    { 0x04008, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "SYMERRS" , "Symbol Error Count" },
-    { 0x0400c, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "RXERRC"  , "RX Error Count" },
-    { 0x04010, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "MPC"     , "Missed Packets Count" },
-    { 0x04014, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "SCC"     , "Single Collision Count" },
-    { 0x04018, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "ECOL"    , "Excessive Collisions Count" },
-    { 0x0401c, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "MCC"     , "Multiple Collision Count" },
-    { 0x04020, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "LATECOL" , "Late Collisions Count" },
-    { 0x04028, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "COLC"    , "Collision Count" },
-    { 0x04030, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "DC"      , "Defer Count" },
-    { 0x04034, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "TNCRS"   , "Transmit - No CRS" },
-    { 0x04038, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "SEC"     , "Sequence Error Count" },
-    { 0x0403c, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "CEXTERR" , "Carrier Extension Error Count" },
-    { 0x04040, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "RLEC"    , "Receive Length Error Count" },
-    { 0x04048, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "XONRXC"  , "XON Received Count" },
-    { 0x0404c, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "XONTXC"  , "XON Transmitted Count" },
-    { 0x04050, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "XOFFRXC" , "XOFF Received Count" },
-    { 0x04054, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "XOFFTXC" , "XOFF Transmitted Count" },
-    { 0x04058, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "FCRUC"   , "FC Received Unsupported Count" },
-    { 0x0405c, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadAutoClear    , e1kRegWriteUnimplemented, "PRC64"   , "Packets Received (64 Bytes) Count" },
-    { 0x04060, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadAutoClear    , e1kRegWriteUnimplemented, "PRC127"  , "Packets Received (65-127 Bytes) Count" },
-    { 0x04064, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadAutoClear    , e1kRegWriteUnimplemented, "PRC255"  , "Packets Received (128-255 Bytes) Count" },
-    { 0x04068, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadAutoClear    , e1kRegWriteUnimplemented, "PRC511"  , "Packets Received (256-511 Bytes) Count" },
-    { 0x0406c, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadAutoClear    , e1kRegWriteUnimplemented, "PRC1023" , "Packets Received (512-1023 Bytes) Count" },
-    { 0x04070, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadAutoClear    , e1kRegWriteUnimplemented, "PRC1522" , "Packets Received (1024-Max Bytes)" },
-    { 0x04074, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadAutoClear    , e1kRegWriteUnimplemented, "GPRC"    , "Good Packets Received Count" },
-    { 0x04078, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadAutoClear    , e1kRegWriteUnimplemented, "BPRC"    , "Broadcast Packets Received Count" },
-    { 0x0407c, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadAutoClear    , e1kRegWriteUnimplemented, "MPRC"    , "Multicast Packets Received Count" },
-    { 0x04080, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadAutoClear    , e1kRegWriteUnimplemented, "GPTC"    , "Good Packets Transmitted Count" },
-    { 0x04088, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadAutoClear    , e1kRegWriteUnimplemented, "GORCL"   , "Good Octets Received Count (Low)" },
-    { 0x0408c, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadAutoClear    , e1kRegWriteUnimplemented, "GORCH"   , "Good Octets Received Count (Hi)" },
-    { 0x04090, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadAutoClear    , e1kRegWriteUnimplemented, "GOTCL"   , "Good Octets Transmitted Count (Low)" },
-    { 0x04094, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadAutoClear    , e1kRegWriteUnimplemented, "GOTCH"   , "Good Octets Transmitted Count (Hi)" },
-    { 0x040a0, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "RNBC"    , "Receive No Buffers Count" },
-    { 0x040a4, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "RUC"     , "Receive Undersize Count" },
-    { 0x040a8, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "RFC"     , "Receive Fragment Count" },
-    { 0x040ac, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadAutoClear    , e1kRegWriteUnimplemented, "ROC"     , "Receive Oversize Count" },
-    { 0x040b0, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "RJC"     , "Receive Jabber Count" },
-    { 0x040b4, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "MGTPRC"  , "Management Packets Received Count" },
-    { 0x040b8, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "MGTPDC"  , "Management Packets Dropped Count" },
-    { 0x040bc, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "MGTPTC"  , "Management Pkts Transmitted Count" },
-    { 0x040c0, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadAutoClear    , e1kRegWriteUnimplemented, "TORL"    , "Total Octets Received (Lo)" },
-    { 0x040c4, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadAutoClear    , e1kRegWriteUnimplemented, "TORH"    , "Total Octets Received (Hi)" },
-    { 0x040c8, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadAutoClear    , e1kRegWriteUnimplemented, "TOTL"    , "Total Octets Transmitted (Lo)" },
-    { 0x040cc, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadAutoClear    , e1kRegWriteUnimplemented, "TOTH"    , "Total Octets Transmitted (Hi)" },
-    { 0x040d0, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadAutoClear    , e1kRegWriteUnimplemented, "TPR"     , "Total Packets Received" },
-    { 0x040d4, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadAutoClear    , e1kRegWriteUnimplemented, "TPT"     , "Total Packets Transmitted" },
-    { 0x040d8, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadAutoClear    , e1kRegWriteUnimplemented, "PTC64"   , "Packets Transmitted (64 Bytes) Count" },
-    { 0x040dc, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadAutoClear    , e1kRegWriteUnimplemented, "PTC127"  , "Packets Transmitted (65-127 Bytes) Count" },
-    { 0x040e0, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadAutoClear    , e1kRegWriteUnimplemented, "PTC255"  , "Packets Transmitted (128-255 Bytes) Count" },
-    { 0x040e4, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadAutoClear    , e1kRegWriteUnimplemented, "PTC511"  , "Packets Transmitted (256-511 Bytes) Count" },
-    { 0x040e8, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadAutoClear    , e1kRegWriteUnimplemented, "PTC1023" , "Packets Transmitted (512-1023 Bytes) Count" },
-    { 0x040ec, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadAutoClear    , e1kRegWriteUnimplemented, "PTC1522" , "Packets Transmitted (1024 Bytes or Greater) Count" },
-    { 0x040f0, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadAutoClear    , e1kRegWriteUnimplemented, "MPTC"    , "Multicast Packets Transmitted Count" },
-    { 0x040f4, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadAutoClear    , e1kRegWriteUnimplemented, "BPTC"    , "Broadcast Packets Transmitted Count" },
-    { 0x040f8, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadAutoClear    , e1kRegWriteUnimplemented, "TSCTC"   , "TCP Segmentation Context Transmitted Count" },
-    { 0x040fc, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadAutoClear    , e1kRegWriteUnimplemented, "TSCTFC"  , "TCP Segmentation Context Tx Fail Count" },
-    { 0x05000, 0x00004, 0x000007FF, 0x000007FF, e1kRegReadDefault      , e1kRegWriteDefault      , "RXCSUM"  , "Receive Checksum Control" },
-    { 0x05008, 0x00004, 0x0000FFFF, 0x0000FFFF, e1kRegReadDefault      , e1kRegWriteRFCTL        , "RFCTL"   , "Receive Filter Control Register (82583V)" },
-    { 0x05800, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "WUC"     , "Wakeup Control" },
-    { 0x05808, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "WUFC"    , "Wakeup Filter Control" },
-    { 0x05810, 0x00004, 0xFFFFFFFF, 0x00000000, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "WUS"     , "Wakeup Status" },
-    { 0x05820, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadDefault      , e1kRegWriteDefault      , "MANC"    , "Management Control" },
-    { 0x05838, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "IPAV"    , "IP Address Valid" },
-    { 0x05900, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "WUPL"    , "Wakeup Packet Length" },
+    { 0x000d0, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, RD_DEFAULT(IMS)        , e1kRegWriteIMS          , "IMS"     , "Interrupt Mask Set/Read" },
+    { 0x000d8, 0x00004, 0x00000000, 0xFFFFFFFF, NULL                   , e1kRegWriteIMC          , "IMC"     , "Interrupt Mask Clear" },
+    { 0x00100, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, RD_DEFAULT(RCTL)       , e1kRegWriteRCTL         , "RCTL"    , "Receive Control" },
+    { 0x00170, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, NULL                   , NULL                    , "FCTTV"   , "Flow Control Transmit Timer Value" },
+    { 0x00178, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, NULL                   , NULL                    , "TXCW"    , "Transmit Configuration Word (N/A)" },
+    { 0x00180, 0x00004, 0xFFFFFFFF, 0x00000000, NULL                   , NULL                    , "RXCW"    , "Receive Configuration Word (N/A)" },
+    { 0x00400, 0x00004, 0x017FFFFA, 0x017FFFFA, RD_DEFAULT(TCTL)       , WR_DEFAULT(TCTL)        , "TCTL"    , "Transmit Control" },
+    { 0x00410, 0x00004, 0x3FFFFFFF, 0x3FFFFFFF, RD_DEFAULT(TIPG)       , WR_DEFAULT(TIPG)        , "TIPG"    , "Transmit IPG" },
+    { 0x00458, 0x00004, 0x0000FFFF, 0x0000FFFF, RD_DEFAULT(AIFS)       , WR_DEFAULT(AIFS)        , "AIFS"    , "Adaptive IFS Throttle - AIT" },
+    { 0x00e00, 0x00004, 0xCFCFCFCF, 0xCFCFCFCF, RD_DEFAULT(LEDCTL)     , WR_DEFAULT(LEDCTL)      , "LEDCTL"  , "LED Control" },
+    { 0x00f00, 0x00004, 0x000000E8, 0x000000E0, RD_DEFAULT(EXTCNF_CTRL), WR_DEFAULT(EXTCNF_CTRL) , "EXTCNF_CTRL", "Extended Configuration Control" },
+    { 0x01000, 0x00004, 0xFFFF007F, 0x0000007F, RD_DEFAULT(PBA)        , e1kRegWritePBA          , "PBA"     , "Packet Buffer Allocation" },
+    { 0x02160, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, NULL                   , NULL                    , "FCRTL"   , "Flow Control Receive Threshold Low" },
+    { 0x02168, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, NULL                   , NULL                    , "FCRTH"   , "Flow Control Receive Threshold High" },
+    { 0x02170, 0x00004, 0x3F3F3F7F, 0x3F3F3F7F, RD_DEFAULT(PSRCTL)     , WR_DEFAULT(PSRCTL)      , "PSRCTL"  , "Packet Split Receive Control" },
+    { 0x02410, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, NULL                   , NULL                    , "RDFH"    , "Receive Data FIFO Head" },
+    { 0x02418, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, NULL                   , NULL                    , "RDFT"    , "Receive Data FIFO Tail" },
+    { 0x02420, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, NULL                   , NULL                    , "RDFHS"   , "Receive Data FIFO Head Saved Register" },
+    { 0x02428, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, NULL                   , NULL                    , "RDFTS"   , "Receive Data FIFO Tail Saved Register" },
+    { 0x02430, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, NULL                   , NULL                    , "RDFPC"   , "Receive Data FIFO Packet Count" },
+    { 0x02800, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, RD_DEFAULT(RDBAL)      , WR_DEFAULT(RDBAL)       , "RDBAL"   , "Receive Descriptor Base Low" },
+    { 0x02804, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, RD_DEFAULT(RDBAH)      , WR_DEFAULT(RDBAH)       , "RDBAH"   , "Receive Descriptor Base High" },
+    { 0x02808, 0x00004, 0x000FFF80, 0x000FFF80, RD_DEFAULT(RDLEN)      , WR_DEFAULT(RDLEN)       , "RDLEN"   , "Receive Descriptor Length" },
+    { 0x02810, 0x00004, 0x0000FFFF, 0x0000FFFF, RD_DEFAULT(RDH)        , WR_DEFAULT(RDH)         , "RDH"     , "Receive Descriptor Head" },
+    { 0x02818, 0x00004, 0x0000FFFF, 0x0000FFFF, RD_DEFAULT(RDT)        , e1kRegWriteRDT          , "RDT"     , "Receive Descriptor Tail" },
+    { 0x02820, 0x00004, 0x0000FFFF, 0x0000FFFF, RD_DEFAULT(RDTR)       , e1kRegWriteRDTR         , "RDTR"    , "Receive Delay Timer" },
+    { 0x02828, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, NULL                   , NULL                    , "RXDCTL"  , "Receive Descriptor Control" },
+    { 0x0282c, 0x00004, 0x0000FFFF, 0x0000FFFF, RD_DEFAULT(RADV)       , WR_DEFAULT(RADV)        , "RADV"    , "Receive Interrupt Absolute Delay Timer" },
+    { 0x02c00, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, NULL                   , NULL                    , "RSRPD"   , "Receive Small Packet Detect Interrupt" },
+    { 0x03000, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, NULL                   , NULL                    , "TXDMAC"  , "TX DMA Control (N/A)" },
+    { 0x03410, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, NULL                   , NULL                    , "TDFH"    , "Transmit Data FIFO Head" },
+    { 0x03418, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, NULL                   , NULL                    , "TDFT"    , "Transmit Data FIFO Tail" },
+    { 0x03420, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, NULL                   , NULL                    , "TDFHS"   , "Transmit Data FIFO Head Saved Register" },
+    { 0x03428, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, NULL                   , NULL                    , "TDFTS"   , "Transmit Data FIFO Tail Saved Register" },
+    { 0x03430, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, NULL                   , NULL                    , "TDFPC"   , "Transmit Data FIFO Packet Count" },
+    { 0x03800, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, RD_DEFAULT(TDBAL)      , WR_DEFAULT(TDBAL)       , "TDBAL"   , "Transmit Descriptor Base Low" },
+    { 0x03804, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, RD_DEFAULT(TDBAH)      , WR_DEFAULT(TDBAH)       , "TDBAH"   , "Transmit Descriptor Base High" },
+    { 0x03808, 0x00004, 0x000FFF80, 0x000FFF80, RD_DEFAULT(TDLEN)      , WR_DEFAULT(TDLEN)       , "TDLEN"   , "Transmit Descriptor Length" },
+    { 0x03810, 0x00004, 0x0000FFFF, 0x0000FFFF, RD_DEFAULT(TDH)        , WR_DEFAULT(TDH)         , "TDH"     , "Transmit Descriptor Head" },
+    { 0x03818, 0x00004, 0x0000FFFF, 0x0000FFFF, RD_DEFAULT(TDT)        , e1kRegWriteTDT          , "TDT"     , "Transmit Descriptor Tail" },
+    { 0x03820, 0x00004, 0x0000FFFF, 0x0000FFFF, RD_DEFAULT(TIDV)       , WR_DEFAULT(TIDV)        , "TIDV"    , "Transmit Interrupt Delay Value" },
+    { 0x03828, 0x00004, 0xFF3F3F3F, 0xFF3F3F3F, RD_DEFAULT(TXDCTL)     , WR_DEFAULT(TXDCTL)      , "TXDCTL"  , "Transmit Descriptor Control" },
+    { 0x0382c, 0x00004, 0x0000FFFF, 0x0000FFFF, RD_DEFAULT(TADV)       , WR_DEFAULT(TADV)        , "TADV"    , "Transmit Absolute Interrupt Delay Timer" },
+    { 0x03830, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, RD_DEFAULT(TSPMT)      , WR_DEFAULT(TSPMT)       , "TSPMT"   , "TCP Segmentation Pad and Threshold" },
+    { 0x04000, 0x00004, 0xFFFFFFFF, 0x00000000, NULL                   , NULL                    , "CRCERRS" , "CRC Error Count" },
+    { 0x04004, 0x00004, 0xFFFFFFFF, 0x00000000, NULL                   , NULL                    , "ALGNERRC", "Alignment Error Count" },
+    { 0x04008, 0x00004, 0xFFFFFFFF, 0x00000000, NULL                   , NULL                    , "SYMERRS" , "Symbol Error Count" },
+    { 0x0400c, 0x00004, 0xFFFFFFFF, 0x00000000, NULL                   , NULL                    , "RXERRC"  , "RX Error Count" },
+    { 0x04010, 0x00004, 0xFFFFFFFF, 0x00000000, NULL                   , NULL                    , "MPC"     , "Missed Packets Count" },
+    { 0x04014, 0x00004, 0xFFFFFFFF, 0x00000000, NULL                   , NULL                    , "SCC"     , "Single Collision Count" },
+    { 0x04018, 0x00004, 0xFFFFFFFF, 0x00000000, NULL                   , NULL                    , "ECOL"    , "Excessive Collisions Count" },
+    { 0x0401c, 0x00004, 0xFFFFFFFF, 0x00000000, NULL                   , NULL                    , "MCC"     , "Multiple Collision Count" },
+    { 0x04020, 0x00004, 0xFFFFFFFF, 0x00000000, NULL                   , NULL                    , "LATECOL" , "Late Collisions Count" },
+    { 0x04028, 0x00004, 0xFFFFFFFF, 0x00000000, NULL                   , NULL                    , "COLC"    , "Collision Count" },
+    { 0x04030, 0x00004, 0xFFFFFFFF, 0x00000000, NULL                   , NULL                    , "DC"      , "Defer Count" },
+    { 0x04034, 0x00004, 0xFFFFFFFF, 0x00000000, NULL                   , NULL                    , "TNCRS"   , "Transmit - No CRS" },
+    { 0x04038, 0x00004, 0xFFFFFFFF, 0x00000000, NULL                   , NULL                    , "SEC"     , "Sequence Error Count" },
+    { 0x0403c, 0x00004, 0xFFFFFFFF, 0x00000000, NULL                   , NULL                    , "CEXTERR" , "Carrier Extension Error Count" },
+    { 0x04040, 0x00004, 0xFFFFFFFF, 0x00000000, NULL                   , NULL                    , "RLEC"    , "Receive Length Error Count" },
+    { 0x04048, 0x00004, 0xFFFFFFFF, 0x00000000, NULL                   , NULL                    , "XONRXC"  , "XON Received Count" },
+    { 0x0404c, 0x00004, 0xFFFFFFFF, 0x00000000, NULL                   , NULL                    , "XONTXC"  , "XON Transmitted Count" },
+    { 0x04050, 0x00004, 0xFFFFFFFF, 0x00000000, NULL                   , NULL                    , "XOFFRXC" , "XOFF Received Count" },
+    { 0x04054, 0x00004, 0xFFFFFFFF, 0x00000000, NULL                   , NULL                    , "XOFFTXC" , "XOFF Transmitted Count" },
+    { 0x04058, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, NULL                   , NULL                    , "FCRUC"   , "FC Received Unsupported Count" },
+    { 0x0405c, 0x00004, 0xFFFFFFFF, 0x00000000, RD_AUTOCLEAR(PRC64)    , NULL                    , "PRC64"   , "Packets Received (64 Bytes) Count" },
+    { 0x04060, 0x00004, 0xFFFFFFFF, 0x00000000, RD_AUTOCLEAR(PRC127)   , NULL                    , "PRC127"  , "Packets Received (65-127 Bytes) Count" },
+    { 0x04064, 0x00004, 0xFFFFFFFF, 0x00000000, RD_AUTOCLEAR(PRC255)   , NULL                    , "PRC255"  , "Packets Received (128-255 Bytes) Count" },
+    { 0x04068, 0x00004, 0xFFFFFFFF, 0x00000000, RD_AUTOCLEAR(PRC511)   , NULL                    , "PRC511"  , "Packets Received (256-511 Bytes) Count" },
+    { 0x0406c, 0x00004, 0xFFFFFFFF, 0x00000000, RD_AUTOCLEAR(PRC1023)  , NULL                    , "PRC1023" , "Packets Received (512-1023 Bytes) Count" },
+    { 0x04070, 0x00004, 0xFFFFFFFF, 0x00000000, RD_AUTOCLEAR(PRC1522)  , NULL                    , "PRC1522" , "Packets Received (1024-Max Bytes)" },
+    { 0x04074, 0x00004, 0xFFFFFFFF, 0x00000000, RD_AUTOCLEAR(GPRC)     , NULL                    , "GPRC"    , "Good Packets Received Count" },
+    { 0x04078, 0x00004, 0xFFFFFFFF, 0x00000000, RD_AUTOCLEAR(BPRC)     , NULL                    , "BPRC"    , "Broadcast Packets Received Count" },
+    { 0x0407c, 0x00004, 0xFFFFFFFF, 0x00000000, RD_AUTOCLEAR(MPRC)     , NULL                    , "MPRC"    , "Multicast Packets Received Count" },
+    { 0x04080, 0x00004, 0xFFFFFFFF, 0x00000000, RD_AUTOCLEAR(GPTC)     , NULL                    , "GPTC"    , "Good Packets Transmitted Count" },
+    { 0x04088, 0x00004, 0xFFFFFFFF, 0x00000000, RD_AUTOCLEAR(GORCL)    , NULL                    , "GORCL"   , "Good Octets Received Count (Low)" },
+    { 0x0408c, 0x00004, 0xFFFFFFFF, 0x00000000, RD_AUTOCLEAR(GORCH)    , NULL                    , "GORCH"   , "Good Octets Received Count (Hi)" },
+    { 0x04090, 0x00004, 0xFFFFFFFF, 0x00000000, RD_AUTOCLEAR(GOTCL)    , NULL                    , "GOTCL"   , "Good Octets Transmitted Count (Low)" },
+    { 0x04094, 0x00004, 0xFFFFFFFF, 0x00000000, RD_AUTOCLEAR(GOTCH)    , NULL                    , "GOTCH"   , "Good Octets Transmitted Count (Hi)" },
+    { 0x040a0, 0x00004, 0xFFFFFFFF, 0x00000000, NULL                   , NULL                    , "RNBC"    , "Receive No Buffers Count" },
+    { 0x040a4, 0x00004, 0xFFFFFFFF, 0x00000000, NULL                   , NULL                    , "RUC"     , "Receive Undersize Count" },
+    { 0x040a8, 0x00004, 0xFFFFFFFF, 0x00000000, NULL                   , NULL                    , "RFC"     , "Receive Fragment Count" },
+    { 0x040ac, 0x00004, 0xFFFFFFFF, 0x00000000, RD_AUTOCLEAR(ROC)      , NULL                    , "ROC"     , "Receive Oversize Count" },
+    { 0x040b0, 0x00004, 0xFFFFFFFF, 0x00000000, NULL                   , NULL                    , "RJC"     , "Receive Jabber Count" },
+    { 0x040b4, 0x00004, 0xFFFFFFFF, 0x00000000, NULL                   , NULL                    , "MGTPRC"  , "Management Packets Received Count" },
+    { 0x040b8, 0x00004, 0xFFFFFFFF, 0x00000000, NULL                   , NULL                    , "MGTPDC"  , "Management Packets Dropped Count" },
+    { 0x040bc, 0x00004, 0xFFFFFFFF, 0x00000000, NULL                   , NULL                    , "MGTPTC"  , "Management Pkts Transmitted Count" },
+    { 0x040c0, 0x00004, 0xFFFFFFFF, 0x00000000, RD_AUTOCLEAR(TORL)     , NULL                    , "TORL"    , "Total Octets Received (Lo)" },
+    { 0x040c4, 0x00004, 0xFFFFFFFF, 0x00000000, RD_AUTOCLEAR(TORH)     , NULL                    , "TORH"    , "Total Octets Received (Hi)" },
+    { 0x040c8, 0x00004, 0xFFFFFFFF, 0x00000000, RD_AUTOCLEAR(TOTL)     , NULL                    , "TOTL"    , "Total Octets Transmitted (Lo)" },
+    { 0x040cc, 0x00004, 0xFFFFFFFF, 0x00000000, RD_AUTOCLEAR(TOTH)     , NULL                    , "TOTH"    , "Total Octets Transmitted (Hi)" },
+    { 0x040d0, 0x00004, 0xFFFFFFFF, 0x00000000, RD_AUTOCLEAR(TPR)      , NULL                    , "TPR"     , "Total Packets Received" },
+    { 0x040d4, 0x00004, 0xFFFFFFFF, 0x00000000, RD_AUTOCLEAR(TPT)      , NULL                    , "TPT"     , "Total Packets Transmitted" },
+    { 0x040d8, 0x00004, 0xFFFFFFFF, 0x00000000, RD_AUTOCLEAR(PTC64)    , NULL                    , "PTC64"   , "Packets Transmitted (64 Bytes) Count" },
+    { 0x040dc, 0x00004, 0xFFFFFFFF, 0x00000000, RD_AUTOCLEAR(PTC127)   , NULL                    , "PTC127"  , "Packets Transmitted (65-127 Bytes) Count" },
+    { 0x040e0, 0x00004, 0xFFFFFFFF, 0x00000000, RD_AUTOCLEAR(PTC255)   , NULL                    , "PTC255"  , "Packets Transmitted (128-255 Bytes) Count" },
+    { 0x040e4, 0x00004, 0xFFFFFFFF, 0x00000000, RD_AUTOCLEAR(PTC511)   , NULL                    , "PTC511"  , "Packets Transmitted (256-511 Bytes) Count" },
+    { 0x040e8, 0x00004, 0xFFFFFFFF, 0x00000000, RD_AUTOCLEAR(PTC1023)  , NULL                    , "PTC1023" , "Packets Transmitted (512-1023 Bytes) Count" },
+    { 0x040ec, 0x00004, 0xFFFFFFFF, 0x00000000, RD_AUTOCLEAR(PTC1522)  , NULL                    , "PTC1522" , "Packets Transmitted (1024 Bytes or Greater) Count" },
+    { 0x040f0, 0x00004, 0xFFFFFFFF, 0x00000000, RD_AUTOCLEAR(MPTC)     , NULL                    , "MPTC"    , "Multicast Packets Transmitted Count" },
+    { 0x040f4, 0x00004, 0xFFFFFFFF, 0x00000000, RD_AUTOCLEAR(BPTC)     , NULL                    , "BPTC"    , "Broadcast Packets Transmitted Count" },
+    { 0x040f8, 0x00004, 0xFFFFFFFF, 0x00000000, RD_AUTOCLEAR(TSCTC)    , NULL                    , "TSCTC"   , "TCP Segmentation Context Transmitted Count" },
+    { 0x040fc, 0x00004, 0xFFFFFFFF, 0x00000000, RD_AUTOCLEAR(TSCTFC)   , NULL                    , "TSCTFC"  , "TCP Segmentation Context Tx Fail Count" },
+    { 0x05000, 0x00004, 0x000007FF, 0x000007FF, RD_DEFAULT(RXCSUM)     , WR_DEFAULT(RXCSUM)      , "RXCSUM"  , "Receive Checksum Control" },
+    { 0x05008, 0x00004, 0x0000FFFF, 0x0000FFFF, RD_DEFAULT(RFCTL)      , e1kRegWriteRFCTL        , "RFCTL"   , "Receive Filter Control Register (82583V)" },
+    { 0x05800, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, NULL                   , NULL                    , "WUC"     , "Wakeup Control" },
+    { 0x05808, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, NULL                   , NULL                    , "WUFC"    , "Wakeup Filter Control" },
+    { 0x05810, 0x00004, 0xFFFFFFFF, 0x00000000, NULL                   , NULL                    , "WUS"     , "Wakeup Status" },
+    { 0x05820, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, RD_DEFAULT(MANC)       , WR_DEFAULT(MANC)        , "MANC"    , "Management Control" },
+    { 0x05838, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, NULL                   , NULL                    , "IPAV"    , "IP Address Valid" },
+    { 0x05900, 0x00004, 0xFFFFFFFF, 0xFFFFFFFF, NULL                   , NULL                    , "WUPL"    , "Wakeup Packet Length" },
     { 0x05200, 0x00200, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadMTA          , e1kRegWriteMTA          , "MTA"     , "Multicast Table Array (n)" },
     { 0x05400, 0x00080, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadRA           , e1kRegWriteRA           , "RA"      , "Receive Address (64-bit) (n)" },
     { 0x05600, 0x00200, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadVFTA         , e1kRegWriteVFTA         , "VFTA"    , "VLAN Filter Table Array (n)" },
-    { 0x05840, 0x0001c, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "IP4AT"   , "IPv4 Address Table" },
-    { 0x05880, 0x00010, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "IP6AT"   , "IPv6 Address Table" },
-    { 0x05a00, 0x00080, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "WUPM"    , "Wakeup Packet Memory" },
-    { 0x05f00, 0x0001c, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "FFLT"    , "Flexible Filter Length Table" },
-    { 0x09000, 0x003fc, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "FFMT"    , "Flexible Filter Mask Table" },
-    { 0x09800, 0x003fc, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "FFVT"    , "Flexible Filter Value Table" },
-    { 0x10000, 0x10000, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadUnimplemented, e1kRegWriteUnimplemented, "PBM"     , "Packet Buffer Memory (n)" },
+    { 0x05840, 0x0001c, 0xFFFFFFFF, 0xFFFFFFFF, NULL                   , NULL                    , "IP4AT"   , "IPv4 Address Table" },
+    { 0x05880, 0x00010, 0xFFFFFFFF, 0xFFFFFFFF, NULL                   , NULL                    , "IP6AT"   , "IPv6 Address Table" },
+    { 0x05a00, 0x00080, 0xFFFFFFFF, 0xFFFFFFFF, NULL                   , NULL                    , "WUPM"    , "Wakeup Packet Memory" },
+    { 0x05f00, 0x0001c, 0xFFFFFFFF, 0xFFFFFFFF, NULL                   , NULL                    , "FFLT"    , "Flexible Filter Length Table" },
+    { 0x09000, 0x003fc, 0xFFFFFFFF, 0xFFFFFFFF, NULL                   , NULL                    , "FFMT"    , "Flexible Filter Mask Table" },
+    { 0x09800, 0x003fc, 0xFFFFFFFF, 0xFFFFFFFF, NULL                   , NULL                    , "FFVT"    , "Flexible Filter Value Table" },
+    { 0x10000, 0x10000, 0xFFFFFFFF, 0xFFFFFFFF, NULL                   , NULL                    , "PBM"     , "Packet Buffer Memory (n)" },
     { 0x00040, 0x00080, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadRA           , e1kRegWriteRA           , "RA82542" , "Receive Address (64-bit) (n) (82542)" },
     { 0x00200, 0x00200, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadMTA          , e1kRegWriteMTA          , "MTA82542", "Multicast Table Array (n) (82542)" },
     { 0x00600, 0x00200, 0xFFFFFFFF, 0xFFFFFFFF, e1kRegReadVFTA         , e1kRegWriteVFTA         , "VFTA82542", "VLAN Filter Table Array (n) (82542)" }
@@ -2411,7 +2637,7 @@ static void e1kR3HardReset(PPDMDEVINS pDevIns, PE1KSTATE pThis, PE1KSTATECC pThi
         pThis->fIntRaised = false;
         E1kLog(("%s e1kR3HardReset: Lowered IRQ: ICR=%08x\n", pThis->szPrf, ICR));
     }
-    memset(pThis->auRegs,        0, sizeof(pThis->auRegs));
+    memset(&pThis->regs, 0, sizeof(pThis->regs));
     memset(pThis->aRecAddr.au32, 0, sizeof(pThis->aRecAddr.au32));
 # ifdef E1K_INIT_RA0
     memcpy(pThis->aRecAddr.au32, pThis->macConfigured.au8,
@@ -2425,7 +2651,7 @@ static void e1kR3HardReset(PPDMDEVINS pDevIns, PE1KSTATE pThis, PE1KSTATECC pThi
     Assert(GET_BITS(RCTL, BSIZE) == 0);
     pThis->u16RxBSize = 2048;
 
-    PSRCTL = 0x00040402;/* BSIZE3=0 (0KB) BSIZE2=4 (4KB) BSIZE1=4 (4KB) BSIZE0=2 (256 bytes)*/
+    PSRCTL = PSRCTL_INIT_VALUE;
 
     uint16_t u16LedCtl = 0x0602; /* LED0/LINK_UP#, LED2/LINK100# */
     pThisCC->eeprom.readWord(0x2F, &u16LedCtl); /* Read LEDCTL defaults from EEPROM */
@@ -2500,30 +2726,13 @@ static uint16_t e1kCSum16(const void *pvBuf, size_t cb)
  * @param   pszText     A string denoting direction of packet transfer.
  * @thread  E1000_TX
  */
+#ifdef DEBUG
 DECLINLINE(void) e1kPacketDump(PPDMDEVINS pDevIns, PE1KSTATE pThis, const uint8_t *cpPacket, size_t cb, const char *pszText)
 {
 #ifdef DEBUG
     if (RT_LIKELY(e1kCsEnter(pThis, VERR_SEM_BUSY) == VINF_SUCCESS))
     {
-        Log4(("%s --- %s packet #%d: %RTmac => %RTmac (%d bytes) ---\n",
-                pThis->szPrf, pszText, ++pThis->u32PktNo, cpPacket+6, cpPacket, cb));
-        if (ntohs(*(uint16_t*)(cpPacket+12)) == 0x86DD)
-        {
-            Log4(("%s --- IPv6: %RTnaipv6 => %RTnaipv6\n",
-                  pThis->szPrf, cpPacket+14+8, cpPacket+14+24));
-            if (*(cpPacket+14+6) == 0x6)
-                Log4(("%s --- TCP: seq=%x ack=%x\n", pThis->szPrf,
-                      ntohl(*(uint32_t*)(cpPacket+14+40+4)), ntohl(*(uint32_t*)(cpPacket+14+40+8))));
-        }
-        else if (ntohs(*(uint16_t*)(cpPacket+12)) == 0x800)
-        {
-            Log4(("%s --- IPv4: %RTnaipv4 => %RTnaipv4\n",
-                  pThis->szPrf, *(uint32_t*)(cpPacket+14+12), *(uint32_t*)(cpPacket+14+16)));
-            if (*(cpPacket+14+6) == 0x6)
-                Log4(("%s --- TCP: seq=%x ack=%x\n", pThis->szPrf,
-                      ntohl(*(uint32_t*)(cpPacket+14+20+4)), ntohl(*(uint32_t*)(cpPacket+14+20+8))));
-        }
-        E1kLog3(("%.*Rhxd\n", cb, cpPacket));
+        vboxEthPacketDump(pThis->szPrf, pszText, cpPacket, (uint32_t)cb);
         e1kCsLeave(pThis);
     }
 #else
@@ -2543,6 +2752,12 @@ DECLINLINE(void) e1kPacketDump(PPDMDEVINS pDevIns, PE1KSTATE pThis, const uint8_
     RT_NOREF2(cb, pszText);
 #endif
 }
+#else /* !DEBUG */
+DECLINLINE(void) e1kPacketDump(PPDMDEVINS pDevIns, PE1KSTATE pThis, const uint8_t *cpPacket, size_t cb, const char *pszText)
+{
+    RT_NOREF(pDevIns, pThis, cpPacket, cb, pszText);
+}
+#endif
 
 /**
  * Determine the type of transmit descriptor.
@@ -3657,7 +3872,7 @@ static int e1kRegWriteCTRL(PPDMDEVINS pDevIns, PE1KSTATE pThis, uint32_t offset,
                 Log7(("%s e1kRegWriteCTRL: Phy::readMDIO(%d)\n", pThis->szPrf, !!(value & CTRL_MDIO)));
             }
         }
-        rc = e1kRegWriteDefault(pDevIns, pThis, offset, index, value);
+        rc = e1kRegWriteDefault(pDevIns, pThis, &CTRL, offset, index, value);
     }
 
     return rc;
@@ -3719,7 +3934,7 @@ static int e1kRegReadEECD(PPDMDEVINS pDevIns, PE1KSTATE pThis, uint32_t offset, 
 {
 #ifdef IN_RING3
     uint32_t value = 0; /* Get rid of false positive in parfait. */
-    int      rc = e1kRegReadDefault(pDevIns, pThis, offset, index, &value);
+    int      rc = e1kRegReadDefault(pDevIns, pThis, &EECD, offset, index, &value);
     if (RT_SUCCESS(rc))
     {
         if ((value & EECD_EE_GNT) || pThis->eChip == E1K_CHIP_82543GC)
@@ -3758,7 +3973,7 @@ static int e1kRegWriteEERD(PPDMDEVINS pDevIns, PE1KSTATE pThis, uint32_t offset,
 {
 #ifdef IN_RING3
     /* Make use of 'writable' and 'readable' masks. */
-    e1kRegWriteDefault(pDevIns, pThis, offset, index, value);
+    e1kRegWriteDefault(pDevIns, pThis, &EERD, offset, index, value);
     /* DONE and DATA are set only if read was triggered by START. */
     if (value & EERD_START)
     {
@@ -3856,7 +4071,7 @@ static int e1kRegWriteMDIC(PPDMDEVINS pDevIns, PE1KSTATE pThis, uint32_t offset,
     else
     {
         /* Store the value */
-        e1kRegWriteDefault(pDevIns, pThis, offset, index, value);
+        e1kRegWriteDefault(pDevIns, pThis, &MDIC, offset, index, value);
         STAM_COUNTER_INC(&pThis->StatPHYAccesses);
         /* Forward op to PHY */
         if (value & MDIC_OP_READ)
@@ -3908,7 +4123,7 @@ static int e1kRegReadICR(PPDMDEVINS pDevIns, PE1KSTATE pThis, uint32_t offset, u
     e1kCsEnterReturn(pThis, VINF_IOM_R3_MMIO_READ);
 
     uint32_t value = 0;
-    int rc = e1kRegReadDefault(pDevIns, pThis, offset, index, &value);
+    int rc = e1kRegReadDefault(pDevIns, pThis, &ICR, offset, index, &value);
     if (RT_SUCCESS(rc))
     {
         if (value)
@@ -3970,7 +4185,7 @@ static int e1kRegReadICR(PPDMDEVINS pDevIns, PE1KSTATE pThis, uint32_t offset, u
 static int e1kRegReadICS(PPDMDEVINS pDevIns, PE1KSTATE pThis, uint32_t offset, uint32_t index, uint32_t *pu32Value)
 {
     RT_NOREF_PV(index);
-    return e1kRegReadDefault(pDevIns, pThis, offset, ICR_IDX, pu32Value);
+    return e1kRegReadDefault(pDevIns, pThis, &ICR, offset, ICR_IDX, pu32Value);  /* Yes, read ICR instead of ICS! */
 }
 
 /**
@@ -4113,7 +4328,7 @@ static int e1kRegWriteRCTL(PPDMDEVINS pDevIns, PE1KSTATE pThis, uint32_t offset,
     }
 
     /* Update the register */
-    return e1kRegWriteDefault(pDevIns, pThis, offset, index, value);
+    return e1kRegWriteDefault(pDevIns, pThis, &RCTL, offset, index, value);
 }
 
 /**
@@ -4140,7 +4355,7 @@ static int e1kRegWriteRFCTL(PPDMDEVINS pDevIns, PE1KSTATE pThis, uint32_t offset
     }
 
     /* Update the register */
-    return e1kRegWriteDefault(pDevIns, pThis, offset, index, value);
+    return e1kRegWriteDefault(pDevIns, pThis, &RFCTL, offset, index, value);
 }
 
 /**
@@ -4157,7 +4372,7 @@ static int e1kRegWriteRFCTL(PPDMDEVINS pDevIns, PE1KSTATE pThis, uint32_t offset
  */
 static int e1kRegWritePBA(PPDMDEVINS pDevIns, PE1KSTATE pThis, uint32_t offset, uint32_t index, uint32_t value)
 {
-    e1kRegWriteDefault(pDevIns, pThis, offset, index, value);
+    e1kRegWriteDefault(pDevIns, pThis, &PBA, offset, index, value);
     PBA_st->txa = 64 - PBA_st->rxa;
 
     return VINF_SUCCESS;
@@ -4188,7 +4403,7 @@ static int e1kRegWriteRDT(PPDMDEVINS pDevIns, PE1KSTATE pThis, uint32_t offset, 
     if (RT_LIKELY(rc == VINF_SUCCESS))
     {
         E1kLog(("%s e1kRegWriteRDT\n",  pThis->szPrf));
-        rc = e1kRegWriteDefault(pDevIns, pThis, offset, index, value);
+        rc = e1kRegWriteDefault(pDevIns, pThis, &RDT, offset, index, value);
         E1KRXDC rxdc;
         if (RT_UNLIKELY(!e1kUpdateRxDContext(pDevIns, pThis, &rxdc, "e1kRegWriteRDT")))
         {
@@ -4239,7 +4454,7 @@ static int e1kRegWriteRDT(PPDMDEVINS pDevIns, PE1KSTATE pThis, uint32_t offset, 
  */
 static int e1kRegWriteRDTR(PPDMDEVINS pDevIns, PE1KSTATE pThis, uint32_t offset, uint32_t index, uint32_t value)
 {
-    e1kRegWriteDefault(pDevIns, pThis, offset, index, value);
+    e1kRegWriteDefault(pDevIns, pThis, &RDTR, offset, index, value);
     if (value & RDTR_FPD)
     {
         /* Flush requested, cancel both timers and raise interrupt */
@@ -6602,7 +6817,7 @@ static DECLCALLBACK(void) e1kR3TxTaskCallback(PPDMDEVINS pDevIns, void *pvUser)
  */
 static int e1kRegWriteTDT(PPDMDEVINS pDevIns, PE1KSTATE pThis, uint32_t offset, uint32_t index, uint32_t value)
 {
-    int rc = e1kRegWriteDefault(pDevIns, pThis, offset, index, value);
+    int rc = e1kRegWriteDefault(pDevIns, pThis, &TDT, offset, index, value);
 
     /* All descriptors starting with head and not including tail belong to us. */
     /* Process them. */
@@ -6777,27 +6992,6 @@ static int e1kRegReadVFTA(PPDMDEVINS pDevIns, PE1KSTATE pThis, uint32_t offset, 
     return VINF_SUCCESS;
 }
 
-/**
- * Read handler for unimplemented registers.
- *
- * Merely reports reads from unimplemented registers.
- *
- * @returns VBox status code.
- *
- * @param   pThis       The device state structure.
- * @param   offset      Register offset in memory-mapped frame.
- * @param   index       Register index in register array.
- * @thread  EMT
- */
-static int e1kRegReadUnimplemented(PPDMDEVINS pDevIns, PE1KSTATE pThis, uint32_t offset, uint32_t index, uint32_t *pu32Value)
-{
-    RT_NOREF(pDevIns, pThis, offset, index);
-    E1kLog(("%s At %08X read (00000000) attempt from unimplemented register %s (%s)\n",
-            pThis->szPrf, offset, g_aE1kRegMap[index].abbrev, g_aE1kRegMap[index].name));
-    *pu32Value = 0;
-
-    return VINF_SUCCESS;
-}
 
 /**
  * Default register read handler with automatic clear operation.
@@ -6810,16 +7004,19 @@ static int e1kRegReadUnimplemented(PPDMDEVINS pDevIns, PE1KSTATE pThis, uint32_t
  *
  * @returns VBox status code.
  *
+ * @param   pDevIns     The PDM device instance structure.
  * @param   pThis       The device state structure.
+ * @param   pu32Store   The place in the state structure where this register is stored.
  * @param   offset      Register offset in memory-mapped frame.
- * @param   index       Register index in register array.
+ * @param   index       Register index in the register info table.
+ * @param   pu32Value   The place to read the value to.
  * @thread  EMT
  */
-static int e1kRegReadAutoClear(PPDMDEVINS pDevIns, PE1KSTATE pThis, uint32_t offset, uint32_t index, uint32_t *pu32Value)
+static int e1kRegReadAutoClear(PPDMDEVINS pDevIns, PE1KSTATE pThis, uint32_t *pu32Store, uint32_t offset, uint32_t index, uint32_t *pu32Value)
 {
     AssertReturn(index < E1K_NUM_OF_32BIT_REGS, VERR_DEV_IO_ERROR);
-    int rc = e1kRegReadDefault(pDevIns, pThis, offset, index, pu32Value);
-    pThis->auRegs[index] = 0;
+    int rc = e1kRegReadDefault(pDevIns, pThis, pu32Store, offset, index, pu32Value);
+    *pu32Store = 0;
 
     return rc;
 }
@@ -6830,44 +7027,22 @@ static int e1kRegReadAutoClear(PPDMDEVINS pDevIns, PE1KSTATE pThis, uint32_t off
  * Retrieves the value of register from register array in device state structure.
  * Bits corresponding to 0s in 'readable' mask will always read as 0s.
  *
- * @remarks The 'mask' parameter is simply ignored as masking and shifting is
- *          done in the caller.
- *
  * @returns VBox status code.
  *
+ * @param   pDevIns     The PDM device instance structure.
  * @param   pThis       The device state structure.
+ * @param   pu32Store   The place in the state structure where this register is stored.
  * @param   offset      Register offset in memory-mapped frame.
- * @param   index       Register index in register array.
+ * @param   index       Register index in the register info table.
+ * @param   pu32Value   The place to read the value to.
  * @thread  EMT
  */
-static int e1kRegReadDefault(PPDMDEVINS pDevIns, PE1KSTATE pThis, uint32_t offset, uint32_t index, uint32_t *pu32Value)
+static int e1kRegReadDefault(PPDMDEVINS pDevIns, PE1KSTATE pThis, uint32_t *pu32Store, uint32_t offset, uint32_t index, uint32_t *pu32Value)
 {
-    RT_NOREF_PV(pDevIns); RT_NOREF_PV(offset);
+    RT_NOREF_PV(pDevIns); RT_NOREF_PV(pThis); RT_NOREF_PV(offset);
 
     AssertReturn(index < E1K_NUM_OF_32BIT_REGS, VERR_DEV_IO_ERROR);
-    *pu32Value = pThis->auRegs[index] & g_aE1kRegMap[index].readable;
-
-    return VINF_SUCCESS;
-}
-
-/**
- * Write handler for unimplemented registers.
- *
- * Merely reports writes to unimplemented registers.
- *
- * @param   pThis       The device state structure.
- * @param   offset      Register offset in memory-mapped frame.
- * @param   index       Register index in register array.
- * @param   value       The value to store.
- * @thread  EMT
- */
-
- static int e1kRegWriteUnimplemented(PPDMDEVINS pDevIns, PE1KSTATE pThis, uint32_t offset, uint32_t index, uint32_t value)
-{
-    RT_NOREF_PV(pDevIns); RT_NOREF_PV(pThis); RT_NOREF_PV(offset); RT_NOREF_PV(index); RT_NOREF_PV(value);
-
-    E1kLog(("%s At %08X write attempt (%08X) to  unimplemented register %s (%s)\n",
-            pThis->szPrf, offset, value, g_aE1kRegMap[index].abbrev, g_aE1kRegMap[index].name));
+    *pu32Value = *pu32Store & g_aE1kRegMap[index].readable;
 
     return VINF_SUCCESS;
 }
@@ -6880,21 +7055,22 @@ static int e1kRegReadDefault(PPDMDEVINS pDevIns, PE1KSTATE pThis, uint32_t offse
  *
  * @returns VBox status code.
  *
+ * @param   pDevIns     The PDM device instance structure.
  * @param   pThis       The device state structure.
  * @param   offset      Register offset in memory-mapped frame.
+ * @param   pu32Store   The place in the state structure where this register is stored.
  * @param   index       Register index in register array.
  * @param   value       The value to store.
- * @param   mask        Used to implement partial writes (8 and 16-bit).
  * @thread  EMT
  */
 
-static int e1kRegWriteDefault(PPDMDEVINS pDevIns, PE1KSTATE pThis, uint32_t offset, uint32_t index, uint32_t value)
+static int e1kRegWriteDefault(PPDMDEVINS pDevIns, PE1KSTATE pThis, uint32_t *pu32Store, uint32_t offset, uint32_t index, uint32_t value)
 {
-    RT_NOREF(pDevIns, offset);
+    RT_NOREF(pDevIns, pThis, offset);
 
     AssertReturn(index < E1K_NUM_OF_32BIT_REGS, VERR_DEV_IO_ERROR);
-    pThis->auRegs[index] = (value & g_aE1kRegMap[index].writable)
-                         | (pThis->auRegs[index] & ~g_aE1kRegMap[index].writable);
+    *pu32Store = (value & g_aE1kRegMap[index].writable)
+                 | (*pu32Store & ~g_aE1kRegMap[index].writable);
 
     return VINF_SUCCESS;
 }
@@ -7023,15 +7199,25 @@ static int e1kRegReadUnaligned(PPDMDEVINS pDevIns, PE1KSTATE pThis, uint32_t off
             //pThis->fDelayInts = false;
             //pThis->iStatIntLost += pThis->iStatIntLostOne;
             //pThis->iStatIntLostOne = 0;
-            rc = g_aE1kRegMap[index].pfnRead(pDevIns, pThis, offReg & 0xFFFFFFFC, (uint32_t)index, &u32);
-            u32 &= mask;
-            //e1kCsLeave(pThis);
-            E1kLog2(("%s At %08X read  %s          from %s (%s)\n",
-                    pThis->szPrf, offReg, e1kU32toHex(u32, mask, buf), g_aE1kRegMap[index].abbrev, g_aE1kRegMap[index].name));
-            Log6(("%s At %08X read  %s          from %s (%s) [UNALIGNED]\n",
-                  pThis->szPrf, offReg, e1kU32toHex(u32, mask, buf), g_aE1kRegMap[index].abbrev, g_aE1kRegMap[index].name));
-            /* Shift back the result. */
-            u32 >>= shift;
+            if (g_aE1kRegMap[index].pfnRead == NULL)
+            {
+                E1kLog(("%s At %08X read (00000000) attempt from unimplemented register %s (%s)\n",
+                        pThis->szPrf, offReg, g_aE1kRegMap[index].abbrev, g_aE1kRegMap[index].name));
+                //e1kCsLeave(pThis);
+                rc = VINF_IOM_MMIO_UNUSED_00;
+            }
+            else
+            {
+                rc = g_aE1kRegMap[index].pfnRead(pDevIns, pThis, offReg & 0xFFFFFFFC, (uint32_t)index, &u32);
+                u32 &= mask;
+                //e1kCsLeave(pThis);
+                E1kLog2(("%s At %08X read  %s          from %s (%s)\n",
+                         pThis->szPrf, offReg, e1kU32toHex(u32, mask, buf), g_aE1kRegMap[index].abbrev, g_aE1kRegMap[index].name));
+                Log6(("%s At %08X read  %s          from %s (%s) [UNALIGNED]\n",
+                      pThis->szPrf, offReg, e1kU32toHex(u32, mask, buf), g_aE1kRegMap[index].abbrev, g_aE1kRegMap[index].name));
+                /* Shift back the result. */
+                u32 >>= shift;
+            }
         }
         else
             E1kLog(("%s At %08X read (%s) attempt from write-only register %s (%s)\n",
@@ -7043,7 +7229,8 @@ static int e1kRegReadUnaligned(PPDMDEVINS pDevIns, PE1KSTATE pThis, uint32_t off
         E1kLog(("%s At %08X read (%s) attempt from non-existing register\n",
                 pThis->szPrf, offReg, e1kU32toHex(u32, mask, buf)));
 
-    memcpy(pv, &u32, cb);
+    if (RT_LIKELY(rc != VINF_IOM_MMIO_UNUSED_00))
+        memcpy(pv, &u32, cb);
     return rc;
 }
 
@@ -7068,11 +7255,11 @@ static VBOXSTRICTRC e1kRegReadAlignedU32(PPDMDEVINS pDevIns, PE1KSTATE pThis, ui
      * Lookup the register and check that it's readable.
      */
     VBOXSTRICTRC rc     = VINF_SUCCESS;
-    int          idxReg = e1kRegLookup(offReg);
-    if (RT_LIKELY(idxReg >= 0))
+    int          index = e1kRegLookup(offReg);
+    if (RT_LIKELY(index >= 0))
     {
         RT_UNTRUSTED_VALIDATED_FENCE(); /* paranoia because of port I/O. */
-        if (RT_UNLIKELY(g_aE1kRegMap[idxReg].readable))
+        if (RT_UNLIKELY(g_aE1kRegMap[index].readable))
         {
             /*
              * Read it. Pass the mask so the handler knows what has to be read.
@@ -7082,16 +7269,25 @@ static VBOXSTRICTRC e1kRegReadAlignedU32(PPDMDEVINS pDevIns, PE1KSTATE pThis, ui
             //pThis->fDelayInts = false;
             //pThis->iStatIntLost += pThis->iStatIntLostOne;
             //pThis->iStatIntLostOne = 0;
-            rc = g_aE1kRegMap[idxReg].pfnRead(pDevIns, pThis, offReg & 0xFFFFFFFC, (uint32_t)idxReg, pu32);
-            //e1kCsLeave(pThis);
-            Log6(("%s At %08X read  %08X          from %s (%s)\n",
-                  pThis->szPrf, offReg, *pu32, g_aE1kRegMap[idxReg].abbrev, g_aE1kRegMap[idxReg].name));
-            if (IOM_SUCCESS(rc))
-                STAM_COUNTER_INC(&pThis->aStatRegReads[idxReg]);
+            if (g_aE1kRegMap[index].pfnRead == NULL)
+            {
+                E1kLog(("%s At %08X read (00000000) attempt from unimplemented register %s (%s)\n",
+                        pThis->szPrf, offReg, g_aE1kRegMap[index].abbrev, g_aE1kRegMap[index].name));
+                rc = VINF_IOM_MMIO_UNUSED_00;
+            }
+            else
+            {
+                rc = g_aE1kRegMap[index].pfnRead(pDevIns, pThis, offReg & 0xFFFFFFFC, (uint32_t)index, pu32);
+                //e1kCsLeave(pThis);
+                Log6(("%s At %08X read  %08X          from %s (%s)\n",
+                      pThis->szPrf, offReg, *pu32, g_aE1kRegMap[index].abbrev, g_aE1kRegMap[index].name));
+                if (IOM_SUCCESS(rc))
+                    STAM_COUNTER_INC(&pThis->aStatRegReads[index]);
+            }
         }
         else
             E1kLog(("%s At %08X read attempt from non-readable register %s (%s)\n",
-                    pThis->szPrf, offReg, g_aE1kRegMap[idxReg].abbrev, g_aE1kRegMap[idxReg].name));
+                    pThis->szPrf, offReg, g_aE1kRegMap[index].abbrev, g_aE1kRegMap[index].name));
     }
     else
         E1kLog(("%s At %08X read attempt from non-existing register\n", pThis->szPrf, offReg));
@@ -7130,7 +7326,13 @@ static VBOXSTRICTRC e1kRegWriteAlignedU32(PPDMDEVINS pDevIns, PE1KSTATE pThis, u
             //pThis->fDelayInts = false;
             //pThis->iStatIntLost += pThis->iStatIntLostOne;
             //pThis->iStatIntLostOne = 0;
-            rc = g_aE1kRegMap[index].pfnWrite(pDevIns, pThis, offReg, (uint32_t)index, u32Value);
+            if (g_aE1kRegMap[index].pfnWrite == NULL)
+            {
+                E1kLog(("%s At %08X write attempt (%08X) to  unimplemented register %s (%s)\n",
+                        pThis->szPrf, offReg, u32Value, g_aE1kRegMap[index].abbrev, g_aE1kRegMap[index].name));
+            }
+            else
+                rc = g_aE1kRegMap[index].pfnWrite(pDevIns, pThis, offReg, (uint32_t)index, u32Value);
             //e1kCsLeave(pThis);
         }
         else
@@ -7285,15 +7487,280 @@ static DECLCALLBACK(VBOXSTRICTRC) e1kIOPortOut(PPDMDEVINS pDevIns, void *pvUser,
 #ifdef IN_RING3
 
 /**
+ * Status info callback.
+ *
+ * @param   pDevIns     The device instance.
+ * @param   pHlp        The output helpers.
+ * @param   pszArgs     The arguments.
+ */
+static DECLCALLBACK(void) e1kR3Info(PPDMDEVINS pDevIns, PCDBGFINFOHLP pHlp, const char *pszArgs)
+{
+    RT_NOREF(pszArgs);
+    PE1KSTATE pThis = PDMDEVINS_2_DATA(pDevIns, PE1KSTATE);
+    bool      fReg  = false;
+    bool      fRcv  = false;
+    bool      fXmt  = false;
+    bool      fPhy  = false;
+    bool      fSta  = false;
+    unsigned  i;
+
+    /*
+     * Parse args.
+     */
+    if (pszArgs)
+    {
+        if (RT_C_TO_LOWER(*pszArgs) == 'a') fReg = fRcv = fXmt = fPhy = fSta = true;
+        else if (RT_C_TO_LOWER(*pszArgs) == 'c') fReg = true;
+        else if (RT_C_TO_LOWER(*pszArgs) == 'r') fRcv = true;
+        else if (RT_C_TO_LOWER(*pszArgs) == 't') fXmt = true;
+        else if (RT_C_TO_LOWER(*pszArgs) == 'p') fPhy = true;
+        else if (RT_C_TO_LOWER(*pszArgs) == 's') fSta = true;
+        else fReg = fPhy = true;
+    }
+
+    /*
+     * Show info.
+     */
+    pHlp->pfnPrintf(pHlp, "E1000 #%d: port=%04x mmio=%RGp mac-cfg=%RTmac %s%s%s\n",
+                    pDevIns->iInstance,
+                    PDMDevHlpIoPortGetMappingAddress(pDevIns, pThis->hIoPorts),
+                    PDMDevHlpMmioGetMappingAddress(pDevIns, pThis->hMmioRegion),
+                    &pThis->macConfigured, g_aChips[pThis->eChip].pcszName,
+                    pDevIns->fRCEnabled ? " RC" : "", pDevIns->fR0Enabled ? " R0" : "");
+
+    e1kR3CsEnterAsserted(pThis); /* Not sure why but PCNet does it */
+
+    if (fReg)
+    {
+        pHlp->pfnPrintf(pHlp, "General registers ------------------------------------------------------------------\n");
+        pHlp->pfnPrintf(pHlp, "   CTRL=%08x  STATUS=%08x    EECD=%08x    EERD=%08x  LEDCTL=%08x\n", CTRL, STATUS, EECD, EERD, LEDCTL);
+        pHlp->pfnPrintf(pHlp, "    FLA=%08x    MDIC=%08x                                  CTRL_EXT=%08x\n", FLA, MDIC, CTRL_EXT);
+        pHlp->pfnPrintf(pHlp, "   FCAL=%08x    FCAH=%08x     FCT=%08x     VET=%08x   FCTTV=%08x\n", FCAL, FCAH, FCT, VET, FCTTV);
+        pHlp->pfnPrintf(pHlp, "    PBA=%08x    TXCW=%08x    RXCW=%08x              EXTCNF_CTRL=%08x\n", PBA, TXCW, RXCW, EXTCNF_CTRL);
+        pHlp->pfnPrintf(pHlp, "Interrupt registers ----------------------------------------------------------------\n");
+        pHlp->pfnPrintf(pHlp, "    ICR=%08x     ITR=%08x     ICS=%08x     IMS=%08x     IMC=%08x\n", ICR, ITR, ICS, IMS, IMC);
+        pHlp->pfnPrintf(pHlp, "Receive registers ------------------------------------------------------------------\n");
+        pHlp->pfnPrintf(pHlp, "   RCTL=%08x  PSRCTL=%08x   FCRTL=%08x   FCRTH=%08x  RXDCTL=%08x\n", RCTL, PSRCTL, FCRTL, FCRTH, RXDCTL);
+        pHlp->pfnPrintf(pHlp, "  RDBAL=%08x   RDBAH=%08x   RDLEN=%08x     RDH=%08x     RDT=%08x\n", RDBAL, RDBAH, RDLEN, RDH, RDT);
+        pHlp->pfnPrintf(pHlp, "   RDTR=%08x    RADV=%08x   RSRPD=%08x  RXCSUM=%08x   RFCTL=%08x\n", RDTR, RADV, RSRPD, RXCSUM, RFCTL);
+        pHlp->pfnPrintf(pHlp, "Transmit registers -----------------------------------------------------------------\n");
+        pHlp->pfnPrintf(pHlp, "   TCTL=%08x    TIPG=%08x    AIFS=%08x\n", TCTL, TIPG, AIFS);
+        pHlp->pfnPrintf(pHlp, "  TDBAL=%08x   TDBAH=%08x   TDLEN=%08x     TDH=%08x     TDT=%08x\n", TDBAL, TDBAH, TDLEN, TDH, TDT);
+        pHlp->pfnPrintf(pHlp, "   TIDV=%08x  TXDMAC=%08x  TXDCTL=%08x    TADV=%08x   TSPMT=%08x\n", TIDV, TXDMAC, TXDCTL, TADV, TSPMT);
+        pHlp->pfnPrintf(pHlp, "Management registers ---------------------------------------------------------------\n");
+        pHlp->pfnPrintf(pHlp, "    WUC=%08x    WUFC=%08x     WUS=%08x\n", WUC, WUFC, WUS);
+        pHlp->pfnPrintf(pHlp, "   IPAV=%08x    MANC=%08x    WUPL=%08x\n", IPAV, MANC, WUPL);
+        pHlp->pfnPrintf(pHlp, "Statistics registers ---------------------------------------------------------------\n");
+        pHlp->pfnPrintf(pHlp, "CRCERRS=%08x                 ALGNERRC=%08x SYMERRS=%08x  RXERRC=%08x \n", CRCERRS, ALGNERRC, SYMERRS, RXERRC);
+        pHlp->pfnPrintf(pHlp, "    MPC=%08x     SCC=%08x    ECOL=%08x\n", MPC, SCC, ECOL);
+        pHlp->pfnPrintf(pHlp, "    MCC=%08x LATECOL=%08x    COLC=%08x\n", MCC, LATECOL, COLC);
+        pHlp->pfnPrintf(pHlp, "     DC=%08x   TNCRS=%08x     SEC=%08x CEXTERR=%08x    RLEC=%08x\n", DC, TNCRS, _SEC, CEXTERR, RLEC);
+        pHlp->pfnPrintf(pHlp, " XONRXC=%08x  XONTXC=%08x XOFFRXC=%08x XOFFTXC=%08x   FCRUC=%08x\n", XONRXC, XONTXC, XOFFRXC, XOFFTXC, FCRUC);
+        pHlp->pfnPrintf(pHlp, "  PRC64=%08x  PRC127=%08x  PRC255=%08x\n", PRC64, PRC127, PRC255);
+        pHlp->pfnPrintf(pHlp, " PRC511=%08x PRC1023=%08x PRC1522=%08x\n", PRC511, PRC1023, PRC1522);
+        pHlp->pfnPrintf(pHlp, "   GPRC=%08x    BPRC=%08x    MPRC=%08x    GPTC=%08x\n", GPRC, BPRC, MPRC, GPTC);
+        pHlp->pfnPrintf(pHlp, "  GORCL=%08x   GORCH=%08x   GOTCL=%08x   GOTCH=%08x    RNBC=%08x\n", GORCL, GORCH, GOTCL, GOTCH, RNBC);
+        pHlp->pfnPrintf(pHlp, "    RUC=%08x     RFC=%08x     ROC=%08x     RJC=%08x\n", RUC, RFC, ROC, RJC);
+        pHlp->pfnPrintf(pHlp, " MGTPRC=%08x  MGTPDC=%08x  MGTPTC=%08x     TPR=%08x     TPT=%08x\n", MGTPRC, MGTPDC, MGTPTC, TPR, TPT);
+        pHlp->pfnPrintf(pHlp, "   TORL=%08x    TORH=%08x    TOTL=%08x    TOTH=%08x\n", TORL, TORH, TOTL, TOTH);
+        pHlp->pfnPrintf(pHlp, "  PTC64=%08x  PTC127=%08x  PTC255=%08x\n", PTC64, PTC127, PTC255);
+        pHlp->pfnPrintf(pHlp, " PTC511=%08x PTC1023=%08x PTC1522=%08x\n", PTC511, PTC1023, PTC1522);
+        pHlp->pfnPrintf(pHlp, "   MPTC=%08x    BPTC=%08x   TSCTC=%08x  TSCTFC=%08x\n", MPTC, BPTC, TSCTC, TSCTFC);
+        pHlp->pfnPrintf(pHlp, "Diagnostic registers ---------------------------------------------------------------\n");
+        pHlp->pfnPrintf(pHlp, "   RDFH=%08x    RDFT=%08x   RDFHS=%08x   RDFTS=%08x   RDFPC=%08x\n", RDFH, RDFT, RDFHS, RDFTS, RDFPC);
+        pHlp->pfnPrintf(pHlp, "   TDFH=%08x    TDFT=%08x   TDFHS=%08x   TDFTS=%08x   TDFPC=%08x\n", TDFH, TDFT, TDFHS, TDFTS, TDFPC);
+        pHlp->pfnPrintf(pHlp, "\n");
+
+    #if 0
+        pHlp->pfnPrintf(pHlp, "General registers ---------------------------------------------\n");
+        pHlp->pfnPrintf(pHlp, "    CTRL        STATUS      EECD        EERD        CTRL_EXT    FLA         MDIC\n"
+                            "  %08x    %08x    %08x    %08x    %08x    %08x    %08x  \n",
+                            CTRL, STATUS, EECD, EERD, CTRL_EXT, FLA, MDIC);
+        pHlp->pfnPrintf(pHlp, "    FCAL        FCAH        FCT         VET         IMC       LEDCTL      EXTCNF_CTRL\n"
+                            "  %08x    %08x    %08x    %08x    %08x    %08x    %08x  \n",
+                            FCAL, FCAH, FCT, VET, IMC, LEDCTL, EXTCNF_CTRL);
+        pHlp->pfnPrintf(pHlp, "Interrupt registers -------------------------------------------\n");
+        pHlp->pfnPrintf(pHlp, "    ICR        ITR        ICS         IMS         IMC       LEDCTL      EXTCNF_CTRL\n"
+                            "  %08x    %08x    %08x    %08x    %08x    %08x    %08x  \n",
+                            ICR, ITR, ICS, IMS, IMC, LEDCTL, EXTCNF_CTRL);
+    #endif /* IMPLEMENT_ME */
+
+        for (i = 0; i < RT_ELEMENTS(pThis->aRecAddr.array); i++)
+        {
+            E1KRAELEM* ra = pThis->aRecAddr.array + i;
+            if (ra->ctl & RA_CTL_AV)
+            {
+                const char *pcszTmp;
+                switch (ra->ctl & RA_CTL_AS)
+                {
+                    case 0:  pcszTmp = "DST"; break;
+                    case 1:  pcszTmp = "SRC"; break;
+                    default: pcszTmp = "reserved";
+                }
+                pHlp->pfnPrintf(pHlp, "RA%02d: %s %RTmac\n", i, pcszTmp, ra->addr);
+            }
+        }
+        pHlp->pfnPrintf(pHlp, "\n");
+    }
+
+    if (fPhy)
+        Phy::info(pDevIns, pHlp, pszArgs, &pThis->phy);
+
+    unsigned cDescs = RDLEN / sizeof(E1KRXLDESC);
+    if (fRcv)
+    {
+        /** @todo Support different RX descriptor types! */
+        uint32_t rdh = RDH;
+        pHlp->pfnPrintf(pHlp, "-- Receive Descriptors (%d total) --\n", cDescs);
+        for (i = 0; i < cDescs; ++i)
+        {
+            E1KRXLDESC desc;
+            PDMDevHlpPCIPhysRead(pDevIns, e1kDescAddr(RDBAH, RDBAL, i),
+                                &desc, sizeof(desc));
+            if (i == rdh)
+                pHlp->pfnPrintf(pHlp, ">>> ");
+            pHlp->pfnPrintf(pHlp, "%RGp: %R[e1krxd]\n", e1kDescAddr(RDBAH, RDBAL, i), &desc);
+        }
+#ifdef E1K_WITH_RXD_CACHE
+        pHlp->pfnPrintf(pHlp, "\n-- Receive Descriptors in Cache (at %d (RDH %d)/ fetched %d / max %d) --\n",
+                        pThis->iRxDCurrent, RDH, pThis->nRxDFetched, E1K_RXD_CACHE_SIZE);
+        if (rdh > pThis->iRxDCurrent)
+            rdh -= pThis->iRxDCurrent;
+        else
+            rdh = cDescs + rdh - pThis->iRxDCurrent;
+        for (i = 0; i < pThis->nRxDFetched; ++i)
+        {
+            if (i == pThis->iRxDCurrent)
+                pHlp->pfnPrintf(pHlp, ">>> ");
+            if (cDescs)
+                pHlp->pfnPrintf(pHlp, "%RGp: %R[e1krxd]\n",
+                                e1kDescAddr(RDBAH, RDBAL, rdh++ % cDescs),
+                                &pThis->aRxDescriptors[i]);
+            else
+                pHlp->pfnPrintf(pHlp, "<lost>: %R[e1krxd]\n",
+                                &pThis->aRxDescriptors[i]);
+        }
+#endif /* E1K_WITH_RXD_CACHE */
+        pHlp->pfnPrintf(pHlp, "\n");
+    }
+
+    if (fXmt)
+    {
+        cDescs = TDLEN / sizeof(E1KTXDESC);
+        uint32_t tdh = TDH;
+        pHlp->pfnPrintf(pHlp, "-- Transmit Descriptors (%d total) --\n", cDescs);
+        for (i = 0; i < cDescs; ++i)
+        {
+            E1KTXDESC desc;
+            PDMDevHlpPCIPhysRead(pDevIns, e1kDescAddr(TDBAH, TDBAL, i),
+                                &desc, sizeof(desc));
+            if (i == tdh)
+                pHlp->pfnPrintf(pHlp, ">>> ");
+            pHlp->pfnPrintf(pHlp, "%RGp: %R[e1ktxd]\n", e1kDescAddr(TDBAH, TDBAL, i), &desc);
+        }
+#ifdef E1K_WITH_TXD_CACHE
+        pHlp->pfnPrintf(pHlp, "\n-- Transmit Descriptors in Cache (at %d (TDH %d)/ fetched %d / max %d) --\n",
+                        pThis->iTxDCurrent, TDH, pThis->nTxDFetched, E1K_TXD_CACHE_SIZE);
+        if (tdh > pThis->iTxDCurrent)
+            tdh -= pThis->iTxDCurrent;
+        else
+            tdh = cDescs + tdh - pThis->iTxDCurrent;
+        for (i = 0; i < pThis->nTxDFetched; ++i)
+        {
+            if (i == pThis->iTxDCurrent)
+                pHlp->pfnPrintf(pHlp, ">>> ");
+            if (cDescs)
+                pHlp->pfnPrintf(pHlp, "%RGp: %R[e1ktxd]\n",
+                                e1kDescAddr(TDBAH, TDBAL, tdh++ % cDescs),
+                                &pThis->aTxDescriptors[i]);
+            else
+                pHlp->pfnPrintf(pHlp, "<lost>: %R[e1ktxd]\n",
+                                &pThis->aTxDescriptors[i]);
+        }
+#endif /* E1K_WITH_TXD_CACHE */
+        pHlp->pfnPrintf(pHlp, "\n");
+    }
+
+#ifdef E1K_INT_STATS
+    if (fSta)
+    {
+        pHlp->pfnPrintf(pHlp, "Statistics -------------------------------------------------------------------------\n");
+        pHlp->pfnPrintf(pHlp, "Interrupt attempts: %d\n", pThis->uStatIntTry);
+        pHlp->pfnPrintf(pHlp, "Interrupts raised : %d\n", pThis->uStatInt);
+        pHlp->pfnPrintf(pHlp, "Interrupts lowered: %d\n", pThis->uStatIntLower);
+        pHlp->pfnPrintf(pHlp, "ICR outside ISR   : %d\n", pThis->uStatNoIntICR);
+        pHlp->pfnPrintf(pHlp, "IMS raised ints   : %d\n", pThis->uStatIntIMS);
+        pHlp->pfnPrintf(pHlp, "Interrupts skipped: %d\n", pThis->uStatIntSkip);
+        pHlp->pfnPrintf(pHlp, "Masked interrupts : %d\n", pThis->uStatIntMasked);
+        pHlp->pfnPrintf(pHlp, "Early interrupts  : %d\n", pThis->uStatIntEarly);
+        pHlp->pfnPrintf(pHlp, "Late interrupts   : %d\n", pThis->uStatIntLate);
+        pHlp->pfnPrintf(pHlp, "Lost interrupts   : %d\n", pThis->iStatIntLost);
+        pHlp->pfnPrintf(pHlp, "Interrupts by RX  : %d\n", pThis->uStatIntRx);
+        pHlp->pfnPrintf(pHlp, "Interrupts by TX  : %d\n", pThis->uStatIntTx);
+        pHlp->pfnPrintf(pHlp, "Interrupts by ICS : %d\n", pThis->uStatIntICS);
+        pHlp->pfnPrintf(pHlp, "Interrupts by RDTR: %d\n", pThis->uStatIntRDTR);
+        pHlp->pfnPrintf(pHlp, "Interrupts by RDMT: %d\n", pThis->uStatIntRXDMT0);
+        pHlp->pfnPrintf(pHlp, "Interrupts by TXQE: %d\n", pThis->uStatIntTXQE);
+        pHlp->pfnPrintf(pHlp, "TX int delay asked: %d\n", pThis->uStatTxIDE);
+        pHlp->pfnPrintf(pHlp, "TX delayed:         %d\n", pThis->uStatTxDelayed);
+        pHlp->pfnPrintf(pHlp, "TX delayed expired: %d\n", pThis->uStatTxDelayExp);
+        pHlp->pfnPrintf(pHlp, "TX no report asked: %d\n", pThis->uStatTxNoRS);
+        pHlp->pfnPrintf(pHlp, "TX abs timer expd : %d\n", pThis->uStatTAD);
+        pHlp->pfnPrintf(pHlp, "TX int timer expd : %d\n", pThis->uStatTID);
+        pHlp->pfnPrintf(pHlp, "RX abs timer expd : %d\n", pThis->uStatRAD);
+        pHlp->pfnPrintf(pHlp, "RX int timer expd : %d\n", pThis->uStatRID);
+        pHlp->pfnPrintf(pHlp, "TX CTX descriptors: %d\n", pThis->uStatDescCtx);
+        pHlp->pfnPrintf(pHlp, "TX DAT descriptors: %d\n", pThis->uStatDescDat);
+        pHlp->pfnPrintf(pHlp, "TX LEG descriptors: %d\n", pThis->uStatDescLeg);
+        pHlp->pfnPrintf(pHlp, "Received frames   : %d\n", pThis->uStatRxFrm);
+        pHlp->pfnPrintf(pHlp, "Transmitted frames: %d\n", pThis->uStatTxFrm);
+        pHlp->pfnPrintf(pHlp, "TX frames up to 1514: %d\n", pThis->uStatTx1514);
+        pHlp->pfnPrintf(pHlp, "TX frames up to 2962: %d\n", pThis->uStatTx2962);
+        pHlp->pfnPrintf(pHlp, "TX frames up to 4410: %d\n", pThis->uStatTx4410);
+        pHlp->pfnPrintf(pHlp, "TX frames up to 5858: %d\n", pThis->uStatTx5858);
+        pHlp->pfnPrintf(pHlp, "TX frames up to 7306: %d\n", pThis->uStatTx7306);
+        pHlp->pfnPrintf(pHlp, "TX frames up to 8754: %d\n", pThis->uStatTx8754);
+        pHlp->pfnPrintf(pHlp, "TX frames up to 16384: %d\n", pThis->uStatTx16384);
+        pHlp->pfnPrintf(pHlp, "TX frames up to 32768: %d\n", pThis->uStatTx32768);
+        pHlp->pfnPrintf(pHlp, "Larger TX frames    : %d\n", pThis->uStatTxLarge);
+    }
+#endif /* E1K_INT_STATS */
+
+    e1kCsLeave(pThis);
+}
+
+static DECLCALLBACK(void) e1kLog_Printf(PCDBGFINFOHLP pHlp, const char *pszFormat, ...)
+{
+    RT_NOREF(pHlp);
+    va_list va;
+    va_start(va, pszFormat);
+    RTLogPrintfV(pszFormat, va);
+    va_end(va);
+}
+
+static DECLCALLBACK(void) e1kLog_PrintfV(PCDBGFINFOHLP pHlp, const char *pszFormat, va_list args)
+{
+    RT_NOREF(pHlp);
+    RTLogPrintfV(pszFormat, args);
+}
+
+/**
  * Dump complete device state to log.
  *
  * @param   pThis          Pointer to device state.
  */
-static void e1kDumpState(PE1KSTATE pThis)
+static void e1kDumpState(PPDMDEVINS pDevIns, PE1KSTATE pThis)
 {
     RT_NOREF(pThis);
-    for (int i = 0; i < E1K_NUM_OF_32BIT_REGS; ++i)
-        E1kLog2(("%s: %8.8s = %08x\n", pThis->szPrf, g_aE1kRegMap[i].abbrev, pThis->auRegs[i]));
+    {
+        DBGFINFOHLP DbgHlp;
+
+        DbgHlp.pfnPrintf      = e1kLog_Printf;
+        DbgHlp.pfnPrintfV     = e1kLog_PrintfV;
+        DbgHlp.pfnGetOptError = NULL;
+
+        e1kR3Info(pDevIns, &DbgHlp, "");
+    }
 # ifdef E1K_INT_STATS
     LogRel(("%s: Interrupt attempts: %d\n", pThis->szPrf, pThis->uStatIntTry));
     LogRel(("%s: Interrupts raised : %d\n", pThis->szPrf, pThis->uStatInt));
@@ -7833,8 +8300,8 @@ static DECLCALLBACK(int) e1kR3SaveExec(PPDMDEVINS pDevIns, PSSMHANDLE pSSM)
 
     e1kR3SaveConfig(pHlp, pThis, pSSM);
     pThisCC->eeprom.save(pHlp, pSSM);
-    e1kDumpState(pThis);
-    pHlp->pfnSSMPutMem(pSSM, pThis->auRegs, sizeof(pThis->auRegs));
+    e1kDumpState(pDevIns, pThis);
+    pHlp->pfnSSMPutStructEx(pSSM, &pThis->regs, sizeof(pThis->regs), 0, g_aE1kRegs32Fields, NULL);
     pHlp->pfnSSMPutBool(pSSM, pThis->fIntRaised);
     Phy::saveState(pHlp, pSSM, &pThis->phy);
     pHlp->pfnSSMPutU32(pSSM, pThis->uSelectedReg);
@@ -7871,6 +8338,7 @@ static DECLCALLBACK(int) e1kR3SaveExec(PPDMDEVINS pDevIns, PSSMHANDLE pSSM)
 #endif /* E1K_WITH_TXD_CACHE */
 /** @todo GSO requires some more state here. */
     E1kLog(("%s State has been saved\n", pThis->szPrf));
+    e1kDumpState(pDevIns, pThis);
     return VINF_SUCCESS;
 }
 
@@ -7916,6 +8384,7 @@ static DECLCALLBACK(int) e1kR3LoadExec(PPDMDEVINS pDevIns, PSSMHANDLE pSSM, uint
     int             rc;
 
     if (    uVersion != E1K_SAVEDSTATE_VERSION
+        &&  uVersion != E1K_SAVEDSTATE_VERSION_82583V
         &&  uVersion != E1K_SAVEDSTATE_VERSION_PRE_82583V
 #ifdef E1K_WITH_TXD_CACHE
         &&  uVersion != E1K_SAVEDSTATE_VERSION_VBOX_42_VTAG
@@ -7950,145 +8419,150 @@ static DECLCALLBACK(int) e1kR3LoadExec(PPDMDEVINS pDevIns, PSSMHANDLE pSSM, uint
             AssertRCReturn(rc, rc);
         }
         /* the state */
-        /** @todo r=aeichner This needs to be cleaned up properly ASAP after the release.
-         *                   Replace GetMem/PutMem with GetStructEx/PutStructEx.
-         */
-        if (uVersion <= E1K_SAVEDSTATE_VERSION_PRE_82583V)
+        if (uVersion <= E1K_SAVEDSTATE_VERSION_82583V)
         {
-            uint32_t auRegsOld[E1K_NUM_OF_32BIT_REGS_OLD];
-            rc = pHlp->pfnSSMGetMem(pSSM, &auRegsOld, sizeof(auRegsOld));
+            /*
+             * Take care of the legacy way of storing registers. 82583V and earlier versions
+             * saved registers with 'pfnSSMPutMem'.
+             */
+            #define NUM_OF_LEGACY_REGISTERS 121
+            #define NUM_OF_LEGACY_REGISTERS_82583V 124
+            int i = 0;
+            uint32_t   auLegacyRegs[NUM_OF_LEGACY_REGISTERS_82583V];
+            rc = pHlp->pfnSSMGetMem(pSSM, auLegacyRegs, (uVersion < E1K_SAVEDSTATE_VERSION_82583V ?
+                                    NUM_OF_LEGACY_REGISTERS : NUM_OF_LEGACY_REGISTERS_82583V) * sizeof(uint32_t));
             AssertRCReturn(rc, rc);
-
-            #define E1K_REG_RESTORE(a_idx) pThis->auRegs[a_idx] = auRegsOld[a_idx ## _OLD]
-            E1K_REG_RESTORE(CTRL_IDX);
-            E1K_REG_RESTORE(STATUS_IDX);
-            E1K_REG_RESTORE(EECD_IDX);
-            E1K_REG_RESTORE(EERD_IDX);
-            E1K_REG_RESTORE(CTRL_EXT_IDX);
-            E1K_REG_RESTORE(FLA_IDX);
-            E1K_REG_RESTORE(MDIC_IDX);
-            E1K_REG_RESTORE(FCAL_IDX);
-            E1K_REG_RESTORE(FCAH_IDX);
-            E1K_REG_RESTORE(FCT_IDX);
-            E1K_REG_RESTORE(VET_IDX);
-            E1K_REG_RESTORE(ICR_IDX);
-            E1K_REG_RESTORE(ITR_IDX);
-            E1K_REG_RESTORE(ICS_IDX);
-            E1K_REG_RESTORE(IMS_IDX);
-            E1K_REG_RESTORE(IMC_IDX);
-            E1K_REG_RESTORE(RCTL_IDX);
-            E1K_REG_RESTORE(FCTTV_IDX);
-            E1K_REG_RESTORE(TXCW_IDX);
-            E1K_REG_RESTORE(RXCW_IDX);
-            E1K_REG_RESTORE(TCTL_IDX);
-            E1K_REG_RESTORE(TIPG_IDX);
-            E1K_REG_RESTORE(AIFS_IDX);
-            E1K_REG_RESTORE(LEDCTL_IDX);
-            E1K_REG_RESTORE(PBA_IDX);
-            E1K_REG_RESTORE(FCRTL_IDX);
-            E1K_REG_RESTORE(FCRTH_IDX);
-            E1K_REG_RESTORE(RDFH_IDX);
-            E1K_REG_RESTORE(RDFT_IDX);
-            E1K_REG_RESTORE(RDFHS_IDX);
-            E1K_REG_RESTORE(RDFTS_IDX);
-            E1K_REG_RESTORE(RDFPC_IDX);
-            E1K_REG_RESTORE(RDBAL_IDX);
-            E1K_REG_RESTORE(RDBAH_IDX);
-            E1K_REG_RESTORE(RDLEN_IDX);
-            E1K_REG_RESTORE(RDH_IDX);
-            E1K_REG_RESTORE(RDT_IDX);
-            E1K_REG_RESTORE(RDTR_IDX);
-            E1K_REG_RESTORE(RXDCTL_IDX);
-            E1K_REG_RESTORE(RADV_IDX);
-            E1K_REG_RESTORE(RSRPD_IDX);
-            E1K_REG_RESTORE(TXDMAC_IDX);
-            E1K_REG_RESTORE(TDFH_IDX);
-            E1K_REG_RESTORE(TDFT_IDX);
-            E1K_REG_RESTORE(TDFHS_IDX);
-            E1K_REG_RESTORE(TDFTS_IDX);
-            E1K_REG_RESTORE(TDFPC_IDX);
-            E1K_REG_RESTORE(TDBAL_IDX);
-            E1K_REG_RESTORE(TDBAH_IDX);
-            E1K_REG_RESTORE(TDLEN_IDX);
-            E1K_REG_RESTORE(TDH_IDX);
-            E1K_REG_RESTORE(TDT_IDX);
-            E1K_REG_RESTORE(TIDV_IDX);
-            E1K_REG_RESTORE(TXDCTL_IDX);
-            E1K_REG_RESTORE(TADV_IDX);
-            E1K_REG_RESTORE(TSPMT_IDX);
-            E1K_REG_RESTORE(CRCERRS_IDX);
-            E1K_REG_RESTORE(ALGNERRC_IDX);
-            E1K_REG_RESTORE(SYMERRS_IDX);
-            E1K_REG_RESTORE(RXERRC_IDX);
-            E1K_REG_RESTORE(MPC_IDX);
-            E1K_REG_RESTORE(SCC_IDX);
-            E1K_REG_RESTORE(ECOL_IDX);
-            E1K_REG_RESTORE(MCC_IDX);
-            E1K_REG_RESTORE(LATECOL_IDX);
-            E1K_REG_RESTORE(COLC_IDX);
-            E1K_REG_RESTORE(DC_IDX);
-            E1K_REG_RESTORE(TNCRS_IDX);
-            E1K_REG_RESTORE(SEC_IDX);
-            E1K_REG_RESTORE(CEXTERR_IDX);
-            E1K_REG_RESTORE(RLEC_IDX);
-            E1K_REG_RESTORE(XONRXC_IDX);
-            E1K_REG_RESTORE(XONTXC_IDX);
-            E1K_REG_RESTORE(XOFFRXC_IDX);
-            E1K_REG_RESTORE(XOFFTXC_IDX);
-            E1K_REG_RESTORE(FCRUC_IDX);
-            E1K_REG_RESTORE(PRC64_IDX);
-            E1K_REG_RESTORE(PRC127_IDX);
-            E1K_REG_RESTORE(PRC255_IDX);
-            E1K_REG_RESTORE(PRC511_IDX);
-            E1K_REG_RESTORE(PRC1023_IDX);
-            E1K_REG_RESTORE(PRC1522_IDX);
-            E1K_REG_RESTORE(GPRC_IDX);
-            E1K_REG_RESTORE(BPRC_IDX);
-            E1K_REG_RESTORE(MPRC_IDX);
-            E1K_REG_RESTORE(GPTC_IDX);
-            E1K_REG_RESTORE(GORCL_IDX);
-            E1K_REG_RESTORE(GORCH_IDX);
-            E1K_REG_RESTORE(GOTCL_IDX);
-            E1K_REG_RESTORE(GOTCH_IDX);
-            E1K_REG_RESTORE(RNBC_IDX);
-            E1K_REG_RESTORE(RUC_IDX);
-            E1K_REG_RESTORE(RFC_IDX);
-            E1K_REG_RESTORE(ROC_IDX);
-            E1K_REG_RESTORE(RJC_IDX);
-            E1K_REG_RESTORE(MGTPRC_IDX);
-            E1K_REG_RESTORE(MGTPDC_IDX);
-            E1K_REG_RESTORE(MGTPTC_IDX);
-            E1K_REG_RESTORE(TORL_IDX);
-            E1K_REG_RESTORE(TORH_IDX);
-            E1K_REG_RESTORE(TOTL_IDX);
-            E1K_REG_RESTORE(TOTH_IDX);
-            E1K_REG_RESTORE(TPR_IDX);
-            E1K_REG_RESTORE(TPT_IDX);
-            E1K_REG_RESTORE(PTC64_IDX);
-            E1K_REG_RESTORE(PTC127_IDX);
-            E1K_REG_RESTORE(PTC255_IDX);
-            E1K_REG_RESTORE(PTC511_IDX);
-            E1K_REG_RESTORE(PTC1023_IDX);
-            E1K_REG_RESTORE(PTC1522_IDX);
-            E1K_REG_RESTORE(MPTC_IDX);
-            E1K_REG_RESTORE(BPTC_IDX);
-            E1K_REG_RESTORE(TSCTC_IDX);
-            E1K_REG_RESTORE(TSCTFC_IDX);
-            E1K_REG_RESTORE(RXCSUM_IDX);
-            E1K_REG_RESTORE(WUC_IDX);
-            E1K_REG_RESTORE(WUFC_IDX);
-            E1K_REG_RESTORE(WUS_IDX);
-            E1K_REG_RESTORE(MANC_IDX);
-            E1K_REG_RESTORE(IPAV_IDX);
-            E1K_REG_RESTORE(WUPL_IDX);
-            E1K_REG_RESTORE(MTA_IDX);
-            #undef E1K_REG_RESTORE
+            CTRL     = auLegacyRegs[i++];
+            STATUS   = auLegacyRegs[i++];
+            EECD     = auLegacyRegs[i++];
+            EERD     = auLegacyRegs[i++];
+            CTRL_EXT = auLegacyRegs[i++];
+            FLA      = auLegacyRegs[i++];
+            MDIC     = auLegacyRegs[i++];
+            FCAL     = auLegacyRegs[i++];
+            FCAH     = auLegacyRegs[i++];
+            FCT      = auLegacyRegs[i++];
+            VET      = auLegacyRegs[i++];
+            ICR      = auLegacyRegs[i++];
+            ITR      = auLegacyRegs[i++];
+            ICS      = auLegacyRegs[i++];
+            IMS      = auLegacyRegs[i++];
+            IMC      = auLegacyRegs[i++];
+            RCTL     = auLegacyRegs[i++];
+            FCTTV    = auLegacyRegs[i++];
+            TXCW     = auLegacyRegs[i++];
+            RXCW     = auLegacyRegs[i++];
+            TCTL     = auLegacyRegs[i++];
+            TIPG     = auLegacyRegs[i++];
+            AIFS     = auLegacyRegs[i++];
+            LEDCTL   = auLegacyRegs[i++];
+            EXTCNF_CTRL = uVersion < E1K_SAVEDSTATE_VERSION_82583V ? 0 : auLegacyRegs[i++];
+            PBA      = auLegacyRegs[i++];
+            FCRTL    = auLegacyRegs[i++];
+            FCRTH    = auLegacyRegs[i++];
+            PSRCTL   = uVersion < E1K_SAVEDSTATE_VERSION_82583V ? PSRCTL_INIT_VALUE : auLegacyRegs[i++];
+            RDFH     = auLegacyRegs[i++];
+            RDFT     = auLegacyRegs[i++];
+            RDFHS    = auLegacyRegs[i++];
+            RDFTS    = auLegacyRegs[i++];
+            RDFPC    = auLegacyRegs[i++];
+            RDBAL    = auLegacyRegs[i++];
+            RDBAH    = auLegacyRegs[i++];
+            RDLEN    = auLegacyRegs[i++];
+            RDH      = auLegacyRegs[i++];
+            RDT      = auLegacyRegs[i++];
+            RDTR     = auLegacyRegs[i++];
+            RXDCTL   = auLegacyRegs[i++];
+            RADV     = auLegacyRegs[i++];
+            RSRPD    = auLegacyRegs[i++];
+            TXDMAC   = auLegacyRegs[i++];
+            TDFH     = auLegacyRegs[i++];
+            TDFT     = auLegacyRegs[i++];
+            TDFHS    = auLegacyRegs[i++];
+            TDFTS    = auLegacyRegs[i++];
+            TDFPC    = auLegacyRegs[i++];
+            TDBAL    = auLegacyRegs[i++];
+            TDBAH    = auLegacyRegs[i++];
+            TDLEN    = auLegacyRegs[i++];
+            TDH      = auLegacyRegs[i++];
+            TDT      = auLegacyRegs[i++];
+            TIDV     = auLegacyRegs[i++];
+            TXDCTL   = auLegacyRegs[i++];
+            TADV     = auLegacyRegs[i++];
+            TSPMT    = auLegacyRegs[i++];
+            CRCERRS  = auLegacyRegs[i++];
+            ALGNERRC = auLegacyRegs[i++];
+            SYMERRS  = auLegacyRegs[i++];
+            RXERRC   = auLegacyRegs[i++];
+            MPC      = auLegacyRegs[i++];
+            SCC      = auLegacyRegs[i++];
+            ECOL     = auLegacyRegs[i++];
+            MCC      = auLegacyRegs[i++];
+            LATECOL  = auLegacyRegs[i++];
+            COLC     = auLegacyRegs[i++];
+            DC       = auLegacyRegs[i++];
+            TNCRS    = auLegacyRegs[i++];
+            _SEC     = auLegacyRegs[i++];
+            CEXTERR  = auLegacyRegs[i++];
+            RLEC     = auLegacyRegs[i++];
+            XONRXC   = auLegacyRegs[i++];
+            XONTXC   = auLegacyRegs[i++];
+            XOFFRXC  = auLegacyRegs[i++];
+            XOFFTXC  = auLegacyRegs[i++];
+            FCRUC    = auLegacyRegs[i++];
+            PRC64    = auLegacyRegs[i++];
+            PRC127   = auLegacyRegs[i++];
+            PRC255   = auLegacyRegs[i++];
+            PRC511   = auLegacyRegs[i++];
+            PRC1023  = auLegacyRegs[i++];
+            PRC1522  = auLegacyRegs[i++];
+            GPRC     = auLegacyRegs[i++];
+            BPRC     = auLegacyRegs[i++];
+            MPRC     = auLegacyRegs[i++];
+            GPTC     = auLegacyRegs[i++];
+            GORCL    = auLegacyRegs[i++];
+            GORCH    = auLegacyRegs[i++];
+            GOTCL    = auLegacyRegs[i++];
+            GOTCH    = auLegacyRegs[i++];
+            RNBC     = auLegacyRegs[i++];
+            RUC      = auLegacyRegs[i++];
+            RFC      = auLegacyRegs[i++];
+            ROC      = auLegacyRegs[i++];
+            RJC      = auLegacyRegs[i++];
+            MGTPRC   = auLegacyRegs[i++];
+            MGTPDC   = auLegacyRegs[i++];
+            MGTPTC   = auLegacyRegs[i++];
+            TORL     = auLegacyRegs[i++];
+            TORH     = auLegacyRegs[i++];
+            TOTL     = auLegacyRegs[i++];
+            TOTH     = auLegacyRegs[i++];
+            TPR      = auLegacyRegs[i++];
+            TPT      = auLegacyRegs[i++];
+            PTC64    = auLegacyRegs[i++];
+            PTC127   = auLegacyRegs[i++];
+            PTC255   = auLegacyRegs[i++];
+            PTC511   = auLegacyRegs[i++];
+            PTC1023  = auLegacyRegs[i++];
+            PTC1522  = auLegacyRegs[i++];
+            MPTC     = auLegacyRegs[i++];
+            BPTC     = auLegacyRegs[i++];
+            TSCTC    = auLegacyRegs[i++];
+            TSCTFC   = auLegacyRegs[i++];
+            RXCSUM   = auLegacyRegs[i++];
+            RFCTL    = uVersion < E1K_SAVEDSTATE_VERSION_82583V ? 0 : auLegacyRegs[i++];
+            WUC      = auLegacyRegs[i++];
+            WUFC     = auLegacyRegs[i++];
+            WUS      = auLegacyRegs[i++];
+            MANC     = auLegacyRegs[i++];
+            IPAV     = auLegacyRegs[i++];
+            WUPL     = auLegacyRegs[i++];
+            Assert(i == (uVersion < E1K_SAVEDSTATE_VERSION_82583V ? NUM_OF_LEGACY_REGISTERS : NUM_OF_LEGACY_REGISTERS_82583V));
         }
         else
-            pHlp->pfnSSMGetMem(pSSM, &pThis->auRegs, sizeof(pThis->auRegs));
+            pHlp->pfnSSMGetStructEx(pSSM, &pThis->regs, sizeof(pThis->regs), 0, g_aE1kRegs32Fields, NULL);
         pHlp->pfnSSMGetBool(pSSM, &pThis->fIntRaised);
         /** @todo PHY could be made a separate device with its own versioning */
-        Phy::loadState(pHlp, pSSM, &pThis->phy);
+        Phy::loadState(pHlp, pSSM, uVersion, &pThis->phy);
         pHlp->pfnSSMGetU32(pSSM, &pThis->uSelectedReg);
         pHlp->pfnSSMGetMem(pSSM, &pThis->auMTA, sizeof(pThis->auMTA));
         pHlp->pfnSSMGetMem(pSSM, &pThis->aRecAddr, sizeof(pThis->aRecAddr));
@@ -8146,9 +8620,10 @@ static DECLCALLBACK(int) e1kR3LoadExec(PPDMDEVINS pDevIns, PSSMHANDLE pSSM, uint
 
         /* derived state  */
         e1kSetupGsoCtx(&pThis->GsoCtx, &pThis->contextTSE);
+        e1kR3SetDType(pDevIns, GET_BITS(RCTL, DTYP), RFCTL & RFCTL_EXSTEN); /* Restore proper RX ops! */
 
         E1kLog(("%s State has been restored\n", pThis->szPrf));
-        e1kDumpState(pThis);
+        e1kDumpState(pDevIns, pThis);
     }
     return VINF_SUCCESS;
 }
@@ -8179,7 +8654,6 @@ static DECLCALLBACK(int) e1kR3LoadDone(PPDMDEVINS pDevIns, PSSMHANDLE pSSM)
     }
     return VINF_SUCCESS;
 }
-
 
 
 /* -=-=-=-=- Debug Info + Log Types -=-=-=-=- */
@@ -8327,173 +8801,6 @@ static int e1kR3InitDebugHelpers(void)
     }
     return rc;
 }
-
-/**
- * Status info callback.
- *
- * @param   pDevIns     The device instance.
- * @param   pHlp        The output helpers.
- * @param   pszArgs     The arguments.
- */
-static DECLCALLBACK(void) e1kR3Info(PPDMDEVINS pDevIns, PCDBGFINFOHLP pHlp, const char *pszArgs)
-{
-    RT_NOREF(pszArgs);
-    PE1KSTATE pThis = PDMDEVINS_2_DATA(pDevIns, PE1KSTATE);
-    unsigned  i;
-    // bool        fRcvRing = false;
-    // bool        fXmtRing = false;
-
-    /*
-     * Parse args.
-    if (pszArgs)
-    {
-        fRcvRing = strstr(pszArgs, "verbose") || strstr(pszArgs, "rcv");
-        fXmtRing = strstr(pszArgs, "verbose") || strstr(pszArgs, "xmt");
-    }
-     */
-
-    /*
-     * Show info.
-     */
-    pHlp->pfnPrintf(pHlp, "E1000 #%d: port=%04x mmio=%RGp mac-cfg=%RTmac %s%s%s\n",
-                    pDevIns->iInstance,
-                    PDMDevHlpIoPortGetMappingAddress(pDevIns, pThis->hIoPorts),
-                    PDMDevHlpMmioGetMappingAddress(pDevIns, pThis->hMmioRegion),
-                    &pThis->macConfigured, g_aChips[pThis->eChip].pcszName,
-                    pDevIns->fRCEnabled ? " RC" : "", pDevIns->fR0Enabled ? " R0" : "");
-
-    e1kR3CsEnterAsserted(pThis); /* Not sure why but PCNet does it */
-
-    for (i = 0; i < E1K_NUM_OF_32BIT_REGS; ++i)
-        pHlp->pfnPrintf(pHlp, "%8.8s = %08x\n", g_aE1kRegMap[i].abbrev, pThis->auRegs[i]);
-
-    for (i = 0; i < RT_ELEMENTS(pThis->aRecAddr.array); i++)
-    {
-        E1KRAELEM* ra = pThis->aRecAddr.array + i;
-        if (ra->ctl & RA_CTL_AV)
-        {
-            const char *pcszTmp;
-            switch (ra->ctl & RA_CTL_AS)
-            {
-                case 0:  pcszTmp = "DST"; break;
-                case 1:  pcszTmp = "SRC"; break;
-                default: pcszTmp = "reserved";
-            }
-            pHlp->pfnPrintf(pHlp, "RA%02d: %s %RTmac\n", i, pcszTmp, ra->addr);
-        }
-    }
-    /** @todo Support different RX descriptor types! */
-    unsigned cDescs = RDLEN / sizeof(E1KRXLDESC);
-    uint32_t rdh = RDH;
-    pHlp->pfnPrintf(pHlp, "\n-- Receive Descriptors (%d total) --\n", cDescs);
-    for (i = 0; i < cDescs; ++i)
-    {
-        E1KRXLDESC desc;
-        PDMDevHlpPCIPhysRead(pDevIns, e1kDescAddr(RDBAH, RDBAL, i),
-                             &desc, sizeof(desc));
-        if (i == rdh)
-            pHlp->pfnPrintf(pHlp, ">>> ");
-        pHlp->pfnPrintf(pHlp, "%RGp: %R[e1krxd]\n", e1kDescAddr(RDBAH, RDBAL, i), &desc);
-    }
-#ifdef E1K_WITH_RXD_CACHE
-    pHlp->pfnPrintf(pHlp, "\n-- Receive Descriptors in Cache (at %d (RDH %d)/ fetched %d / max %d) --\n",
-                    pThis->iRxDCurrent, RDH, pThis->nRxDFetched, E1K_RXD_CACHE_SIZE);
-    if (rdh > pThis->iRxDCurrent)
-        rdh -= pThis->iRxDCurrent;
-    else
-        rdh = cDescs + rdh - pThis->iRxDCurrent;
-    for (i = 0; i < pThis->nRxDFetched; ++i)
-    {
-        if (i == pThis->iRxDCurrent)
-            pHlp->pfnPrintf(pHlp, ">>> ");
-        if (cDescs)
-            pHlp->pfnPrintf(pHlp, "%RGp: %R[e1krxd]\n",
-                            e1kDescAddr(RDBAH, RDBAL, rdh++ % cDescs),
-                            &pThis->aRxDescriptors[i]);
-        else
-            pHlp->pfnPrintf(pHlp, "<lost>: %R[e1krxd]\n",
-                            &pThis->aRxDescriptors[i]);
-    }
-#endif /* E1K_WITH_RXD_CACHE */
-
-    cDescs = TDLEN / sizeof(E1KTXDESC);
-    uint32_t tdh = TDH;
-    pHlp->pfnPrintf(pHlp, "\n-- Transmit Descriptors (%d total) --\n", cDescs);
-    for (i = 0; i < cDescs; ++i)
-    {
-        E1KTXDESC desc;
-        PDMDevHlpPCIPhysRead(pDevIns, e1kDescAddr(TDBAH, TDBAL, i),
-                             &desc, sizeof(desc));
-        if (i == tdh)
-            pHlp->pfnPrintf(pHlp, ">>> ");
-        pHlp->pfnPrintf(pHlp, "%RGp: %R[e1ktxd]\n", e1kDescAddr(TDBAH, TDBAL, i), &desc);
-    }
-#ifdef E1K_WITH_TXD_CACHE
-    pHlp->pfnPrintf(pHlp, "\n-- Transmit Descriptors in Cache (at %d (TDH %d)/ fetched %d / max %d) --\n",
-                    pThis->iTxDCurrent, TDH, pThis->nTxDFetched, E1K_TXD_CACHE_SIZE);
-    if (tdh > pThis->iTxDCurrent)
-        tdh -= pThis->iTxDCurrent;
-    else
-        tdh = cDescs + tdh - pThis->iTxDCurrent;
-    for (i = 0; i < pThis->nTxDFetched; ++i)
-    {
-        if (i == pThis->iTxDCurrent)
-            pHlp->pfnPrintf(pHlp, ">>> ");
-        if (cDescs)
-            pHlp->pfnPrintf(pHlp, "%RGp: %R[e1ktxd]\n",
-                            e1kDescAddr(TDBAH, TDBAL, tdh++ % cDescs),
-                            &pThis->aTxDescriptors[i]);
-        else
-            pHlp->pfnPrintf(pHlp, "<lost>: %R[e1ktxd]\n",
-                            &pThis->aTxDescriptors[i]);
-    }
-#endif /* E1K_WITH_TXD_CACHE */
-
-
-#ifdef E1K_INT_STATS
-    pHlp->pfnPrintf(pHlp, "Interrupt attempts: %d\n", pThis->uStatIntTry);
-    pHlp->pfnPrintf(pHlp, "Interrupts raised : %d\n", pThis->uStatInt);
-    pHlp->pfnPrintf(pHlp, "Interrupts lowered: %d\n", pThis->uStatIntLower);
-    pHlp->pfnPrintf(pHlp, "ICR outside ISR   : %d\n", pThis->uStatNoIntICR);
-    pHlp->pfnPrintf(pHlp, "IMS raised ints   : %d\n", pThis->uStatIntIMS);
-    pHlp->pfnPrintf(pHlp, "Interrupts skipped: %d\n", pThis->uStatIntSkip);
-    pHlp->pfnPrintf(pHlp, "Masked interrupts : %d\n", pThis->uStatIntMasked);
-    pHlp->pfnPrintf(pHlp, "Early interrupts  : %d\n", pThis->uStatIntEarly);
-    pHlp->pfnPrintf(pHlp, "Late interrupts   : %d\n", pThis->uStatIntLate);
-    pHlp->pfnPrintf(pHlp, "Lost interrupts   : %d\n", pThis->iStatIntLost);
-    pHlp->pfnPrintf(pHlp, "Interrupts by RX  : %d\n", pThis->uStatIntRx);
-    pHlp->pfnPrintf(pHlp, "Interrupts by TX  : %d\n", pThis->uStatIntTx);
-    pHlp->pfnPrintf(pHlp, "Interrupts by ICS : %d\n", pThis->uStatIntICS);
-    pHlp->pfnPrintf(pHlp, "Interrupts by RDTR: %d\n", pThis->uStatIntRDTR);
-    pHlp->pfnPrintf(pHlp, "Interrupts by RDMT: %d\n", pThis->uStatIntRXDMT0);
-    pHlp->pfnPrintf(pHlp, "Interrupts by TXQE: %d\n", pThis->uStatIntTXQE);
-    pHlp->pfnPrintf(pHlp, "TX int delay asked: %d\n", pThis->uStatTxIDE);
-    pHlp->pfnPrintf(pHlp, "TX delayed:         %d\n", pThis->uStatTxDelayed);
-    pHlp->pfnPrintf(pHlp, "TX delayed expired: %d\n", pThis->uStatTxDelayExp);
-    pHlp->pfnPrintf(pHlp, "TX no report asked: %d\n", pThis->uStatTxNoRS);
-    pHlp->pfnPrintf(pHlp, "TX abs timer expd : %d\n", pThis->uStatTAD);
-    pHlp->pfnPrintf(pHlp, "TX int timer expd : %d\n", pThis->uStatTID);
-    pHlp->pfnPrintf(pHlp, "RX abs timer expd : %d\n", pThis->uStatRAD);
-    pHlp->pfnPrintf(pHlp, "RX int timer expd : %d\n", pThis->uStatRID);
-    pHlp->pfnPrintf(pHlp, "TX CTX descriptors: %d\n", pThis->uStatDescCtx);
-    pHlp->pfnPrintf(pHlp, "TX DAT descriptors: %d\n", pThis->uStatDescDat);
-    pHlp->pfnPrintf(pHlp, "TX LEG descriptors: %d\n", pThis->uStatDescLeg);
-    pHlp->pfnPrintf(pHlp, "Received frames   : %d\n", pThis->uStatRxFrm);
-    pHlp->pfnPrintf(pHlp, "Transmitted frames: %d\n", pThis->uStatTxFrm);
-    pHlp->pfnPrintf(pHlp, "TX frames up to 1514: %d\n", pThis->uStatTx1514);
-    pHlp->pfnPrintf(pHlp, "TX frames up to 2962: %d\n", pThis->uStatTx2962);
-    pHlp->pfnPrintf(pHlp, "TX frames up to 4410: %d\n", pThis->uStatTx4410);
-    pHlp->pfnPrintf(pHlp, "TX frames up to 5858: %d\n", pThis->uStatTx5858);
-    pHlp->pfnPrintf(pHlp, "TX frames up to 7306: %d\n", pThis->uStatTx7306);
-    pHlp->pfnPrintf(pHlp, "TX frames up to 8754: %d\n", pThis->uStatTx8754);
-    pHlp->pfnPrintf(pHlp, "TX frames up to 16384: %d\n", pThis->uStatTx16384);
-    pHlp->pfnPrintf(pHlp, "TX frames up to 32768: %d\n", pThis->uStatTx32768);
-    pHlp->pfnPrintf(pHlp, "Larger TX frames    : %d\n", pThis->uStatTxLarge);
-#endif /* E1K_INT_STATS */
-
-    e1kCsLeave(pThis);
-}
-
 
 
 /* -=-=-=-=- PDMDEVREG -=-=-=-=- */
@@ -8673,7 +8980,7 @@ static DECLCALLBACK(int) e1kR3Destruct(PPDMDEVINS pDevIns)
     PDMDEV_CHECK_VERSIONS_RETURN_QUIET(pDevIns);
     PE1KSTATE pThis = PDMDEVINS_2_DATA(pDevIns, PE1KSTATE);
 
-    e1kDumpState(pThis);
+    e1kDumpState(pDevIns, pThis);
     E1kLog(("%s Destroying instance\n", pThis->szPrf));
     if (PDMDevHlpCritSectIsInitialized(pDevIns, &pThis->cs))
     {

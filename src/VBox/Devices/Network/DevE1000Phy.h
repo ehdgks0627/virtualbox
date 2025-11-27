@@ -1,4 +1,4 @@
-/** $Id: DevE1000Phy.h 110930 2025-09-08 16:34:44Z aleksey.ilyushin@oracle.com $ */
+/** $Id: DevE1000Phy.h 111902 2025-11-27 08:20:10Z aleksey.ilyushin@oracle.com $ */
 /** @file
  * DevE1000Phy - Intel 82540EM Ethernet Controller Internal PHY Emulation, Header.
  */
@@ -60,33 +60,32 @@
 namespace Phy
 {
     /**
-     * Indices of memory-mapped registers in register table
+     * Register storage
      */
-    enum enmRegIdx
+    typedef struct PhyReg_st
     {
-        PCTRL_IDX,
-        PSTATUS_IDX,
-        PID_IDX,
-        EPID_IDX,
-        ANA_IDX,
-        LPA_IDX,
-        ANE_IDX,
-        NPT_IDX,
-        LPN_IDX,
-        GCON_IDX,
-        GSTATUS_IDX,
-        EPSTATUS_IDX,
-        PSCON_IDX,
-        PSSTAT_IDX,
-        PINTE_IDX,
-        PINTS_IDX,
-        EPSCON1_IDX,
-        PREC_IDX,
-        EPSCON2_IDX,
-        R30PS_IDX,
-        R30AW_IDX,
-        NUM_OF_PHY_REGS
-    };
+        uint16_t rPCTRL;
+        uint16_t rPSTATUS;
+        uint16_t rPID;
+        uint16_t rEPID;
+        uint16_t rANA;
+        uint16_t rLPA;
+        uint16_t rANE;
+        uint16_t rNPT;
+        uint16_t rLPN;
+        uint16_t rGCON;
+        uint16_t rGSTATUS;
+        uint16_t rEPSTATUS;
+        uint16_t rPSCON;
+        uint16_t rPSSTAT;
+        uint16_t rPINTE;
+        uint16_t rPINTS;
+        uint16_t rEPSCON1;
+        uint16_t rPREC;
+        uint16_t rEPSCON2;
+        uint16_t rR30PS;
+        uint16_t rR30AW;
+    } PHYREGS;
     /**
      * Emulation state of PHY.
      */
@@ -95,7 +94,7 @@ namespace Phy
         /** Network controller instance this PHY is attached to. */
         int      iInstance;
         /** Register storage. */
-        uint16_t au16Regs[NUM_OF_PHY_REGS];
+        struct PhyReg_st regs;
         /** Current state of serial MDIO interface. */
         uint16_t u16State;
         /** Current state of serial MDIO interface. */
@@ -147,7 +146,9 @@ namespace Phy
     /** Save PHY state. */
     int      saveState(struct PDMDEVHLPR3 const *pHlp, PSSMHANDLE pSSM, PPHY pPhy);
     /** Restore previously saved PHY state. */
-    int      loadState(struct PDMDEVHLPR3 const *pHlp, PSSMHANDLE pSSM, PPHY pPhy);
+    int      loadState(struct PDMDEVHLPR3 const *pHlp, PSSMHANDLE pSSM, uint32_t uVersion, PPHY pPhy);
+    /** Print PHY state (for internal debugger). */
+    void     info(PPDMDEVINS pDevIns, PCDBGFINFOHLP pHlp, const char *pszArgs, PPHY pPhy);
 }
 
 #endif /* !VBOX_INCLUDED_SRC_Network_DevE1000Phy_h */

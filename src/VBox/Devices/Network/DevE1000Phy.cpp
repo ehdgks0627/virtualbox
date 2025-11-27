@@ -1,4 +1,4 @@
-/** $Id: DevE1000Phy.cpp 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $ */
+/** $Id: DevE1000Phy.cpp 111902 2025-11-27 08:20:10Z aleksey.ilyushin@oracle.com $ */
 /** @file
  * DevE1000Phy - Intel 82540EM Ethernet Controller Internal PHY Emulation.
  *
@@ -46,6 +46,7 @@
 #ifdef IN_RING3
 # include <VBox/vmm/pdmdev.h>
 #endif
+#include "DevE1000Ver.h"
 #include "DevE1000Phy.h"
 
 /* Little helpers ************************************************************/
@@ -62,7 +63,7 @@
 # define PhyLog(a)               Log(a)
 #endif /* !PHY_UNIT_TEST */
 
-#define REG(x) pPhy->au16Regs[x##_IDX]
+#define REG(x) pPhy->regs.r##x
 
 
 /* Internals */
@@ -83,12 +84,7 @@ namespace Phy {
 
     /** @name Generic handlers
      * @{ */
-    static FNREAD  regReadDefault;
-    static FNWRITE regWriteDefault;
-    static FNREAD  regReadForbidden;
-    static FNWRITE regWriteForbidden;
-    static FNREAD  regReadUnimplemented;
-    static FNWRITE regWriteUnimplemented;
+    static FNWRITE regWriteReadOnly;
     /** @} */
     /** @name Register-specific handlers
      * @{ */
@@ -96,6 +92,43 @@ namespace Phy {
     static FNREAD  regReadPSTATUS;
     static FNREAD  regReadGSTATUS;
     /** @} */
+
+#define PHY_RD_DEFAULT(reg) Phy::regReadDefault##reg
+#define PHY_WR_DEFAULT(reg) Phy::regWriteDefault##reg
+#define PHY_WR_READONLY(reg) Phy::regWriteReadOnly##reg
+
+#define PHY_RD_DEFAULT_IMPL(reg) static uint16_t regReadDefault##reg(PPHY pPhy, uint32_t index, PPDMDEVINS pDevIns) \
+{ RT_NOREF(index, pDevIns); return pPhy->regs.r##reg; }
+#define PHY_WR_DEFAULT_IMPL(reg) static void regWriteDefault##reg(PPHY pPhy, uint32_t index, uint16_t u16Value, PPDMDEVINS pDevIns) \
+{ RT_NOREF(index, pDevIns); pPhy->regs.r##reg = u16Value; }
+#define PHY_WR_READONLY_IMPL(reg) static void regWriteReadOnly##reg(PPHY pPhy, uint32_t index, uint16_t u16Value, PPDMDEVINS pDevIns) \
+{ regWriteReadOnly(pPhy, index, u16Value, pDevIns); }
+
+/* Instantiate generic read and write handlers */
+PHY_RD_DEFAULT_IMPL(PCTRL)
+PHY_RD_DEFAULT_IMPL(PID)
+PHY_RD_DEFAULT_IMPL(EPID)
+PHY_RD_DEFAULT_IMPL(ANA)
+PHY_RD_DEFAULT_IMPL(LPA)
+PHY_RD_DEFAULT_IMPL(GCON)
+PHY_RD_DEFAULT_IMPL(PSCON)
+PHY_RD_DEFAULT_IMPL(PSSTAT)
+
+PHY_WR_DEFAULT_IMPL(ANA)
+PHY_WR_DEFAULT_IMPL(PSCON)
+
+PHY_WR_READONLY_IMPL(PSTATUS)
+PHY_WR_READONLY_IMPL(PID)
+PHY_WR_READONLY_IMPL(EPID)
+PHY_WR_READONLY_IMPL(LPA)
+PHY_WR_READONLY_IMPL(ANE)
+PHY_WR_READONLY_IMPL(LPN)
+PHY_WR_READONLY_IMPL(GSTATUS)
+PHY_WR_READONLY_IMPL(EPSTATUS)
+PHY_WR_READONLY_IMPL(PSSTAT)
+PHY_WR_READONLY_IMPL(PINTS)
+PHY_WR_READONLY_IMPL(PREC)
+
 
     /**
     * PHY register map table.
@@ -114,129 +147,40 @@ namespace Phy {
         const char *pszAbbrev;
         /** Full name. */
         const char *pszName;
-    } s_regMap[NUM_OF_PHY_REGS] =
+    } s_regMap[] =
     {
         /*ra  read callback              write callback              abbrev      full name                     */
         /*--  -------------------------  --------------------------  ----------  ------------------------------*/
-        {  0, Phy::regReadDefault      , Phy::regWritePCTRL        , "PCTRL"    , "PHY Control" },
-        {  1, Phy::regReadPSTATUS      , Phy::regWriteForbidden    , "PSTATUS"  , "PHY Status" },
-        {  2, Phy::regReadDefault      , Phy::regWriteForbidden    , "PID"      , "PHY Identifier" },
-        {  3, Phy::regReadDefault      , Phy::regWriteForbidden    , "EPID"     , "Extended PHY Identifier" },
-        {  4, Phy::regReadDefault      , Phy::regWriteDefault      , "ANA"      , "Auto-Negotiation Advertisement" },
-        {  5, Phy::regReadDefault      , Phy::regWriteForbidden    , "LPA"      , "Link Partner Ability" },
-        {  6, Phy::regReadUnimplemented, Phy::regWriteForbidden    , "ANE"      , "Auto-Negotiation Expansion" },
-        {  7, Phy::regReadUnimplemented, Phy::regWriteUnimplemented, "NPT"      , "Next Page Transmit" },
-        {  8, Phy::regReadUnimplemented, Phy::regWriteForbidden    , "LPN"      , "Link Partner Next Page" },
-        {  9, Phy::regReadDefault      , Phy::regWriteUnimplemented, "GCON"     , "1000BASE-T Control" },
-        { 10, Phy::regReadGSTATUS      , Phy::regWriteForbidden    , "GSTATUS"  , "1000BASE-T Status" },
-        { 15, Phy::regReadUnimplemented, Phy::regWriteForbidden    , "EPSTATUS" , "Extended PHY Status" },
-        { 16, Phy::regReadDefault      , Phy::regWriteDefault      , "PSCON"    , "PHY Specific Control" },
-        { 17, Phy::regReadDefault      , Phy::regWriteForbidden    , "PSSTAT"   , "PHY Specific Status" },
-        { 18, Phy::regReadUnimplemented, Phy::regWriteUnimplemented, "PINTE"    , "PHY Interrupt Enable" },
-        { 19, Phy::regReadUnimplemented, Phy::regWriteForbidden    , "PINTS"    , "PHY Interrupt Status" },
-        { 20, Phy::regReadUnimplemented, Phy::regWriteUnimplemented, "EPSCON1"  , "Extended PHY Specific Control 1" },
-        { 21, Phy::regReadUnimplemented, Phy::regWriteForbidden    , "PREC"     , "PHY Receive Error Counter" },
-        { 26, Phy::regReadUnimplemented, Phy::regWriteUnimplemented, "EPSCON2"  , "Extended PHY Specific Control 2" },
-        { 29, Phy::regReadForbidden    , Phy::regWriteUnimplemented, "R30PS"    , "MDI Register 30 Page Select" },
-        { 30, Phy::regReadUnimplemented, Phy::regWriteUnimplemented, "R30AW"    , "MDI Register 30 Access Window" }
+        {  0, PHY_RD_DEFAULT(PCTRL)    , Phy::regWritePCTRL        , "PCTRL"    , "PHY Control" },
+        {  1, Phy::regReadPSTATUS      , PHY_WR_READONLY(PSTATUS)  , "PSTATUS"  , "PHY Status" },
+        {  2, PHY_RD_DEFAULT(PID)      , PHY_WR_READONLY(PID)      , "PID"      , "PHY Identifier" },
+        {  3, PHY_RD_DEFAULT(EPID)     , PHY_WR_READONLY(EPID)     , "EPID"     , "Extended PHY Identifier" },
+        {  4, PHY_RD_DEFAULT(ANA)      , PHY_WR_DEFAULT(ANA)       , "ANA"      , "Auto-Negotiation Advertisement" },
+        {  5, PHY_RD_DEFAULT(LPA)      , PHY_WR_READONLY(LPA)      , "LPA"      , "Link Partner Ability" },
+        {  6, NULL                     , PHY_WR_READONLY(ANE)      , "ANE"      , "Auto-Negotiation Expansion" },
+        {  7, NULL                     , NULL                      , "NPT"      , "Next Page Transmit" },
+        {  8, NULL                     , PHY_WR_READONLY(LPN)      , "LPN"      , "Link Partner Next Page" },
+        {  9, PHY_RD_DEFAULT(GCON)     , NULL                      , "GCON"     , "1000BASE-T Control" },
+        { 10, Phy::regReadGSTATUS      , PHY_WR_READONLY(GSTATUS)  , "GSTATUS"  , "1000BASE-T Status" },
+        { 15, NULL                     , PHY_WR_READONLY(EPSTATUS) , "EPSTATUS" , "Extended PHY Status" },
+        { 16, PHY_RD_DEFAULT(PSCON)    , PHY_WR_DEFAULT(PSCON)     , "PSCON"    , "PHY Specific Control" },
+        { 17, PHY_RD_DEFAULT(PSSTAT)   , PHY_WR_READONLY(PSSTAT)   , "PSSTAT"   , "PHY Specific Status" },
+        { 18, NULL                     , NULL                      , "PINTE"    , "PHY Interrupt Enable" },
+        { 19, NULL                     , PHY_WR_READONLY(PINTS)    , "PINTS"    , "PHY Interrupt Status" },
+        { 20, NULL                     , NULL                      , "EPSCON1"  , "Extended PHY Specific Control 1" },
+        { 21, NULL                     , PHY_WR_READONLY(PREC)     , "PREC"     , "PHY Receive Error Counter" },
+        { 26, NULL                     , NULL                      , "EPSCON2"  , "Extended PHY Specific Control 2" },
+        { 29, NULL                     , NULL                      , "R30PS"    , "MDI Register 30 Page Select" },
+        { 30, NULL                     , NULL                      , "R30AW"    , "MDI Register 30 Access Window" }
     };
 }
 
-/**
- * Default read handler.
- *
- * Fetches register value from the state structure.
- *
- * @returns Register value
- *
- * @param   index       Register index in register array.
- */
-static uint16_t Phy::regReadDefault(PPHY pPhy, uint32_t index, PPDMDEVINS pDevIns)
+static void Phy::regWriteReadOnly(PPHY pPhy, uint32_t index, uint16_t u16Value, PPDMDEVINS pDevIns)
 {
-    RT_NOREF(pDevIns);
-    AssertReturn(index<Phy::NUM_OF_PHY_REGS, 0);
-    return pPhy->au16Regs[index];
+    RT_NOREF(u16Value, pDevIns); \
+    PhyLog(("PHY#%d At %02d write attempted to read-only '%s'\n", \
+            pPhy->iInstance, s_regMap[index].u32Address, s_regMap[index].pszName)); \
 }
-
-/**
- * Default write handler.
- *
- * Writes the specified register value to the state structure.
- *
- * @param   index       Register index in register array.
- * @param   value       The value to store (ignored).
- */
-static void Phy::regWriteDefault(PPHY pPhy, uint32_t index, uint16_t u16Value, PPDMDEVINS pDevIns)
-{
-    RT_NOREF(pDevIns);
-    AssertReturnVoid(index < NUM_OF_PHY_REGS);
-    pPhy->au16Regs[index] = u16Value;
-}
-
-/**
- * Read handler for write-only registers.
- *
- * Merely reports reads from write-only registers.
- *
- * @returns Register value (always 0)
- *
- * @param   index       Register index in register array.
- */
-static uint16_t Phy::regReadForbidden(PPHY pPhy, uint32_t index, PPDMDEVINS pDevIns)
-{
-    RT_NOREF(pPhy, index, pDevIns);
-    PhyLog(("PHY#%d At %02d read attempted from write-only '%s'\n",
-            pPhy->iInstance, s_regMap[index].u32Address, s_regMap[index].pszName));
-    return 0;
-}
-
-/**
- * Write handler for read-only registers.
- *
- * Merely reports writes to read-only registers.
- *
- * @param   index       Register index in register array.
- * @param   value       The value to store (ignored).
- */
-static void Phy::regWriteForbidden(PPHY pPhy, uint32_t index, uint16_t u16Value, PPDMDEVINS pDevIns)
-{
-    RT_NOREF(pPhy, index, u16Value, pDevIns);
-    PhyLog(("PHY#%d At %02d write attempted to read-only '%s'\n",
-            pPhy->iInstance, s_regMap[index].u32Address, s_regMap[index].pszName));
-}
-
-/**
- * Read handler for unimplemented registers.
- *
- * Merely reports reads from unimplemented registers.
- *
- * @returns Register value (always 0)
- *
- * @param   index       Register index in register array.
- */
-static uint16_t Phy::regReadUnimplemented(PPHY pPhy, uint32_t index, PPDMDEVINS pDevIns)
-{
-    RT_NOREF(pPhy, index, pDevIns);
-    PhyLog(("PHY#%d At %02d read attempted from unimplemented '%s'\n",
-            pPhy->iInstance, s_regMap[index].u32Address, s_regMap[index].pszName));
-    return 0;
-}
-
-/**
- * Write handler for unimplemented registers.
- *
- * Merely reports writes to unimplemented registers.
- *
- * @param   index       Register index in register array.
- * @param   value       The value to store (ignored).
- */
-static void Phy::regWriteUnimplemented(PPHY pPhy, uint32_t index, uint16_t u16Value, PPDMDEVINS pDevIns)
-{
-    RT_NOREF(pPhy, index, u16Value, pDevIns);
-    PhyLog(("PHY#%d At %02d write attempted to unimplemented '%s'\n",
-            pPhy->iInstance, s_regMap[index].u32Address, s_regMap[index].pszName));
-}
-
 
 /**
  * Search PHY register table for register with matching address.
@@ -274,10 +218,20 @@ uint16_t Phy::readRegister(PPHY pPhy, uint32_t u32Address, PPDMDEVINS pDevIns)
 
     if (index >= 0)
     {
-        u16 = s_regMap[index].pfnRead(pPhy, (uint32_t)index, pDevIns);
-        PhyLog(("PHY#%d At %02d read  %04X      from %s (%s)\n",
-                pPhy->iInstance, s_regMap[index].u32Address, u16,
-                s_regMap[index].pszAbbrev, s_regMap[index].pszName));
+        if (s_regMap[index].pfnRead == NULL)
+        {
+            PhyLog(("PHY#%d At %02d read (%04X) attempt from unimplemented %s (%s)\n",
+                    pPhy->iInstance, s_regMap[index].u32Address, u16,
+                    s_regMap[index].pszAbbrev, s_regMap[index].pszName));
+
+        }
+        else
+        {
+            u16 = s_regMap[index].pfnRead(pPhy, (uint32_t)index, pDevIns);
+            PhyLog(("PHY#%d At %02d read  %04X      from %s (%s)\n",
+                    pPhy->iInstance, s_regMap[index].u32Address, u16,
+                    s_regMap[index].pszAbbrev, s_regMap[index].pszName));
+        }
     }
     else
     {
@@ -299,10 +253,19 @@ void Phy::writeRegister(PPHY pPhy, uint32_t u32Address, uint16_t u16Value, PPDMD
 
     if (index >= 0)
     {
-        PhyLog(("PHY#%d At %02d write      %04X  to  %s (%s)\n",
-                pPhy->iInstance, s_regMap[index].u32Address, u16Value,
-                s_regMap[index].pszAbbrev, s_regMap[index].pszName));
-        s_regMap[index].pfnWrite(pPhy, (uint32_t)index, u16Value, pDevIns);
+        if (s_regMap[index].pfnWrite == NULL)
+        {
+            PhyLog(("PHY#%d At %02d write attempt (%04X) to unimplemented %s (%s)\n",
+                    pPhy->iInstance, s_regMap[index].u32Address, u16Value,
+                    s_regMap[index].pszAbbrev, s_regMap[index].pszName));
+        }
+        else
+        {
+            PhyLog(("PHY#%d At %02d write      %04X  to  %s (%s)\n",
+                    pPhy->iInstance, s_regMap[index].u32Address, u16Value,
+                    s_regMap[index].pszAbbrev, s_regMap[index].pszName));
+            s_regMap[index].pfnWrite(pPhy, (uint32_t)index, u16Value, pDevIns);
+        }
     }
     else
     {
@@ -425,6 +388,36 @@ void Phy::setLinkStatus(PPHY pPhy, bool fLinkIsUp)
 
 #ifdef IN_RING3
 
+/*
+ * PHY is not a separate device, but a part of e1000. The versions of PHY saved states
+ * depend on the versions of e1000.
+ */
+static SSMFIELD const s_aPhyRegFields[] =
+{
+    SSMFIELD_ENTRY(Phy::PHYREGS, rPCTRL),
+    SSMFIELD_ENTRY(Phy::PHYREGS, rPSTATUS),
+    SSMFIELD_ENTRY(Phy::PHYREGS, rPID),
+    SSMFIELD_ENTRY(Phy::PHYREGS, rEPID),
+    SSMFIELD_ENTRY(Phy::PHYREGS, rANA),
+    SSMFIELD_ENTRY(Phy::PHYREGS, rLPA),
+    SSMFIELD_ENTRY(Phy::PHYREGS, rANE),
+    SSMFIELD_ENTRY(Phy::PHYREGS, rNPT),
+    SSMFIELD_ENTRY(Phy::PHYREGS, rLPN),
+    SSMFIELD_ENTRY(Phy::PHYREGS, rGCON),
+    SSMFIELD_ENTRY(Phy::PHYREGS, rGSTATUS),
+    SSMFIELD_ENTRY(Phy::PHYREGS, rEPSTATUS),
+    SSMFIELD_ENTRY(Phy::PHYREGS, rPSCON),
+    SSMFIELD_ENTRY(Phy::PHYREGS, rPSSTAT),
+    SSMFIELD_ENTRY(Phy::PHYREGS, rPINTE),
+    SSMFIELD_ENTRY(Phy::PHYREGS, rPINTS),
+    SSMFIELD_ENTRY(Phy::PHYREGS, rEPSCON1),
+    SSMFIELD_ENTRY(Phy::PHYREGS, rPREC),
+    SSMFIELD_ENTRY(Phy::PHYREGS, rEPSCON2),
+    SSMFIELD_ENTRY(Phy::PHYREGS, rR30PS),
+    SSMFIELD_ENTRY(Phy::PHYREGS, rR30AW),
+    SSMFIELD_ENTRY_TERM()
+};
+
 /**
  * Save PHY state.
  *
@@ -438,8 +431,7 @@ void Phy::setLinkStatus(PPHY pPhy, bool fLinkIsUp)
  */
 int Phy::saveState(PCPDMDEVHLPR3 pHlp, PSSMHANDLE pSSM, PPHY pPhy)
 {
-    pHlp->pfnSSMPutMem(pSSM, pPhy->au16Regs, sizeof(pPhy->au16Regs));
-    return VINF_SUCCESS;
+    return pHlp->pfnSSMPutStructEx(pSSM, &pPhy->regs, sizeof(pPhy->regs), 0, s_aPhyRegFields, NULL);
 }
 
 /**
@@ -453,11 +445,66 @@ int Phy::saveState(PCPDMDEVHLPR3 pHlp, PSSMHANDLE pSSM, PPHY pPhy)
  * @param   pSSM        The handle to save the state to.
  * @param   pPhy        The pointer to this instance.
  */
-int Phy::loadState(PCPDMDEVHLPR3 pHlp, PSSMHANDLE pSSM, PPHY pPhy)
+int Phy::loadState(PCPDMDEVHLPR3 pHlp, PSSMHANDLE pSSM, uint32_t uVersion, PPHY pPhy)
 {
-    return pHlp->pfnSSMGetMem(pSSM, pPhy->au16Regs, sizeof(pPhy->au16Regs));
+    int rc;
+    if (uVersion <= E1K_SAVEDSTATE_VERSION_82583V)
+    {
+        uint16_t auRegs[21];
+        int i = 0;
+        rc = pHlp->pfnSSMGetMem(pSSM, auRegs, sizeof(auRegs));
+        pPhy->regs.rPCTRL = auRegs[i++];
+        pPhy->regs.rPSTATUS = auRegs[i++];
+        pPhy->regs.rPID = auRegs[i++];
+        pPhy->regs.rEPID = auRegs[i++];
+        pPhy->regs.rANA = auRegs[i++];
+        pPhy->regs.rLPA = auRegs[i++];
+        pPhy->regs.rANE = auRegs[i++];
+        pPhy->regs.rNPT = auRegs[i++];
+        pPhy->regs.rLPN = auRegs[i++];
+        pPhy->regs.rGCON = auRegs[i++];
+        pPhy->regs.rGSTATUS = auRegs[i++];
+        pPhy->regs.rEPSTATUS = auRegs[i++];
+        pPhy->regs.rPSCON = auRegs[i++];
+        pPhy->regs.rPSSTAT = auRegs[i++];
+        pPhy->regs.rPINTE = auRegs[i++];
+        pPhy->regs.rPINTS = auRegs[i++];
+        pPhy->regs.rEPSCON1 = auRegs[i++];
+        pPhy->regs.rPREC = auRegs[i++];
+        pPhy->regs.rEPSCON2 = auRegs[i++];
+        pPhy->regs.rR30PS = auRegs[i++];
+        pPhy->regs.rR30AW = auRegs[i++];
+        Assert(i == RT_ELEMENTS(auRegs));
+    }
+    else
+        rc = pHlp->pfnSSMGetStructEx(pSSM, &pPhy->regs, sizeof(pPhy->regs), 0, s_aPhyRegFields, NULL);
+    return rc;
 }
 
+
+/**
+ * PHY status info callback (called from e1000 status info callback).
+ *
+ * @param   pDevIns     The device instance.
+ * @param   pHlp        The output helpers.
+ * @param   pszArgs     The arguments.
+ * @param   pPhy        The pointer to this instance of PHY.
+ */
+void Phy::info(PPDMDEVINS pDevIns, PCDBGFINFOHLP pHlp, const char *pszArgs, PPHY pPhy)
+{
+    RT_NOREF(pDevIns, pszArgs);
+    pHlp->pfnPrintf(pHlp, "PHY registers ----------------------------------------------------------------------\n");
+    pHlp->pfnPrintf(pHlp, "    PCTRL=%04x  PSTATUS=%04x      PID=%04x     EPID=%04x      ANA=%04x      LPA=%04x\n",
+                    REG(PCTRL), REG(PSTATUS), REG(PID), REG(EPID), REG(ANA), REG(LPA));
+    pHlp->pfnPrintf(pHlp, "      ANE=%04x      NPT=%04x      LPN=%04x     GCON=%04x  GSTATUS=%04x EPSTATUS=%04x\n",
+                    REG(ANE), REG(NPT), REG(LPN), REG(GCON), REG(GSTATUS), REG(EPSTATUS));
+    pHlp->pfnPrintf(pHlp, "    PSCON=%04x   PSSTAT=%04x    PINTE=%04x    PINTS=%04x  EPSCON1=%04x     PREC=%04x\n",
+                    REG(PSCON), REG(PSSTAT), REG(PINTE), REG(PINTS), REG(EPSCON1), REG(PREC));
+    pHlp->pfnPrintf(pHlp, "  EPSCON2=%04x    R30PS=%04x    R30AW=%04x\n",
+                    REG(EPSCON2), REG(R30PS), REG(R30AW));
+    pHlp->pfnPrintf(pHlp, "\nPHY MDIO: state=%s acc=%u cnt=%u addr=%u\n\n",
+                    Phy::getStateName(pPhy->u16State), pPhy->u16Acc, pPhy->u16Cnt, pPhy->u16RegAdr);
+}
 #endif /* IN_RING3 */
 
 /* Register-specific handlers ************************************************/
@@ -472,10 +519,11 @@ int Phy::loadState(PCPDMDEVHLPR3 pHlp, PSSMHANDLE pSSM, PPHY pPhy)
  */
 static void Phy::regWritePCTRL(PPHY pPhy, uint32_t index, uint16_t u16Value, PPDMDEVINS pDevIns)
 {
+    RT_NOREF(index);
     if (u16Value & PCTRL_RESET)
         softReset(pPhy, pDevIns);
     else
-        regWriteDefault(pPhy, index, u16Value, pDevIns);
+        pPhy->regs.rPCTRL = u16Value;
 }
 
 /**
