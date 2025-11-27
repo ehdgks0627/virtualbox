@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # -*- coding: utf-8 -*-
-# $Id: configure.py 111882 2025-11-26 10:40:33Z andreas.loeffler@oracle.com $
+# $Id: configure.py 111931 2025-11-27 17:04:48Z andreas.loeffler@oracle.com $
 # pylint: disable=global-statement
 # pylint: disable=line-too-long
 # pylint: disable=too-many-lines
@@ -41,6 +41,9 @@ import subprocess
 import sys
 import tempfile
 
+g_sScriptPath = os.path.abspath(os.path.dirname(__file__));
+g_sScriptName = os.path.basename(__file__);
+
 class Log(io.TextIOBase):
     """
     Duplicates output to multiple file-like objects (used for logging and stdout).
@@ -61,140 +64,129 @@ class Log(io.TextIOBase):
             if not f.closed:
                 f.flush();
 
-class Ansi:
+class BuildArch:
     """
-    ANSI escape codes for colored terminal output.
+    Supported build architectures enumeration.
+    This resembles the kBuild architectures.
     """
-    RESET = '\033[0m';
-    BOLD = '\033[1m';
-    BLUE = '\033[94m';
-    GREEN = '\033[92m';
-    RED = '\033[91m';
-    YELLOW = '\033[93m';
-    WHITE = '\033[97m';
-    GRAY = '\033[90m';
+    UNKNOWN = "unknown";
+    X86 = "x86";
+    AMD64 = "amd64";
+    ARM64 = "arm64";
+
+# Defines the host architecture.
+g_sHostArch = platform.machine();
+# Map host arch to build arch.
+g_enmHostArch = {
+    "i386": BuildArch.X86,
+    "i686": BuildArch.X86,
+    "x86_64": BuildArch.AMD64,
+    "amd64": BuildArch.AMD64,
+    "aarch64": BuildArch.ARM64,
+    "arm64": BuildArch.ARM64
+}.get(g_sHostArch, BuildArch.UNKNOWN);
+# By default we build for the host system.
+g_enmBuildArch = g_enmHostArch;
 
 class BuildTargets:
     """
     Supported build targets enumeration.
     This resembles the kBuild targets.
     """
-    ANY = "Any";
-    LINUX = "Linux";
-    WINDOWS = "Windows";
-    DARWIN = "Darwin";
-    SOLARIS = "Solaris";
-    BSD = "BSD";
-    HAIKU = "Haiku";
+    ANY = "any";
+    LINUX = "linux";
+    WINDOWS = "windows";
+    DARWIN = "darwin";
+    SOLARIS = "solaris";
+    BSD = "bsd";
+    HAIKU = "haiku";
+    UNKNOWN = "unknown";
 
-g_fDebug = False;          # Enables debug mode. Only for development.
+g_fDebug = False;             # Enables debug mode. Only for development.
 g_sEnvVarPrefix = 'VBOX_';
-g_fOSE = None;             # Will be determined on start.
-g_fHardening = True;       # Enable hardening by default.
+g_fOSE = None;                # Will be determined on start.
+g_sFileLog = 'configure.log'; # Log file path.
+g_fHardening = True;          # Enable hardening by default.
 g_cVerbosity = 0;
 g_cErrors = 0;
 g_cWarnings = 0;
 
 # Defines the host target.
-g_sHostOS = platform.system();
-# Map host OS to build target.
+g_sHostTarget = platform.system().lower();
+# Maps Python system string to kBuild build targets.
 g_enmHostTarget = {
-    "Linux": BuildTargets.LINUX,
-    "Windows": BuildTargets.WINDOWS,
-    "Darwin": BuildTargets.DARWIN,
-    "SunOS": BuildTargets.SOLARIS,
-    "FreeBSD": BuildTargets.BSD,
-    "OpenBSD": BuildTargets.BSD,
-    "NetBSD": BuildTargets.BSD,
-    "Haiku": BuildTargets.HAIKU
-}.get(g_sHostOS, BuildTargets.ANY);
+    "linux":    BuildTargets.LINUX,
+    "win":      BuildTargets.WINDOWS,
+    "darwin":   BuildTargets.DARWIN,
+    "solaris":  BuildTargets.SOLARIS,
+    "freebsd":  BuildTargets.BSD,
+    "openbsd":  BuildTargets.BSD,
+    "netbsd":   BuildTargets.BSD,
+    "haiku":    BuildTargets.HAIKU,
+    "":         BuildTargets.UNKNOWN
+}.get(g_sHostTarget, BuildTargets.UNKNOWN);
 # By default we build for the host system.
 g_enmBuildTarget = g_enmHostTarget;
+
+class BuildType:
+    """
+    Supported build types enumeration.
+    This resembles the kBuild targets.
+    """
+    DEBUG = "debug";
+    RELEASE = "release";
+# By defaut we do a release build.
+g_enmBuildType = BuildType.RELEASE;
 
 def printError(sMessage):
     """
     Prints an error message to stderr in red.
     """
-    print(f"{Ansi.RED}*** Error: {sMessage}{Ansi.RESET}", file=sys.stderr);
+    print(f"*** Error: {sMessage}", file=sys.stderr);
     globals()['g_cErrors'] += 1;
 
-def printStatus(sStatus):
+def printVerbose(uVerbosity, sMessage):
     """
-    Returns a colored string indicating library/tool status.
+    Prints a verbose message if the global verbosity level is high enough.
     """
-    if sStatus == "yes":
-        return f"{Ansi.GREEN}{sStatus}{Ansi.RESET}";
-    elif sStatus == "no":
-        return f"{Ansi.RED}{sStatus}{Ansi.RESET}";
-    elif sStatus == "DISABLED":
-        return f"{Ansi.YELLOW}{sStatus}{Ansi.RESET}";
-    elif sStatus == "-":
-        return f"{Ansi.GRAY}{sStatus}{Ansi.RESET}";
-    return sStatus;
+    if g_cVerbosity >= uVerbosity:
+        print(f"--- {sMessage}");
 
-def printName(sName):
+def checkWhich(sCmdName, sToolDesc, sCustomPath=None):
     """
-    Returns library/tool name as colored string.
-    """
-    return f"{Ansi.BLUE}{sName}{Ansi.RESET}";
+    Helper to check for a command in PATH or custom path.
 
-def printHeader(sHeader):
+    Returns a tuple of (command path, version string) or (None, None) if not found.
     """
-    Returns table header colored and bolded.
-    """
-    return f"{Ansi.BOLD}{Ansi.WHITE}{sHeader}{Ansi.RESET}";
+    sCmdPath = None;
+    if sCustomPath:
+        sCmdPath = os.path.join(sCustomPath, sCmdName);
+        if os.path.isfile(sCmdPath) and os.access(sCmdPath, os.X_OK):
+            printVerbose(1, f"Found '{sCmdName}' at custom path: {sCmdPath}");
+        else:
+            printError(f"'{sCmdName}' not found at custom path: {sCmdPath}");
+            return None, None;
+    else:
+        sCmdPath = shutil.which(sCmdName);
+        if sCmdPath:
+            printVerbose(1, f"Found '{sCmdName}' at: {sCmdPath}");
 
-def printTableHeader():
-    """
-    Prints the table header for library/tool status.
-    """
-    print("{:<24} {:<6} {:<8} {}".format(
-        printHeader("Library/Tool"),
-        printHeader("Status"),
-        printHeader("Version"),
-        printHeader("Include path / Command")
-    ));
+    # Try to get version.
+    if sCmdPath:
+        asSwitches = [ '--version', '-V', '/?', '/h', '/help', '-version', 'version' ];
+        try:
+            for sSwitch in asSwitches:
+                oProc = subprocess.run([sCmdPath, sSwitch], stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False, timeout=10);
+                if oProc.returncode == 0:
+                    sVer = oProc.stdout.decode('utf-8', 'replace').strip().splitlines()[0];
+                    return sCmdPath, sVer;
+            return sCmdPath, '<unknown>';
+        except subprocess.SubprocessError as ex:
+            printError(f"Error while checking version of {sToolDesc}: {str(ex)}");
+        return None, None;
 
-def printLibRow(oLib):
-    """
-    Prints a formatted row for a given library.
-    """
-    sIncOrDash = oLib.sIncPath if oLib.fHave else "-";
-    print("{:<24} {:<6} {:<8} {}".format(
-        printName(oLib.sName),
-        printStatus(oLib.getStatusString()),
-        oLib.sVer if getattr(oLib, 'sVer', None) else "-",
-        sIncOrDash
-    ));
-
-def printToolRow(oTool, sStatus):
-    """
-    Prints a formatted row for a given tool.
-    """
-    print("{:<24} {:<6} {:<8} {}".format(
-        printName(oTool.sName),
-        printStatus(sStatus),
-        oTool.sVer if getattr(oTool, 'sVer', None) else "-",
-        oTool.sCmdPath if getattr(oTool, 'sCmdPath', None) else "-"
-    ));
-
-def printSummaryBlock(sTitle, aPairs, iWidth1=30, iWidth2=18):
-    """
-    Prints a colored summary block (aligned columns).
-    """
-    print("\n" + printHeader(sTitle));
-    for sName, sStatus in aPairs:
-        print(f"{printName(sName):<{iWidth1}} {printStatus(sStatus):<{iWidth2}}");
-
-def printPathsBlock(sTitle, asPaths, iWiidth=30):
-    """
-    Prints include/library path summary.
-    """
-    if not asPaths:
-        return;
-    print(printHeader(sTitle));
-    for sName, sPath in asPaths:
-        print(f"{printName(sName):<{iWiidth}} {sPath}");
+    printError(f"'{sCmdName}' not found in PATH.");
+    return None, None;
 
 class LibraryCheck:
     """
@@ -337,22 +329,24 @@ class LibraryCheck:
         """
         asPaths = [];
         if self.sCustomPath:
-            asPaths = [os.path.join(self.sCustomPath, "include")];
-        elif g_enmBuildTarget == BuildTargets.WINDOWS:
-            root_drives = [d+":" for d in "CDEFGHIJKLMNOPQRSTUVWXYZ" if os.path.exists(d+":")];
-            for r in root_drives:
-                asPaths += [os.path.join(r, p) for p in [
-                    "\\msys64\\mingw64\\include", "\\msys64\\mingw32\\include", "\\include"]];
-                asPaths += [r"c:\\Program Files", r"c:\\Program Files (x86)"];
+            asPaths.extend([ os.path.join(self.sCustomPath, "include")] );
+        # Use source tree lib paths first.
+        asPaths.extend([ os.path.join(g_sScriptPath, "src/libs") ]);
+        if g_enmBuildTarget == BuildTargets.WINDOWS:
+            asRootDrivers = [ d+":" for d in "CDEFGHIJKLMNOPQRSTUVWXYZ" if os.path.exists(d+":") ];
+            for r in asRootDrivers:
+                asPaths.extend([ os.path.join(r, p) for p in [
+                    "\\msys64\\mingw64\\include", "\\msys64\\mingw32\\include", "\\include" ]]);
+                asPaths.extend([ r"c:\\Program Files", r"c:\\Program Files (x86)" ]);
         else: # Linux / MacOS / Solaris
             sGnuType = self.getLinuxGnuTypeFromPlatform();
             # Sorted by most likely-ness.
-            asPaths = [ "/usr/include", "/usr/local/include",
-                        "/usr/include/" + sGnuType, "/usr/local/include/" + sGnuType,
-                        "/usr/include/" + self.sName, "/usr/local/include/" + self.sName,
-                        "/opt/include", "/opt/local/include"];
+            asPaths.extend([ "/usr/include", "/usr/local/include",
+                             "/usr/include/" + sGnuType, "/usr/local/include/" + sGnuType,
+                             "/usr/include/" + self.sName, "/usr/local/include/" + self.sName,
+                             "/opt/include", "/opt/local/include" ]);
             if g_enmBuildTarget == BuildTargets.DARWIN:
-                asPaths.append("/opt/homebrew/include");
+                asPaths.extend([ "/opt/homebrew/include" ]);
         return [p for p in asPaths if os.path.exists(p)];
 
     def getLibSearchPaths(self):
@@ -362,7 +356,9 @@ class LibraryCheck:
         asPaths = [];
         if self.sCustomPath:
             asPaths = [os.path.join(self.sCustomPath, "lib")];
-        elif g_enmBuildTarget == BuildTargets.WINDOWS:
+        # Use source tree lib paths first.
+        asPaths.extend([ os.path.join(g_sScriptPath, "src/libs") ]);
+        if g_enmBuildTarget == BuildTargets.WINDOWS:
             root_drives = [d+":" for d in "CDEFGHIJKLMNOPQRSTUVWXYZ" if os.path.exists(d+":")];
             for r in root_drives:
                 asPaths += [os.path.join(r, p) for p in [
@@ -422,8 +418,6 @@ class LibraryCheck:
         else:
             asLibExts = [".a", ".so"];
         asSearchPaths = self.getLibSearchPaths();
-        if g_cVerbosity:
-            print(asSearchPaths);
         for sCurSearchPath in asSearchPaths:
             for sCurExt in asLibExts:
                 sPattern = os.path.join(sCurSearchPath, f"{sBasename}*{sCurExt}");
@@ -456,11 +450,11 @@ class LibraryCheck:
         if self.fDisabled:
             return "DISABLED";
         elif self.fHave:
-            return "yes";
+            return "ok";
         elif self.fHave is None:
-            return "-";
+            return "?";
         else:
-            return "no";
+            return "failed";
 
     def __repr__(self):
         return f"{self.sName}: {self.getStatusString()}";
@@ -469,61 +463,128 @@ class ToolCheck:
     """
     Describes and checks for a build tool.
     """
-    def __init__(self, sName, asCmds, aeTargets=''):
+    def __init__(self, sName, asCmd = None, fnCallback = None, aeTargets = BuildTargets.ANY):
         """
         Constructor.
         """
-        assert sName, asCmds;
+        assert sName;
 
         self.sName = sName;
-        self.asCmds = asCmds if isinstance(asCmds, list) else [ asCmds ];
-        self.aeTargets = aeTargets if isinstance(aeTargets, list) else [ aeTargets ];
+        self.fnCallback = fnCallback;
+        self.aeTargets = aeTargets;
         self.fDisabled = False;
-        # Whether the tool is available.
-        self.fHave = False;
+        self.sCustomPath = None;
+        # Is a tri-state: None if not required (optional or not needed), False if required but not found, True if found.
+        self.fHave = None;
+        # List of command names (binaries) to check for.
+        # A tool can have multiple binaries.
+        self.asCmd = asCmd;
         # Path to the found command.
         # Only valid if self.fHave is True.
         self.sCmdPath = None;
+        # Contains the (parsable) version string if detected.
+        # Only valid if self.fHave is True.
+        self.sVer = None;
 
     def setArgs(self, oArgs):
         """
         Apply argparse options for disabling the tool.
         """
-        sArgKey = self.sName.replace("+", "PLUS").replace("-", "_");
-        self.fDisabled = getattr(oArgs, f"disable_{sArgKey}", False);
+        self.fDisabled = getattr(oArgs, f"config_tools_disable_{self.sName}", False);
+        self.sCustomPath = getattr(oArgs, f"config_tools_path_{self.sName}", None);
 
     def performCheck(self):
         """
         Performs the actual check of the tool.
+
+        Returns success status.
         """
-        if self.aeTargets:
-            if (isinstance(self.aeTargets, list) and g_enmBuildTarget not in self.aeTargets) or (g_enmBuildTarget != self.aeTargets):
-                self.fHave = None;
-                return;
         if self.fDisabled:
             self.fHave = None;
-            return;
-        for sCmdCur in self.asCmds:
-            sPath = shutil.which(sCmdCur);
-            if sPath:
-                self.fHave = True;
-                self.sCmdPath = sPath;
-                return;
+            return True;
+        if g_enmBuildTarget in self.aeTargets \
+        or BuildTargets.ANY in self.aeTargets:
+            if self.fnCallback: # Custom callback function provided?
+                self.fHave = self.fnCallback(self);
+            else:
+                for sCmdCur in self.asCmd:
+                    self.sCmdPath, self.sVer = checkWhich(sCmdCur, self.sName, self.sCustomPath);
+                    if self.sCmdPath:
+                        self.fHave = True;
+                    else:
+                        return False;
+        return True;
 
     def getStatusString(self):
         """
-        Returns a string for the tool's status: "yes", "no", "DISABLED", or "-".
+        Returns a string for the tool's status.
         """
         if self.fDisabled:
             return "DISABLED";
         if self.fHave:
-            return f"yes ({os.path.basename(self.sCmdPath)})";
+            return f"ok ({os.path.basename(self.sCmdPath)})";
         if self.fHave is None:
-            return "-";
-        return "no";
+            return "?";
+        return "failed";
 
     def __repr__(self):
         return f"{self.sName}: {self.getStatusString()}"
+
+    def checkCallback_OpenWatcom(self):
+        """
+        Checks for OpenWatcom tools.
+        """
+
+        # These are the sub directories OpenWatcom ships its binaries in.
+        mapBuildTarget2Bin = {
+            BuildTargets.DARWIN:  "binosx",  ## @todo Still correct for Apple Silicon?
+            BuildTargets.LINUX:   "binl64" if g_enmBuildArch is BuildArch.AMD64 else "arml64", # ASSUMES 64-bit.
+            BuildTargets.SOLARIS: "binsol",  ## @todo Test on Solaris.
+            BuildTargets.WINDOWS: "binnt",
+            BuildTargets.BSD:     "binnbsd"  ## @todo Test this on FreeBSD.
+        };
+
+        sBinSubdir = mapBuildTarget2Bin.get(g_enmBuildTarget, None);
+        if not sBinSubdir:
+            printError(f"OpenWatcom not supported on host target {g_enmBuildTarget}.");
+            return False;
+
+        for sCmdCur in self.asCmd:
+            self.sCmdPath, self.sVer = checkWhich(sCmdCur, 'OpenWatcom', os.path.join(self.sCustomPath, sBinSubdir) if self.sCustomPath else None);
+            if not self.sCmdPath:
+                return False;
+
+        return True;
+
+    def checkCallback_XCode(self):
+        """
+        Checks for Xcode and Command Line Tools on macOS.
+        """
+
+        asPathsToCheck = [];
+        if self.sCustomPath:
+            asPathsToCheck.append(self.sCustomPath);
+
+        #
+        # Detect Xcode.
+        #
+        asPathsToCheck.extend([
+            '/Library/Developer/CommandLineTools'
+        ]);
+
+        for sPathCur in asPathsToCheck:
+            if os.path.isdir(sPathCur):
+                sPathClang      = os.path.join(sPathCur, 'usr/bin/clang');
+                sPathXcodebuild = os.path.join(sPathCur, 'usr/bin/xcodebuild');
+                printVerbose(1, ('Checking for CommandLineTools at:', sPathCur));
+                if  os.path.isfile(sPathClang) \
+                and os.path.isfile(sPathXcodebuild):
+                    print('Found CommandLineTools at:', sPathCur);
+                    self.sCmdPath = sPathXcodebuild;
+                    return True;
+
+        printError('CommandLineTools not found.');
+        return False;
 
 class EnvManager:
     """
@@ -569,31 +630,30 @@ class EnvManager:
         Each argument becomes an environment variable (in uppercase), set only if its value is not None.
         """
         for sKey, aValue in vars(args).items():
-            sVal = None;
             if aValue is not None:
-                if    sKey.startswith('with_') \
-                   or sKey.startswith('without_'):
-                    sVal = '';
-                elif sKey.startswith('with_'):
-                    sVal = '1';
-                elif sKey.startswith('without_'):
-                    sVal = '0';
-                elif sKey.startswith('only_'):
-                    sVal = '1' if aValue else '';
-                if sVal:
-                    self.env[g_sEnvVarPrefix + sKey.upper()] = sVal;
-                else:
-                    self.env[sKey.upper()] = aValue;
+                # Search for vbox_env_ prefix to map to VBOX_* environment variables.
+                if sKey.startswith('vbox_env_'):
+                    sKey = sKey[len('vbox_env_'):];
+                    asKeywordMap = {
+                        'sete_': '',
+                        'set1_': '1',
+                        'set0_': '0'
+                    };
+                    for sPrefix, sVal in asKeywordMap.items():
+                        if sKey.startswith(sPrefix):
+                            sKey = sKey[len(sPrefix):];
+                            aValue = sVal;
+                            break;
+                    sKey = g_sEnvVarPrefix + sKey;
+                self.env[sKey.upper()] = aValue;
 
-        if g_fDebug:
-            print('Environment manager variables:');
-            print(self.env);
-
-    def write(self, fh):
+    def write(self, fh, asPrefixExclude):
         """
         Writes all stored environment variables as KEY=VALUE pairs to the given file handle.
         """
         for key, value in self.env.items():
+            if asPrefixExclude and any(key.startswith(p) for p in asPrefixExclude):
+                continue;
             fh.write(f"{key}={value}\n");
 
     def transform(self, mapTransform):
@@ -605,36 +665,41 @@ class EnvManager:
             if isinstance(result, dict):
                 self.env.update(result);
 
-def check_java():
+class SimpleTable:
     """
-    Checks for Java via 'java -version'.
+    A simple table for outputting aligned text.
     """
-    try:
-        out = subprocess.check_output([ "java", "-version" ], stderr = subprocess.STDOUT).decode("utf8").lower();
-        if "java" in out:
-            return "yes (java)";
-        ## @todo Check for minimum Java version?
-    except FileNotFoundError:
-        pass;
-    except subprocess.SubprocessError:
-        pass;
-    return "no";
+    def __init__(self, asHeaders):
+        """
+        Constructor.
+        """
+        self.asHeaders = asHeaders;
+        self.aRows = [];
+        self.sFmt = '';
+        self.aiWidths = [];
 
-def check_xcode():
-    """
-    Checks for Xcode tools on macOS.
-    """
-    if g_enmBuildTarget != BuildTargets.DARWIN:
-        return "-";
-    try:
-        out = subprocess.check_output([ "xcodebuild", "-version" ], stderr = subprocess.STDOUT ).decode("utf8").lower();
-        if "xcode" in out:
-            return "yes (xcodebuild)";
-    except FileNotFoundError:
-        pass;
-    except subprocess.SubprocessError:
-        pass;
-    return "no";
+    def addRow(self, asCells):
+        """
+        Adds a row to the table.
+        """
+        assert len(asCells) == len(self.asHeaders);
+        #self.aRows.append(asCells);
+        self.aRows.append(tuple(str(cell) for cell in asCells))
+
+    def print(self):
+        """
+        Prints the table to the given file handle.
+        """
+
+        # Compute maximum width for each column.
+        aRows = [self.asHeaders] + self.aRows;
+        aColWidths = [max(len(str(row[i])) for row in aRows) for i in range(len(self.asHeaders))];
+        sFmt = '  '.join('{{:<{}}}'.format(w) for w in aColWidths);
+
+        print(sFmt.format(*self.asHeaders));
+        print('-' * (sum(aColWidths) + 2*(len(self.asHeaders)-1)));
+        for row in self.aRows:
+            print(sFmt.format(*row));
 
 def show_syntax_help():
     """
@@ -750,13 +815,13 @@ g_aoLibs = sorted([
 ], key=lambda l: l.sName);
 
 g_aoTools = sorted([
-    ToolCheck("gSOAP", ["soapcpp2", "wsdl2h"]),
-    ToolCheck("Java", "java"),
-    ToolCheck("kBuild", ["kmk"]),
-    ToolCheck("makeself", "makeself"),
-    ToolCheck("openwatcom", ["wcl", "wcl386", "wlink"]),
-    ToolCheck("xcode", "xcodebuild", aeTargets="Darwin"),
-    ToolCheck("yasm", "yasm"),
+    ToolCheck("gsoap", asCmd = [ "soapcpp2", "wsdl2h" ]),
+    ToolCheck("java", asCmd = [ "java" ]),
+    ToolCheck("kbuild", asCmd = [ "kmk" ]),
+    ToolCheck("makeself", asCmd = [ "makeself" ], aeTargets = [ BuildTargets.LINUX ]),
+    ToolCheck("openwatcom", asCmd = [ "wcl", "wcl386", "wlink" ], fnCallback = ToolCheck.checkCallback_OpenWatcom ),
+    ToolCheck("xcode", asCmd = [], fnCallback = ToolCheck.checkCallback_XCode, aeTargets = [ BuildTargets.DARWIN ]),
+    ToolCheck("yasm", asCmd = [ 'yasm' ], aeTargets = [ BuildTargets.LINUX ]),
 ], key=lambda t: t.sName.lower())
 
 def write_autoconfig_kmk(sFilePath, oEnv, aoLibs, aoTools):
@@ -769,19 +834,18 @@ def write_autoconfig_kmk(sFilePath, oEnv, aoLibs, aoTools):
 
     try:
         with open(sFilePath, "w", encoding = "utf-8") as fh:
-            fh.write("""
-    # -*- Makefile -*-
-    #
-    # Generated by """ + sFilePath + """.
-    #
-    # DO NOT EDIT THIS FILE MANUALLY
-    # It will be completely overwritten if """ + sFilePath + """ is executed again.
-    #
-    # Generated on """ + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + """
-    #
-                    \n""");
-
-            oEnv.write(fh);
+            fh.write(f"""
+# -*- Makefile -*-
+#
+# Generated by {g_sScriptName}.
+#
+# DO NOT EDIT THIS FILE MANUALLY
+# It will be completely overwritten if {g_sScriptName} is executed again.
+#
+# Generated on """ + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + """
+#
+\n""");
+            oEnv.write(fh, asPrefixExclude = ['CONFIG_'] );
             fh.write('\n');
 
             for oLibCur in aoLibs:
@@ -805,32 +869,29 @@ def write_env(sFilePath, oEnv, aoLibs, aoTools):
     Each library/tool gets VBOX_WITH_<NAME>, SDK_<NAME>_LIBS, SDK_<NAME>_INCS.
     """
 
-    _ = oEnv, aoTools; # Unused for now.
+    _ = oEnv, aoLibs, aoTools; # Unused for now.
 
     try:
         with open(sFilePath, "w", encoding = "utf-8") as fh:
-            fh.write("""
-    # -*- Makefile -*-
-    #
-    # Generated by """ + sFilePath + """.
-    #
-    # DO NOT EDIT THIS FILE MANUALLY
-    # It will be completely overwritten if """ + sFilePath + """ is executed again.
-    #
-    # Generated on """ + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + """
-    #
-                    \n""");
+            fh.write(f"""
+# -*- Environment -*-
+#
+# Generated by {g_sScriptName}.
+#
+# DO NOT EDIT THIS FILE MANUALLY
+# It will be completely overwritten if {g_sScriptName} is executed again.
+#
+# Generated on """ + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + f"""
+#
 
-            for oLibCur in aoLibs:
-                sVarBase = oLibCur.sName.upper().replace("+", "PLUS").replace("-", "_");
-                fEnabled = 1 if oLibCur.fHave else 0;
-                fh.write(f"VBOX_WITH_{sVarBase}={fEnabled}\n");
-                if oLibCur.fHave and (oLibCur.sLibPath or oLibCur.sIncPath):
-                    if oLibCur.sLibPath:
-                        fh.write(f"SDK_{sVarBase}_LIBS={oLibCur.sLibPath}\n");
-                    if oLibCur.sIncPath:
-                        fh.write(f"SDK_{sVarBase}_INCS={oLibCur.sIncPath}\n");
-
+KBUILD_HOST={g_enmHostTarget}
+KBUILD_HOST_ARCH={g_sHostArch}
+KBUILD_TARGET={g_enmBuildTarget}
+KBUILD_TARGET_ARCH={g_enmBuildArch}
+KBUILD_TARGET_CPU={g_enmBuildArch}
+KBUILD_TYPE={g_enmBuildType}
+export KBUILD_HOST KBUILD_HOST_ARCH KBUILD_TARGET KBUILD_TARGET_ARCH KBUILD_TARGET_CPU KBUILD_TYPE
+""");
         return True;
     except OSError as ex:
         printError(f"Failed to write env.sh to {sFilePath}: {str(ex)}");
@@ -843,6 +904,7 @@ def main():
     global g_cVerbosity;
     global g_fDebug;
     global g_fOSE;
+    global g_sFileLog;
 
     #
     # argparse config namespace rules:
@@ -851,25 +913,33 @@ def main():
     # - Tool options are prefixed with 'config_tools_'.
     # - VirtualBox-specific environment variables (VBOX_WITH_, VBOX_ONLY_ and so on) are prefixed with 'vbox_env_'.
     #
+    # 'vbox_env' prefix rules:
+    # - 'vbox_env_sete_': Sets the env variable to empty (e.g. VBOX_WITH_DOCS="").
+    # - 'vbox_env_set1_': Sets the env variable to 1 (e.g. VBOX_WITH_DOCS=1).
+    # - 'vbox_env_set0_': Sets the env variable to 0 (e.g. VBOX_WITH_DOCS=0).
+    #
     oParser = argparse.ArgumentParser(add_help=False);
-    oParser.add_argument('--help', help="Displays this help", action='store_true', default=None);
-    oParser.add_argument('-v', '--verbose', help="Enables verbose output", action='count', default=None, dest='config_verbose');
+    oParser.add_argument('--help', help="Displays this help");
+    oParser.add_argument('-v', '--verbose', help="Enables verbose output", action='count', default=0, dest='config_verbose');
+    oParser.add_argument('-V', '--version', help="Prints the version of this script");
     for oLibCur in g_aoLibs:
         oParser.add_argument(f'--disable-{oLibCur.sName}', action='store_true', default=None, dest=f'config_libs_disable_{oLibCur.sName}');
         oParser.add_argument(f'--with-{oLibCur.sName}-path', dest=f'config_libs_path_{oLibCur.sName}');
         oParser.add_argument(f'--only-{oLibCur.sName}', action='store_true', default=None, dest=f'config_libs_only_{oLibCur.sName}');
     for oToolCur in g_aoTools:
         oParser.add_argument(f'--disable-{oToolCur.sName}', action='store_true', default=None, dest=f'config_tools_disable_{oToolCur.sName}');
+        oParser.add_argument(f'--with-{oToolCur.sName}-path', dest=f'config_tools_path_{oToolCur.sName}');
         oParser.add_argument(f'--only-{oToolCur.sName}', action='store_true', default=None, dest=f'config_tools_only_{oToolCur.sName}');
-    oParser.add_argument('--disable-docs', help='Disables building the documentation', action='store_true', default=None);
+    oParser.add_argument('--disable-docs', help='Disables building the documentation', action='store_true', default=None, dest='vbox_env_sete_with_docs');
     oParser.add_argument('--disable-python', help='Disables building the Python bindings', action='store_true', default=None);
     oParser.add_argument('--with-hardening', help='Enables or disables hardening', action='store_true', default=None);
     oParser.add_argument('--without-hardening', help='Enables or disables hardening', action='store_true', default=None);
-    oParser.add_argument('--file-autoconfig', default='AutoConfig.kmk', action='store_true', help='Path to output AutoConfig.kmk file');
-    oParser.add_argument('--file-env', default='env.sh', action='store_true', help='Path to output env.sh file');
+    oParser.add_argument('--file-autoconfig', help='Path to output AutoConfig.kmk file', action='store_true', default='AutoConfig.kmk', dest='config_file_autoconfig');
+    oParser.add_argument('--file-env', help='Path to output env.sh file', action='store_true', default='env.sh', dest='config_file_env');
+    oParser.add_argument('--file-log', help='Path to output log file', action='store_true', default='configure.log', dest='config_file_log');
     oParser.add_argument('--only-additions', help='Only build Guest Additions related libraries and tools', action='store_true', default=None, dest='vbox_only_additions');
-    oParser.add_argument('--only-docs', help='Only build the documentation', action='store_true', default=None, dest='vbox_env_only_docs');
-    oParser.add_argument('--ose', help='Builds the OSE version', action='store_true', default=None);
+    oParser.add_argument('--only-docs', help='Only build the documentation', action='store_true', default=None, dest='vbox_env_set1_only_docs');
+    oParser.add_argument('--ose', help='Builds the OSE version', action='store_true', default=None, dest='vbox_env_set1_ose');
     oParser.add_argument('--debug', help='Runs in debug mode. Only use for development', action='store_true', default=False, dest='config_debug');
 
     try:
@@ -880,24 +950,34 @@ def main():
 
     g_cVerbosity = oArgs.config_verbose;
     g_fDebug = oArgs.config_debug;
+    g_sFileLog = oArgs.config_file_log;
 
+    # Filter libs and tools based on --only-XXX flags.
     aoOnlyLibs = [lib for lib in g_aoLibs if getattr(oArgs, f'config_libs_only_{lib.sName}', False)];
     aoOnlyTools = [tool for tool in g_aoTools if getattr(oArgs, f'config_tools_only_{tool.sName}', False)];
     aoLibsToCheck = aoOnlyLibs if aoOnlyLibs else g_aoLibs;
     aoToolsToCheck = aoOnlyTools if aoOnlyTools else g_aoTools;
+    # Filter libs and tools based on build target.
+    aoLibsToCheck  = [lib for lib in aoLibsToCheck if g_enmBuildTarget in lib.aeTargets or BuildTargets.ANY in lib.aeTargets];
+    aoToolsToCheck = [tool for tool in aoToolsToCheck if g_enmBuildTarget in tool.aeTargets or BuildTargets.ANY in tool.aeTargets];
 
     if oArgs.help:
         show_syntax_help();
         return 2;
+    if oArgs.version:
+        print('1.0'); ## @todo Return SVN rev.
+        return 0;
 
-    logf = open("configure.log", "w", encoding="utf-8");
+    logf = open(g_sFileLog, "w", encoding="utf-8");
     sys.stdout = Log(sys.stdout, logf);
     sys.stderr = Log(sys.stderr, logf);
 
     print( 'VirtualBox configuration script');
+    print();
     print(f'Running on {platform.system()} {platform.release()} ({platform.machine()})');
-    print(f'Detected target: {g_sHostOS}');
-
+    print();
+    print(f'Host OS / arch     : {g_sHostTarget}.{g_sHostArch}');
+    print(f'Building for target: {g_enmBuildTarget}.{g_enmBuildArch}');
     print();
 
     oEnv = EnvManager();
@@ -906,17 +986,24 @@ def main():
     #
     # Handle OSE building.
     #
-    g_fOSE = oArgs.ose;
+    g_fOSE = oArgs.vbox_env_set1_ose;
     if   not g_fOSE \
     and os.path.exists('src/VBox/ExtPacks/Puel/ExtPack.xml'):
         print('Found ExtPack, assuming to build PUEL version');
         g_fOSE = False;
     print('Building %s version' % ('OSE' if (g_fOSE is None or g_fOSE is True) else 'PUEL'));
+    print();
     oEnv.set('VBOX_OSE', g_fOSE);
 
+    #
+    # Handle environment variable transformations.
+    #
+    # This is needed to set/unset/change other environment variables on already set ones.
+    # For instance, building OSE requires certain components to be disabled. Same when a certain library gets disabled.
+    #
     envTransforms = [
         # Disabling building the docs when only building Additions or explicitly disabled building the docs.
-        lambda env: { 'VBOX_WITH_DOCS': '', 'VBOX_WITH_DOCS_PACKING': ''} if oEnv.get('VBOX_ONLY_ADDITIONS') or oEnv.get('VBOX_WITH_DOCS') == '0' else {},
+        lambda env: { 'VBOX_WITH_DOCS_PACKING': ''} if oEnv.get('VBOX_ONLY_ADDITIONS') or oEnv.get('VBOX_WITH_DOCS') == '' else {},
         # Disable building the ExtPack VNC when only building Additions or OSE.
         lambda env: { 'VBOX_WITH_EXTPACK_VNC': '' } if oEnv.get('VBOX_ONLY_ADDITIONS') or oEnv.get('VBOX_OSE') == '1' else {},
         lambda env: { 'VBOX_WITH_WEBSERVICES': '' } if oEnv.get('VBOX_ONLY_ADDITIONS') else {},
@@ -927,77 +1014,86 @@ def main():
     ];
     oEnv.transform(envTransforms);
 
-    #
-    # Perform library checks.
-    #
-    printTableHeader();
+    if g_cVerbosity >= 2:
+        printVerbose(2, 'Environment manager variables:');
+        print(oEnv.env);
 
-    for oLibCur in aoLibsToCheck:
-        oLibCur.setArgs(oArgs);
-        oLibCur.performCheck();
-        if oLibCur.fHave:
-            oLibCur.compileAndExecute();
-        printLibRow(oLibCur);
-
-    print();
+    #
+    # Perform OS tool checks.
+    # These are essential and must be present for all following checks.
+    #
+    aOsTools = {
+        BuildTargets.LINUX:   [ 'gcc', 'make', 'pkg-config' ],
+        BuildTargets.DARWIN:  [ 'clang', 'make', 'brew' ],
+        BuildTargets.WINDOWS: [ 'cl', 'gcc', 'nmake', 'cmake', 'msbuild' ],
+        BuildTargets.SOLARIS: [ 'cc', 'gmake', 'pkg-config' ]
+    };
+    aOsToolsToCheck = aOsTools.get(g_enmBuildTarget, []);
+    oOsToolsTable = SimpleTable([ 'Tool', 'Status', 'Version', 'Path' ]);
+    for sBinary in aOsToolsToCheck:
+        sCmdPath, sVer = checkWhich(sBinary, sBinary);
+        oOsToolsTable.addRow(( sBinary,
+                               'ok' if sCmdPath else 'failed',
+                               sVer if sVer else "-",
+                               "-" ));
+    oOsToolsTable.print();
 
     #
     # Perform tool checks.
     #
-    for oToolCur in aoToolsToCheck:
-        oToolCur.setArgs(oArgs);
-        if oToolCur.sName == "Java":
-            if oToolCur.fDisabled:
-                sStatus = "DISABLED";
-            else:
-                sStatus = check_java().split()[0]
-            oToolCur.sCmdPath = shutil.which("java") if sStatus == "yes" else None;
-        elif oToolCur.sName == "xcode":
-            if oToolCur.fDisabled:
-                sStatus = "DISABLED";
-            else:
-                sStatus = check_xcode().split()[0];
-            oToolCur.sCmdPath = shutil.which("xcodebuild") if sStatus == "yes" else None;
-        else:
+    if g_cErrors == 0:
+        print();
+        for oToolCur in aoToolsToCheck:
+            oToolCur.setArgs(oArgs);
             oToolCur.performCheck();
-            sStatus = oToolCur.getStatusString().split()[0];
-        printToolRow(oToolCur, sStatus);
 
-    sSummaryLibs = [(lib.sName, lib.getStatusString()) for lib in aoLibsToCheck];
-    sSummaryTools = [(tool.sName, tool.getStatusString()) for tool in aoToolsToCheck];
-    printSummaryBlock("Summary (Libraries):", sSummaryLibs);
-    printSummaryBlock("Summary (Tools):", sSummaryTools);
+    #
+    # Perform library checks.
+    #
+    if g_cErrors == 0:
+        print();
+        for oLibCur in aoLibsToCheck:
+            oLibCur.setArgs(oArgs);
+            oLibCur.performCheck();
+            if oLibCur.fHave:
+                oLibCur.compileAndExecute();
+    #
+    # Print summary.
+    #
+    if g_cErrors == 0:
 
-    asPathsInc = [(lib.sName, lib.sIncPath) for lib in aoLibsToCheck if lib.sIncPath];
-    asPathsLibs = [(lib.sName, lib.sLibPath) for lib in aoLibsToCheck if lib.sLibPath];
+        oToolsTable = SimpleTable([ 'Tool', 'Status', 'Version', 'Path' ]);
+        for oToolCur in aoToolsToCheck:
+            oToolsTable.addRow(( oToolCur.sName,
+                                 oToolCur.getStatusString().split()[0],
+                                 oToolCur.sVer if oToolCur.sVer else '-',
+                                 oToolCur.sCmdPath if oToolCur.sCmdPath else '-' ));
+        print();
+        oToolsTable.print();
+        print();
 
-    print();
-    printPathsBlock("Include paths found:", asPathsInc);
-    printPathsBlock("Library paths found:", asPathsLibs);
-    print();
-
-    print(printHeader("Build tools:"));
-    aOsTools = {
-        BuildTargets.LINUX:   ['gcc', 'make', 'pkg-config'],
-        BuildTargets.DARWIN:  ['clang', 'make', 'brew'],
-        BuildTargets.WINDOWS: ['cl', 'gcc', 'nmake', 'cmake', 'msbuild'],
-        BuildTargets.SOLARIS: ['cc', 'gmake', 'pkg-config']
-    };
-    aToolsBin = aOsTools.get(g_enmBuildTarget, []);
-    for sBinary in aToolsBin:
-        sFound = shutil.which(sBinary);
-        sStatus = f"{Ansi.GREEN}found{Ansi.RESET}" if sFound else f"{Ansi.RED}NOT found{Ansi.RESET}";
-        print(f"{printName(sBinary):<30} {sStatus}");
+        oLibsTable = SimpleTable([ 'Library', 'Status', 'Version', 'Include Path' ]);
+        for oLibCur in aoLibsToCheck:
+            oLibsTable.addRow(( oLibCur.sName,
+                                oLibCur.getStatusString().split()[0],
+                                oLibCur.sVer if oLibCur.sVer else '-',
+                                oLibCur.sIncPath if oLibCur.sIncPath else '-' ));
+        print();
+        oLibsTable.print();
+        print();
 
     if g_cErrors == 0:
-        if write_autoconfig_kmk(oArgs.file_autoconfig, oEnv, g_aoLibs, g_aoTools):
-            if write_env(oArgs.file_env, oEnv, g_aoLibs, g_aoTools):
+        if write_autoconfig_kmk(oArgs.config_file_autoconfig, oEnv, g_aoLibs, g_aoTools):
+            if write_env(oArgs.config_file_env, oEnv, g_aoLibs, g_aoTools):
                 print();
-                print(f'Successfully generated \"{oArgs.file_autoconfig}\" and \"{oArgs.file_env}\".');
-                print(f'Source {oArgs.file_env} once before you start to build VirtualBox:');
-                print(f'  source "{oArgs.file_env}"');
+                print(f'Successfully generated \"{oArgs.config_file_autoconfig}\" and \"{oArgs.config_file_env}\".');
+                print();
+                print(f'Source {oArgs.config_file_env} once before you start to build VirtualBox:');
+                print(f'  source "{oArgs.config_file_env}"');
+                print();
                 print( 'Then run the build with:');
                 print( '  kmk');
+                print();
 
         if g_enmBuildTarget == BuildTargets.LINUX:
             print('To compile the kernel modules, do:');
@@ -1029,6 +1125,11 @@ def main():
             print('  disabled hardening!');
             print('  +++ WARNING +++ WARNING +++ WARNING +++ WARNING +++ WARNING +++ WARNING +++');
             print();
+
+    if g_cWarnings:
+        print(f'\nConfiguration completed with {g_cWarnings} warning(s). See {g_sFileLog} for details.');
+    if g_cErrors:
+        print(f'\nConfiguration failed with {g_cErrors} error(s). See {g_sFileLog} for details.');
 
     print('\nWork in progress! Do not use for production builds yet!\n');
 
