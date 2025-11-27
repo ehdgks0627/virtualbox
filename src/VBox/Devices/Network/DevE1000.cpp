@@ -1,4 +1,4 @@
-/* $Id: DevE1000.cpp 111902 2025-11-27 08:20:10Z aleksey.ilyushin@oracle.com $ */
+/* $Id: DevE1000.cpp 111903 2025-11-27 08:31:04Z aleksey.ilyushin@oracle.com $ */
 /** @file
  * DevE1000 - Intel 82540EM Ethernet Controller Emulation.
  *
@@ -1840,14 +1840,6 @@ typedef int (FNE1KREGREAD)(PPDMDEVINS pDevIns, PE1KSTATE pThis, uint32_t offset,
  */
 typedef int (FNE1KREGWRITE)(PPDMDEVINS pDevIns, PE1KSTATE pThis, uint32_t offset, uint32_t index, uint32_t u32Value);
 
-static FNE1KREGREAD  e1kRegReadUnimplemented;
-static FNE1KREGWRITE e1kRegWriteUnimplemented;
-static FNE1KREGREAD  e1kRegReadAutoClear;
-static FNE1KREGREAD  e1kRegReadDefault;
-static FNE1KREGWRITE e1kRegWriteDefault;
-#if 0 /* unused */
-static FNE1KREGREAD  e1kRegReadCTRL;
-#endif
 static FNE1KREGWRITE e1kRegWriteCTRL;
 static FNE1KREGREAD  e1kRegReadEECD;
 static FNE1KREGWRITE e1kRegWriteEECD;

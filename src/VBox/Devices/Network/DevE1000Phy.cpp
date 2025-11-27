@@ -1,4 +1,4 @@
-/** $Id: DevE1000Phy.cpp 111902 2025-11-27 08:20:10Z aleksey.ilyushin@oracle.com $ */
+/** $Id: DevE1000Phy.cpp 111903 2025-11-27 08:31:04Z aleksey.ilyushin@oracle.com $ */
 /** @file
  * DevE1000Phy - Intel 82540EM Ethernet Controller Internal PHY Emulation.
  *
@@ -177,7 +177,7 @@ PHY_WR_READONLY_IMPL(PREC)
 
 static void Phy::regWriteReadOnly(PPHY pPhy, uint32_t index, uint16_t u16Value, PPDMDEVINS pDevIns)
 {
-    RT_NOREF(u16Value, pDevIns); \
+    RT_NOREF(pPhy, index, u16Value, pDevIns); \
     PhyLog(("PHY#%d At %02d write attempted to read-only '%s'\n", \
             pPhy->iInstance, s_regMap[index].u32Address, s_regMap[index].pszName)); \
 }
