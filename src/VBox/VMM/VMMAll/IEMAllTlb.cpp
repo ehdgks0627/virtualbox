@@ -1,4 +1,4 @@
-/* $Id: IEMAllTlb.cpp 111898 2025-11-26 17:53:03Z knut.osmundsen@oracle.com $ */
+/* $Id: IEMAllTlb.cpp 111906 2025-11-27 08:51:26Z knut.osmundsen@oracle.com $ */
 /** @file
  * IEM - Interpreted Execution Manager - TLB Management.
  */
@@ -54,7 +54,7 @@
 
 
 
-#if defined(IEM_WITH_CODE_TLB) || defined(IEM_WITH_DATA_TLB)
+#if defined(IEM_WITH_CODE_TLB_IN_CUR_CTX) || defined(IEM_WITH_DATA_TLB_IN_CUR_CTX)
 /**
  * Worker for iemTlbInvalidateAll.
  */
@@ -118,10 +118,10 @@ DECL_FORCE_INLINE(void) iemTlbInvalidateOne(IEMTLB *pTlb)
 template<bool a_fGlobal>
 DECL_FORCE_INLINE(void) iemTlbInvalidateAll(PVMCPUCC pVCpu)
 {
-#if defined(IEM_WITH_CODE_TLB) || defined(IEM_WITH_DATA_TLB)
+#if defined(IEM_WITH_CODE_TLB_IN_CUR_CTX) || defined(IEM_WITH_DATA_TLB_IN_CUR_CTX)
     Log10(("IEMTlbInvalidateAll\n"));
 
-# ifdef IEM_WITH_CODE_TLB
+# ifdef IEM_WITH_CODE_TLB_IN_CUR_CTX
     ICORE_R3(pVCpu).cbInstrBufTotal = 0;
     iemTlbInvalidateOne<a_fGlobal>(&ITLBS_R3(pVCpu).Code);
 #  ifdef VBOX_VMM_TARGET_X86
@@ -132,7 +132,7 @@ DECL_FORCE_INLINE(void) iemTlbInvalidateAll(PVMCPUCC pVCpu)
         IEMTLBTRACE_FLUSH(pVCpu, ITLBS_R3(pVCpu).Code.uTlbRevision, false);
 # endif
 
-# ifdef IEM_WITH_DATA_TLB
+# ifdef IEM_WITH_DATA_TLB_IN_CUR_CTX
     iemTlbInvalidateOne<a_fGlobal>(&ITLBS_R3(pVCpu).Data);
 #  ifdef VBOX_VMM_TARGET_X86
     if (a_fGlobal)
@@ -186,16 +186,16 @@ VMM_INT_DECL(void) IEMTlbInvalidateAllGlobal(PVMCPUCC pVCpu)
 VMM_INT_DECL(void) IEMTlbInvalidatePage(PVMCPUCC pVCpu, RTGCPTR GCPtr)
 {
     IEMTLBTRACE_INVLPG(pVCpu, GCPtr);
-#if defined(IEM_WITH_CODE_TLB) || defined(IEM_WITH_DATA_TLB)
+#if defined(IEM_WITH_CODE_TLB_IN_CUR_CTX) || defined(IEM_WITH_DATA_TLB_IN_CUR_CTX)
     Log10(("IEMTlbInvalidatePage: GCPtr=%RGv\n", GCPtr));
     GCPtr = IEMTLB_CALC_TAG_NO_REV(pVCpu, GCPtr);
     Assert(!(GCPtr >> (48 - X86_PAGE_SHIFT)));
     uintptr_t const idx = IEMTLB_TAG_TO_INDEX(GCPtr);
 
-# ifdef IEM_WITH_CODE_TLB
+# ifdef IEM_WITH_CODE_TLB_IN_CUR_CTX
     iemTlbInvalidatePageWorker<false>(pVCpu, &ITLBS_R3(pVCpu).Code, GCPtr, idx);
 # endif
-# ifdef IEM_WITH_DATA_TLB
+# ifdef IEM_WITH_DATA_TLB_IN_CUR_CTX
     iemTlbInvalidatePageWorker<true>(pVCpu, &ITLBS_R3(pVCpu).Data, GCPtr, idx);
 # endif
 #else

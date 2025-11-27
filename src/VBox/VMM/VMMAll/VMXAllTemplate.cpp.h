@@ -1,4 +1,4 @@
-/* $Id: VMXAllTemplate.cpp.h 111855 2025-11-24 16:21:14Z knut.osmundsen@oracle.com $ */
+/* $Id: VMXAllTemplate.cpp.h 111906 2025-11-27 08:51:26Z knut.osmundsen@oracle.com $ */
 /** @file
  * HM VMX (Intel VT-x) - Code template for our own hypervisor and the NEM darwin backend using Apple's Hypervisor.framework.
  */
@@ -7234,7 +7234,10 @@ static VBOXSTRICTRC vmxHCHandleSplitLockAcXcpt(PVMCPUCC pVCpu, PVMXTRANSIENT pVm
         Log8Func(("cs:rip=%#04x:%08RX64 rflags=%#RX64 cr0=%#RX64 split-lock #AC\n", pVCpu->cpum.GstCtx.cs.Sel,
                   pVCpu->cpum.GstCtx.rip, pVCpu->cpum.GstCtx.rflags, pVCpu->cpum.GstCtx.cr0));
 
-        /** @todo For SMP configs we should do a rendezvous here. */
+#ifndef IN_RING0 /* No ring-0 IEM TLB. */
+        if (!VM_IS_EXEC_ENGINE_IEM(pVM))
+            IEMTlbInvalidateAll(pVCpu);
+#endif
         VBOXSTRICTRC rcStrict = IEMExecOneIgnoreLock(pVCpu);
         if (rcStrict == VINF_SUCCESS)
 #if 0 /** @todo r=bird: This is potentially wrong.  Might have to just do a whole state sync above and mark everything changed to be safe... */
@@ -7518,6 +7521,9 @@ static VBOXSTRICTRC vmxHCExitXcptGP(PVMCPUCC pVCpu, PVMXTRANSIENT pVmxTransient)
     int rc = vmxHCImportGuestState<HMVMX_CPUMCTX_EXTRN_ALL>(pVCpu, pVmcsInfo, __FUNCTION__);
     AssertRCReturn(rc, rc);
 
+# ifndef IN_RING0 /* No ring-0 IEM TLB. */
+    IEMTlbInvalidateAll(pVCpu);
+# endif
     VBOXSTRICTRC rcStrict = IEMExecOne(pVCpu);
     if (rcStrict == VINF_SUCCESS)
     {
@@ -8995,7 +9001,12 @@ HMVMX_EXIT_DECL vmxHCExitIoInstr(PVMCPUCC pVCpu, PVMXTRANSIENT pVmxTransient)
                 }
             }
             else
+            {
+#ifndef IN_RING0 /* No ring-0 IEM TLB. */
+                IEMTlbInvalidateAll(pVCpu);
+#endif
                 rcStrict = IEMExecOne(pVCpu);
+            }
 
             ASMAtomicUoOrU64(&VCPU_2_VMXSTATE(pVCpu).fCtxChanged, HM_CHANGED_GUEST_RIP);
             fUpdateRipAlready = true;
@@ -9742,7 +9753,12 @@ HMVMX_EXIT_DECL vmxHCExitEptViolation(PVMCPUCC pVCpu, PVMXTRANSIENT pVmxTransien
 
     VBOXSTRICTRC rcStrict;
     if (!pExitRec)
+    {
+# ifndef IN_RING0 /* No ring-0 IEM TLB. */
+        IEMTlbInvalidateAll(pVCpu);
+# endif
         rcStrict = IEMExecOne(pVCpu);
+    }
     else
     {
         /* Frequent access or probing. */

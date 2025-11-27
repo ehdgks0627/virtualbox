@@ -1,4 +1,4 @@
-/* $Id: EMR3.cpp 111695 2025-11-13 13:31:17Z knut.osmundsen@oracle.com $ */
+/* $Id: EMR3.cpp 111906 2025-11-27 08:51:26Z knut.osmundsen@oracle.com $ */
 /** @file
  * EM - Execution Monitor / Manager.
  */
@@ -810,6 +810,9 @@ static DECLCALLBACK(VBOXSTRICTRC) emR3ExecuteSplitLockInstructionRendezvous(PVM 
     if (pVCpu == (PVMCPU)pvUser)
     {
         LogFunc(("\n"));
+        if (!VM_IS_EXEC_ENGINE_IEM(pVM) && !pVM->em.s.fIemExecutesAll)
+            IEMTlbInvalidateAll(pVCpu);
+        IEMTlbInvalidateAll(pVCpu);
         VBOXSTRICTRC rcStrict = IEMExecOneIgnoreLock(pVCpu);
         LogFunc(("rcStrict=%Rrc\n", VBOXSTRICTRC_VAL(rcStrict)));
         if (rcStrict == VINF_IEM_RAISED_XCPT)
@@ -863,6 +866,8 @@ VBOXSTRICTRC emR3ExecuteSplitLockInstruction(PVM pVM, PVMCPU pVCpu)
  */
 static VBOXSTRICTRC emR3Debug(PVM pVM, PVMCPU pVCpu, VBOXSTRICTRC rc)
 {
+    bool fNeedToFlushIemTlbs = !VM_IS_EXEC_ENGINE_IEM(pVM) && !pVM->em.s.fIemExecutesAll;
+
     for (;;)
     {
         Log(("emR3Debug: rc=%Rrc\n", VBOXSTRICTRC_VAL(rc)));
@@ -888,13 +893,17 @@ static VBOXSTRICTRC emR3Debug(PVM pVM, PVMCPU pVCpu, VBOXSTRICTRC rc)
                     rc = VBOXSTRICTRC_TODO(emR3NemSingleInstruction(pVM, pVCpu, 0 /*fFlags*/));
                 else
                 {
-#if defined(VBOX_VMM_TARGET_X86) /** @todo IEM/arm64 */
+                    if (fNeedToFlushIemTlbs)
+                    {
+                        IEMTlbInvalidateAll(pVCpu);
+                        fNeedToFlushIemTlbs = false;
+                    }
                     rc = IEMExecOne(pVCpu); /** @todo add dedicated interface... */
                     if (rc == VINF_SUCCESS || rc == VINF_EM_RESCHEDULE)
                         rc = VINF_EM_DBG_STEPPED;
-#else
-                    AssertFailed();
-                    rc = VBOXSTRICTRC_TODO(emR3NemSingleInstruction(pVM, pVCpu, 0 /*fFlags*/));
+#ifdef VBOX_VMM_TARGET_ARMV8
+                    AssertStmt(rc != VERR_IEM_INSTR_NOT_IMPLEMENTED && rc != VERR_IEM_ASPECT_NOT_IMPLEMENTED,
+                               rc = VBOXSTRICTRC_TODO(emR3NemSingleInstruction(pVM, pVCpu, 0 /*fFlags*/)));
 #endif
                 }
 
@@ -2175,7 +2184,8 @@ VMMR3_INT_DECL(int) EMR3ExecuteVM(PVM pVM, PVMCPU pVCpu)
         /*
          * The Outer Main Loop.
          */
-        bool fFFDone = false;
+        bool fFFDone             = false;
+        bool fNeedToFlushIemTlbs = !VM_IS_EXEC_ENGINE_IEM(pVM) && !pVM->em.s.fIemExecutesAll;
 
         /* Reschedule right away to start in the right state. */
         rc = VINF_SUCCESS;
@@ -2343,6 +2353,7 @@ VMMR3_INT_DECL(int) EMR3ExecuteVM(PVM pVM, PVMCPU pVCpu)
                         /* All other VCPUs go into the wait for SIPI state. */
                         pVCpu->em.s.enmState = EMSTATE_WAIT_SIPI;
                     }
+                    fNeedToFlushIemTlbs = true;
                     break;
                 }
 
@@ -2523,6 +2534,7 @@ VMMR3_INT_DECL(int) EMR3ExecuteVM(PVM pVM, PVMCPU pVCpu)
                 case EMSTATE_HM:
 #ifdef VBOX_WITH_HWVIRT
                     rc = emR3HmExecute(pVM, pVCpu, &fFFDone);
+                    fNeedToFlushIemTlbs = true;
 #else
                     AssertReleaseFailedStmt(rc = VERR_EM_INTERNAL_ERROR); /* Should never get here. */
 #endif
@@ -2533,6 +2545,7 @@ VMMR3_INT_DECL(int) EMR3ExecuteVM(PVM pVM, PVMCPU pVCpu)
                  */
                 case EMSTATE_NEM:
                     rc = VBOXSTRICTRC_TODO(emR3NemExecute(pVM, pVCpu, &fFFDone));
+                    fNeedToFlushIemTlbs = true;
                     break;
 
                 /*
@@ -2590,7 +2603,14 @@ VMMR3_INT_DECL(int) EMR3ExecuteVM(PVM pVM, PVMCPU pVCpu)
                         rc = VINF_SUCCESS;
                     else if (rc == VERR_EM_CANNOT_EXEC_GUEST)
 #endif
+                    {
+                        if (fNeedToFlushIemTlbs)
+                        {
+                            IEMTlbInvalidateAll(pVCpu);
+                            fNeedToFlushIemTlbs = false;
+                        }
                         rc = VBOXSTRICTRC_TODO(IEMExecLots(pVCpu, 4096 /*cMaxInstructions*/, 2047 /*cPollRate*/, &cInstructions));
+                    }
                     if (pVM->em.s.fIemExecutesAll)
                     {
                         Assert(rc != VINF_EM_RESCHEDULE_REM);
@@ -2705,6 +2725,7 @@ VMMR3_INT_DECL(int) EMR3ExecuteVM(PVM pVM, PVMCPU pVCpu)
                     rc = VBOXSTRICTRC_TODO(emR3Debug(pVM, pVCpu, rc));
                     TMR3NotifyResume(pVM, pVCpu);
                     Log2(("EMR3ExecuteVM: emR3Debug -> %Rrc (state %d)\n", rc, pVCpu->em.s.enmState));
+                    fNeedToFlushIemTlbs = !VM_IS_EXEC_ENGINE_IEM(pVM) && !pVM->em.s.fIemExecutesAll;
                     break;
 
                 /*

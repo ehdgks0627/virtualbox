@@ -1,4 +1,4 @@
-/* $Id: EMAll.cpp 111176 2025-09-30 07:36:29Z knut.osmundsen@oracle.com $ */
+/* $Id: EMAll.cpp 111906 2025-11-27 08:51:26Z knut.osmundsen@oracle.com $ */
 /** @file
  * EM - Execution Monitor(/Manager) - All contexts
  */
@@ -987,6 +987,11 @@ VMM_INT_DECL(VBOXSTRICTRC) EMInterpretInstruction(PVMCPUCC pVCpu)
     LogFlow(("EMInterpretInstruction %RGv\n", (RTGCPTR)CPUMGetGuestRIP(pVCpu)));
 #endif
 
+#ifndef IN_RING0 /* No ring-0 IEM TLB. */
+    PVMCC const pVM = pVCpu->CTX_SUFF(pVM);
+    if (!VM_IS_EXEC_ENGINE_IEM(pVM) && !pVM->em.s.fIemExecutesAll)
+        IEMTlbInvalidateAll(pVCpu);
+#endif
     VBOXSTRICTRC rc = IEMExecOneBypass(pVCpu);
     if (RT_UNLIKELY(   rc == VERR_IEM_ASPECT_NOT_IMPLEMENTED
                     || rc == VERR_IEM_INSTR_NOT_IMPLEMENTED))
@@ -1026,6 +1031,11 @@ VMM_INT_DECL(VBOXSTRICTRC) EMInterpretInstructionDisasState(PVMCPUCC pVCpu, PDIS
 {
     LogFlow(("EMInterpretInstructionDisasState %RGv\n", (RTGCPTR)rip));
 
+#ifndef IN_RING0 /* No ring-0 IEM TLB. */
+    PVMCC const pVM = pVCpu->CTX_SUFF(pVM);
+    if (!VM_IS_EXEC_ENGINE_IEM(pVM) && !pVM->em.s.fIemExecutesAll)
+        IEMTlbInvalidateAll(pVCpu);
+#endif
     VBOXSTRICTRC rc = IEMExecOneBypassWithPrefetchedByPC(pVCpu, rip, pDis->Instr.ab, pDis->cbCachedInstr);
     if (RT_UNLIKELY(   rc == VERR_IEM_ASPECT_NOT_IMPLEMENTED
                     || rc == VERR_IEM_INSTR_NOT_IMPLEMENTED))

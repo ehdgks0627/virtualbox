@@ -1,4 +1,4 @@
-/* $Id: DBGFR3Bp.cpp 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $ */
+/* $Id: DBGFR3Bp.cpp 111906 2025-11-27 08:51:26Z knut.osmundsen@oracle.com $ */
 /** @file
  * DBGF - Debugger Facility, Breakpoint Management.
  */
@@ -2012,21 +2012,27 @@ static VBOXSTRICTRC dbgfR3BpHit(PVM pVM, PVMCPU pVCpu, DBGFBP hBp, PDBGFBPINT pB
                 rcStrict = pBpOwner->pfnBpHitR3(pVM, pVCpu->idCpu, pBp->pvUserR3, hBp, &pBp->Pub, DBGF_BP_F_HIT_EXEC_BEFORE);
             if (rcStrict == VINF_SUCCESS)
             {
+#ifdef VBOX_VMM_TARGET_X86
                 /** @todo Need to take more care with the reading there if the breakpoint is
                  *        on the edge of a page. */
                 uint8_t abInstr[DBGF_BP_INSN_MAX];
                 RTGCPTR const GCPtrInstr = CPUMGetGuestFlatPC(pVCpu);
                 rcStrict = PGMPhysSimpleReadGCPtr(pVCpu, &abInstr[0], GCPtrInstr, sizeof(abInstr));
                 if (rcStrict == VINF_SUCCESS)
+#endif
                 {
+                    if (!VM_IS_EXEC_ENGINE_IEM(pVCpu->CTX_SUFF(pVM)))
+                        IEMTlbInvalidateAll(pVCpu);
 #ifdef VBOX_VMM_TARGET_X86
                     /* Replace the int3 with the original instruction byte. */
                     abInstr[0] = pBp->Pub.u.Sw.Arch.x86.bOrg;
                     rcStrict = IEMExecOneWithPrefetchedByPC(pVCpu, GCPtrInstr, &abInstr[0], sizeof(abInstr));
+#elif defined(VBOX_VMM_TARGET_ARMV8)
+                    rcStrict = IEMExecOneWithPrefetchedByPC(pVCpu, CPUMGetGuestFlatPC(pVCpu),
+                                                            &pBp->Pub.u.Sw.Arch.armv8.u32Org,
+                                                            sizeof(pBp->Pub.u.Sw.Arch.armv8.u32Org));
 #else
-                    /** @todo arm64: implement stepping over breakpoint. Fix unnecessary opcode reading. */
-                    AssertFailed();
-                    rcStrict = VERR_NOT_IMPLEMENTED;
+# error "port me"
 #endif
                     if (   rcStrict == VINF_SUCCESS
                         && DBGF_BP_PUB_IS_EXEC_AFTER(&pBp->Pub))

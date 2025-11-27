@@ -1,4 +1,4 @@
-/* $Id: EMR3HM.cpp 111695 2025-11-13 13:31:17Z knut.osmundsen@oracle.com $ */
+/* $Id: EMR3HM.cpp 111906 2025-11-27 08:51:26Z knut.osmundsen@oracle.com $ */
 /** @file
  * EM - Execution Monitor / Manager - hardware virtualization
  */
@@ -201,6 +201,7 @@ static int emR3HmExecuteInstructionWorker(PVM pVM, PVMCPU pVCpu, int rcRC)
     if (idxContinueExitRec >= RT_ELEMENTS(pVCpu->em.s.aExitRecords))
     {
         CPUM_IMPORT_EXTRN_RET(pVCpu, IEM_CPUMCTX_EXTRN_MUST_MASK);
+        IEMTlbInvalidateAll(pVCpu);
         rcStrict = VBOXSTRICTRC_TODO(IEMExecOne(pVCpu));
     }
     else
@@ -258,6 +259,7 @@ static int emR3HmExecuteIOInstruction(PVM pVM, PVMCPU pVCpu)
          * Hand it over to the interpreter.
          */
         CPUM_IMPORT_EXTRN_RET(pVCpu, IEM_CPUMCTX_EXTRN_MUST_MASK);
+        IEMTlbInvalidateAll(pVCpu);
         rcStrict = IEMExecOne(pVCpu);
         LogFlow(("emR3HmExecuteIOInstruction: %Rrc\n", VBOXSTRICTRC_VAL(rcStrict)));
     }

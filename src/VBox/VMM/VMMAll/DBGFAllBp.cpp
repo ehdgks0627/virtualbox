@@ -1,4 +1,4 @@
-/* $Id: DBGFAllBp.cpp 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $ */
+/* $Id: DBGFAllBp.cpp 111906 2025-11-27 08:51:26Z knut.osmundsen@oracle.com $ */
 /** @file
  * DBGF - Debugger Facility, All Context breakpoint management part.
  */
@@ -113,6 +113,7 @@ DECLINLINE(PCDBGFBPL2ENTRY) dbgfBpL2GetByIdx(PVMCC pVM, uint32_t idxL2)
     AssertPtrReturn(pL2Chunk->CTX_SUFF(paBpL2TblBaseShared), NULL);
 
     return &pL2Chunk->CTX_SUFF(paBpL2TblBaseShared)[idxEntry];
+
 #elif defined(IN_RING3)
     PUVM pUVM = pVM->pUVM;
     PDBGFBPL2TBLCHUNKR3 pL2Chunk = &pUVM->dbgf.s.aBpL2TblChunks[idChunk];
@@ -184,15 +185,13 @@ DECLINLINE(int) dbgfBpHit(PVMCC pVM, PVMCPUCC pVCpu, PCPUMCTX pCtx, DBGFBP hBp, 
         AssertReturn(pBpOwnerR0->pfnBpIoHitR0, VERR_DBGF_BP_IPE_1);
 
         VBOXSTRICTRC rcStrict = VINF_SUCCESS;
-
         if (DBGF_BP_PUB_IS_EXEC_BEFORE(&pBp->Pub))
             rcStrict = pBpOwnerR0->pfnBpHitR0(pVM, pVCpu->idCpu, pBpR0->pvUserR0, hBp, &pBp->Pub, DBGF_BP_F_HIT_EXEC_BEFORE);
         if (rcStrict == VINF_SUCCESS)
         {
-# ifdef VBOX_VMM_TARGET_ARMV8
-            /** @todo Requires instruction interpreter. */
-            AssertFailed();
-# else
+# if !defined(VBOX_VMM_TARGET_X86) && !defined(VBOX_VMM_TARGET_AGNOSTIC)
+#  error "ring-0: This is only for x86 code!"
+# endif
             uint8_t abInstr[DBGF_BP_INSN_MAX];
             RTGCPTR const GCPtrInstr = pVCpu->cpum.GstCtx.rip + pVCpu->cpum.GstCtx.cs.u64Base;
             rc = PGMPhysSimpleReadGCPtr(pVCpu, &abInstr[0], GCPtrInstr, sizeof(abInstr));
@@ -201,6 +200,7 @@ DECLINLINE(int) dbgfBpHit(PVMCC pVM, PVMCPUCC pVCpu, PCPUMCTX pCtx, DBGFBP hBp, 
             {
                 /* Replace the int3 with the original instruction byte. */
                 abInstr[0] = pBp->Pub.u.Sw.Arch.x86.bOrg;
+                /* Note! No ring-0 IEM TLB. So, we skip the IEMTlbInvalidateAll call here. */
                 rcStrict = IEMExecOneWithPrefetchedByPC(pVCpu, GCPtrInstr, &abInstr[0], sizeof(abInstr));
                 if (   rcStrict == VINF_SUCCESS
                     && DBGF_BP_PUB_IS_EXEC_AFTER(&pBp->Pub))
@@ -222,7 +222,6 @@ DECLINLINE(int) dbgfBpHit(PVMCC pVM, PVMCPUCC pVCpu, PCPUMCTX pCtx, DBGFBP hBp, 
                 }
                 else
                     rc = VBOXSTRICTRC_VAL(rcStrict);
-#endif
             }
         }
         else if (   rcStrict == VINF_DBGF_BP_HALT
@@ -242,11 +241,11 @@ DECLINLINE(int) dbgfBpHit(PVMCC pVM, PVMCPUCC pVCpu, PCPUMCTX pCtx, DBGFBP hBp, 
         pVCpu->dbgf.s.fBpInvokeOwnerCallback = true; /* Need to check this for ring-3 only owners. */
         pVCpu->dbgf.s.hBpActive              = hBp;
     }
-#else
+#else  /* !IN_RING0 */
     RT_NOREF(pVM);
     pVCpu->dbgf.s.fBpInvokeOwnerCallback = true;
     pVCpu->dbgf.s.hBpActive = hBp;
-#endif
+#endif /* !IN_RING0 */
 
     return rc;
 }

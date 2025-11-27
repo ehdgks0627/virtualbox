@@ -1,4 +1,4 @@
-/* $Id: EMR3Nem.cpp 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $ */
+/* $Id: EMR3Nem.cpp 111906 2025-11-27 08:51:26Z knut.osmundsen@oracle.com $ */
 /** @file
  * EM - Execution Monitor / Manager - NEM interface.
  */
@@ -237,6 +237,7 @@ static int emR3NemExecuteInstructionWorker(PVM pVM, PVMCPU pVCpu, int rcRC)
     if (idxContinueExitRec >= RT_ELEMENTS(pVCpu->em.s.aExitRecords))
     {
         CPUM_IMPORT_EXTRN_RET(pVCpu, IEM_CPUMCTX_EXTRN_MUST_MASK);
+        IEMTlbInvalidateAll(pVCpu);
         rcStrict = IEMExecOne(pVCpu);
     }
     else
@@ -295,6 +296,7 @@ static int emR3NemExecuteIOInstruction(PVM pVM, PVMCPU pVCpu)
     RT_UNTRUSTED_NONVOLATILE_COPY_FENCE();
     if (idxContinueExitRec >= RT_ELEMENTS(pVCpu->em.s.aExitRecords))
     {
+        IEMTlbInvalidateAll(pVCpu);
         rcStrict = IEMExecOne(pVCpu);
         LogFlow(("emR3NemExecuteIOInstruction: %Rrc (IEMExecOne)\n", VBOXSTRICTRC_VAL(rcStrict)));
         STAM_COUNTER_INC(&pVCpu->em.s.StatIoIem);
