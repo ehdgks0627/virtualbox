@@ -1,4 +1,4 @@
-/** $Id: DevE1000Phy.cpp 111904 2025-11-27 08:36:03Z aleksey.ilyushin@oracle.com $ */
+/** $Id: DevE1000Phy.cpp 111905 2025-11-27 08:40:21Z aleksey.ilyushin@oracle.com $ */
 /** @file
  * DevE1000Phy - Intel 82540EM Ethernet Controller Internal PHY Emulation.
  *
@@ -386,24 +386,6 @@ void Phy::setLinkStatus(PPHY pPhy, bool fLinkIsUp)
     PhyLog(("PHY#%d setLinkStatus: PSTATUS=%04x PSSTAT=%04x\n", pPhy->iInstance, REG(PSTATUS), REG(PSSTAT)));
 }
 
-#if defined(LOG_ENABLED) || defined(PHY_UNIT_TEST)
-static const char * Phy::getStateName(uint16_t u16State)
-{
-    static const char *pcszState[] =
-    {
-        "MDIO_IDLE",
-        "MDIO_ST",
-        "MDIO_OP_ADR",
-        "MDIO_TA_RD",
-        "MDIO_TA_WR",
-        "MDIO_READ",
-        "MDIO_WRITE"
-    };
-
-    return (u16State < RT_ELEMENTS(pcszState)) ? pcszState[u16State] : "<invalid>";
-}
-#endif
-
 #ifdef IN_RING3
 
 /*
@@ -586,6 +568,24 @@ static uint16_t Phy::regReadGSTATUS(PPHY pPhy, uint32_t index, PPDMDEVINS pDevIn
      */
     return 0x3C00;
 }
+
+//#if defined(LOG_ENABLED) || defined(PHY_UNIT_TEST)
+static const char * Phy::getStateName(uint16_t u16State)
+{
+    static const char *pcszState[] =
+    {
+        "MDIO_IDLE",
+        "MDIO_ST",
+        "MDIO_OP_ADR",
+        "MDIO_TA_RD",
+        "MDIO_TA_WR",
+        "MDIO_READ",
+        "MDIO_WRITE"
+    };
+
+    return (u16State < RT_ELEMENTS(pcszState)) ? pcszState[u16State] : "<invalid>";
+}
+//#endif
 
 bool Phy::readMDIO(PPHY pPhy)
 {
