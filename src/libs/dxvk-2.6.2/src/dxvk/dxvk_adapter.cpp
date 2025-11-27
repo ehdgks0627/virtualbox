@@ -1064,6 +1064,12 @@ namespace dxvk {
 #ifdef VBOX_WITH_DXVK_VIDEO
     if (m_deviceExtensions.supports(VK_KHR_VIDEO_DECODE_QUEUE_EXTENSION_NAME))
       m_deviceFeatures.khrVideoDecodeQueue = VK_TRUE;
+    if (m_deviceExtensions.supports(VK_KHR_VIDEO_DECODE_H264_EXTENSION_NAME))
+      m_deviceFeatures.khrVideoDecodeH264 = VK_TRUE;
+    if (m_deviceExtensions.supports(VK_KHR_VIDEO_DECODE_H265_EXTENSION_NAME))
+      m_deviceFeatures.khrVideoDecodeH265 = VK_TRUE;
+    if (m_deviceExtensions.supports(VK_KHR_VIDEO_DECODE_AV1_EXTENSION_NAME))
+      m_deviceFeatures.khrVideoDecodeAV1 = VK_TRUE;
 #endif
 
     m_vki->vkGetPhysicalDeviceFeatures2(m_handle, &m_deviceFeatures.core);
@@ -1327,6 +1333,12 @@ namespace dxvk {
 #ifdef VBOX_WITH_DXVK_VIDEO
     if (devExtensions.khrVideoDecodeQueue)
       enabledFeatures.khrVideoDecodeQueue = VK_TRUE;
+    if (devExtensions.khrVideoDecodeH264)
+      enabledFeatures.khrVideoDecodeH264 = VK_TRUE;
+    if (devExtensions.khrVideoDecodeH265)
+      enabledFeatures.khrVideoDecodeH265 = VK_TRUE;
+    if (devExtensions.khrVideoDecodeAV1)
+      enabledFeatures.khrVideoDecodeAV1 = VK_TRUE;
 #endif
   }
 

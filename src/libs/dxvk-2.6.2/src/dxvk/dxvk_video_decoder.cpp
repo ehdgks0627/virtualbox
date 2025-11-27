@@ -1,4 +1,4 @@
-/* $Id: dxvk_video_decoder.cpp 110305 2025-07-18 12:42:15Z vitali.pelenjow@oracle.com $ */
+/* $Id: dxvk_video_decoder.cpp 111911 2025-11-27 10:10:13Z vitali.pelenjow@oracle.com $ */
 /** @file
  * VBoxDxVk - Video decoder.
  */
@@ -280,11 +280,10 @@ namespace dxvk {
         m_sampleWidth, "x", m_sampleHeight, ") > ",
         m_profile.videoCapabilities.maxCodedExtent.width, "x", m_profile.videoCapabilities.maxCodedExtent.height));
 
-    if ((m_profile.videoCapabilities.flags & VK_VIDEO_CAPABILITY_SEPARATE_REFERENCE_IMAGES_BIT_KHR) == 0) {
-      /// @todo Allocate one image resource as array for DPB.
-      throw DxvkError(str::format("DxvkVideoDecoder: VK_VIDEO_CAPABILITY_SEPARATE_REFERENCE_IMAGES_BIT_KHR"
-        " is not supported"));
-    }
+    if (m_profile.videoCapabilities.flags & VK_VIDEO_CAPABILITY_SEPARATE_REFERENCE_IMAGES_BIT_KHR)
+      m_caps.separateReferenceImages = true; /* DPB images are separate image resources. */
+    else
+      m_caps.separateReferenceImages = false; /* DPB images are array elements of one image resource. */
 
     /* Figure out if the decoder uses a DPB slot or a separate image for the output picture.*/
     if (m_profile.decodeCapabilities.flags & VK_VIDEO_DECODE_CAPABILITY_DPB_AND_OUTPUT_DISTINCT_BIT_KHR)
@@ -327,57 +326,117 @@ namespace dxvk {
     }
     m_DPB.slots.resize(cMaxDPBSlots);
 
-    for (auto &slot: m_DPB.slots) {
-      DxvkImageCreateInfo imgInfo = {};
-      /* Do not use VK_BUFFER_CREATE_VIDEO_PROFILE_INDEPENDENT_BIT_KHR for DPB images, because
-       * "images with only DPB usage remain tied to the video profiles the image was created with,
-       * as the data layout of such DPB-only images may be implementation- and codec-dependent."
-       * When m_caps.distinctOutputImage is true the DPB images have the "only DPB usage".
-       */
-      imgInfo.next        = pNext;
-      imgInfo.type        = VK_IMAGE_TYPE_2D;
-      imgInfo.format      = m_outputFormat;
-      imgInfo.flags       = 0;
-      imgInfo.sampleCount = VK_SAMPLE_COUNT_1_BIT;
-      imgInfo.extent      = m_DPB.decodedPictureExtent;
-      imgInfo.numLayers   = 1;
-      imgInfo.mipLevels   = 1;
-      if (m_caps.distinctOutputImage) {
-        imgInfo.usage       = VK_IMAGE_USAGE_VIDEO_DECODE_DPB_BIT_KHR;
-        imgInfo.stages      = VK_PIPELINE_STAGE_2_VIDEO_DECODE_BIT_KHR;
+    if (m_caps.separateReferenceImages) {
+      for (auto &slot: m_DPB.slots) {
+        DxvkImageCreateInfo imgInfo = {};
+        /* Do not use VK_BUFFER_CREATE_VIDEO_PROFILE_INDEPENDENT_BIT_KHR for DPB images, because
+         * "images with only DPB usage remain tied to the video profiles the image was created with,
+         * as the data layout of such DPB-only images may be implementation- and codec-dependent."
+         * When m_caps.distinctOutputImage is true the DPB images have the "only DPB usage".
+         */
+        imgInfo.next        = pNext;
+        imgInfo.type        = VK_IMAGE_TYPE_2D;
+        imgInfo.format      = m_outputFormat;
+        imgInfo.flags       = 0;
+        imgInfo.sampleCount = VK_SAMPLE_COUNT_1_BIT;
+        imgInfo.extent      = m_DPB.decodedPictureExtent;
+        imgInfo.numLayers   = 1;
+        imgInfo.mipLevels   = 1;
+        if (m_caps.distinctOutputImage) {
+          imgInfo.usage       = VK_IMAGE_USAGE_VIDEO_DECODE_DPB_BIT_KHR;
+          imgInfo.stages      = VK_PIPELINE_STAGE_2_VIDEO_DECODE_BIT_KHR;
+        }
+        else {
+          imgInfo.usage       = VK_IMAGE_USAGE_VIDEO_DECODE_DPB_BIT_KHR
+                              | VK_IMAGE_USAGE_VIDEO_DECODE_DST_BIT_KHR
+                              | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+          imgInfo.stages      = VK_PIPELINE_STAGE_2_VIDEO_DECODE_BIT_KHR
+                              | VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+        }
+
+        /* Hack: Access bits are not used as image creation parameters,
+         * however they are used for checking if the memory must be GPU writable.
+         * Provide flags that make it GPU writable.
+         */
+        imgInfo.access      = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT
+                            | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        imgInfo.tiling      = VK_IMAGE_TILING_OPTIMAL;
+        imgInfo.layout      = VK_IMAGE_LAYOUT_UNDEFINED;
+
+        slot.image = m_device->createImage(imgInfo, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+        DxvkImageViewKey viewInfo = {};
+        viewInfo.viewType   = VK_IMAGE_VIEW_TYPE_2D;
+        viewInfo.format     = m_outputFormat;
+        viewInfo.usage      = imgInfo.usage;
+        viewInfo.aspects    = VK_IMAGE_ASPECT_COLOR_BIT;
+        viewInfo.mipIndex   = 0;
+        viewInfo.mipCount   = 1;
+        viewInfo.layerIndex = 0;
+        viewInfo.layerCount = 1;
+
+        slot.imageView = slot.image->createView(viewInfo);
+
+        slot.deactivate();
       }
-      else {
-        imgInfo.usage       = VK_IMAGE_USAGE_VIDEO_DECODE_DPB_BIT_KHR
-                            | VK_IMAGE_USAGE_VIDEO_DECODE_DST_BIT_KHR
-                            | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-        imgInfo.stages      = VK_PIPELINE_STAGE_2_VIDEO_DECODE_BIT_KHR
-                            | VK_PIPELINE_STAGE_2_TRANSFER_BIT;
-      }
+    }
+    else {
+        DxvkImageCreateInfo imgInfo = {};
+        /* Do not use VK_BUFFER_CREATE_VIDEO_PROFILE_INDEPENDENT_BIT_KHR for DPB images, because
+         * "images with only DPB usage remain tied to the video profiles the image was created with,
+         * as the data layout of such DPB-only images may be implementation- and codec-dependent."
+         * When m_caps.distinctOutputImage is true the DPB images have the "only DPB usage".
+         */
+        imgInfo.next        = pNext;
+        imgInfo.type        = VK_IMAGE_TYPE_2D;
+        imgInfo.format      = m_outputFormat;
+        imgInfo.flags       = 0;
+        imgInfo.sampleCount = VK_SAMPLE_COUNT_1_BIT;
+        imgInfo.extent      = m_DPB.decodedPictureExtent;
+        imgInfo.numLayers   = cMaxDPBSlots;
+        imgInfo.mipLevels   = 1;
+        if (m_caps.distinctOutputImage) {
+          imgInfo.usage       = VK_IMAGE_USAGE_VIDEO_DECODE_DPB_BIT_KHR;
+          imgInfo.stages      = VK_PIPELINE_STAGE_2_VIDEO_DECODE_BIT_KHR;
+        }
+        else {
+          imgInfo.usage       = VK_IMAGE_USAGE_VIDEO_DECODE_DPB_BIT_KHR
+                              | VK_IMAGE_USAGE_VIDEO_DECODE_DST_BIT_KHR
+                              | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+          imgInfo.stages      = VK_PIPELINE_STAGE_2_VIDEO_DECODE_BIT_KHR
+                              | VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+        }
 
-      /* Hack: Access bits are not used as image creation parameters,
-       * however they are used for checking if the memory must be GPU writable.
-       * Provide flags that make it GPU writable.
-       */
-      imgInfo.access      = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT
-                          | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-      imgInfo.tiling      = VK_IMAGE_TILING_OPTIMAL;
-      imgInfo.layout      = VK_IMAGE_LAYOUT_UNDEFINED;
+        /* Hack: Access bits are not used as image creation parameters,
+         * however they are used for checking if the memory must be GPU writable.
+         * Provide flags that make it GPU writable.
+         */
+        imgInfo.access      = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT
+                            | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        imgInfo.tiling      = VK_IMAGE_TILING_OPTIMAL;
+        imgInfo.layout      = VK_IMAGE_LAYOUT_UNDEFINED;
 
-      slot.image = m_device->createImage(imgInfo, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        Rc<DxvkImage> image = m_device->createImage(imgInfo, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-      DxvkImageViewKey viewInfo = {};
-      viewInfo.viewType   = VK_IMAGE_VIEW_TYPE_2D;
-      viewInfo.format     = m_outputFormat;
-      viewInfo.usage      = imgInfo.usage;
-      viewInfo.aspects    = VK_IMAGE_ASPECT_COLOR_BIT;
-      viewInfo.mipIndex   = 0;
-      viewInfo.mipCount   = 1;
-      viewInfo.layerIndex = 0;
-      viewInfo.layerCount = 1;
+        uint32_t idxSlot = 0;
+        for (auto &slot: m_DPB.slots) {
+          slot.image          = image;
+          slot.baseArrayLayer = idxSlot++;
 
-      slot.imageView = slot.image->createView(viewInfo);
+          DxvkImageViewKey viewInfo = {};
+          viewInfo.viewType   = VK_IMAGE_VIEW_TYPE_2D;
+          viewInfo.format     = m_outputFormat;
+          viewInfo.usage      = imgInfo.usage;
+          viewInfo.aspects    = VK_IMAGE_ASPECT_COLOR_BIT;
+          viewInfo.mipIndex   = 0;
+          viewInfo.mipCount   = 1;
+          viewInfo.layerIndex = slot.baseArrayLayer;
+          viewInfo.layerCount = 1;
 
-      slot.deactivate();
+          slot.imageView      = slot.image->createView(viewInfo);
+
+          slot.deactivate();
+        }
     }
 
     if (m_caps.distinctOutputImage

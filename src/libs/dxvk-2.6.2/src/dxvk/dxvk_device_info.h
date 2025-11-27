@@ -86,6 +86,9 @@ namespace dxvk {
     VkBool32                                                  khrWin32KeyedMutex;
 #ifdef VBOX_WITH_DXVK_VIDEO
     VkBool32                                                  khrVideoDecodeQueue;
+    VkBool32                                                  khrVideoDecodeH264;
+    VkBool32                                                  khrVideoDecodeH265;
+    VkBool32                                                  khrVideoDecodeAV1;
 #endif
   };
 

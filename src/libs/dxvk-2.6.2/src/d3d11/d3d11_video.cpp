@@ -2498,8 +2498,10 @@ namespace dxvk {
     if (pStream->OutputIndex)
       Logger::err("D3D11VideoContext: Ignoring non-zero OutputIndex");
 
+#ifndef VBOX_WITH_DXVK_VIDEO
     if (pStream->InputFrameOrField)
       Logger::err("D3D11VideoContext: Ignoring non-zero InputFrameOrField");
+#endif
 
     auto view = static_cast<D3D11VideoProcessorInputView*>(pStream->pInputSurface);
 

@@ -3351,8 +3351,10 @@ namespace dxvk {
     m_vulkanDecodeProfiles[0].videoCapabilities      =
       { VK_STRUCTURE_TYPE_VIDEO_CAPABILITIES_KHR, &m_vulkanDecodeProfiles[0].decodeCapabilities };
 
-    mappings.push_back({ m_vulkanDecodeProfiles[0] });
-    mappings.back().d3dProfiles.push_back(profile_ModeH264_VLD_NoFGT);
+    if (dxvkDevice->features().khrVideoDecodeH264) {
+      mappings.push_back({ m_vulkanDecodeProfiles[0] });
+      mappings.back().d3dProfiles.push_back(profile_ModeH264_VLD_NoFGT);
+    }
 
     m_vulkanDecodeProfiles[1].profileName            = "H.265";
     m_vulkanDecodeProfiles[1].h265ProfileInfo        =
@@ -3373,8 +3375,10 @@ namespace dxvk {
     m_vulkanDecodeProfiles[1].videoCapabilities      =
       { VK_STRUCTURE_TYPE_VIDEO_CAPABILITIES_KHR, &m_vulkanDecodeProfiles[1].decodeCapabilities };
 
-    mappings.push_back({ m_vulkanDecodeProfiles[1] });
-    mappings.back().d3dProfiles.push_back(profile_ModeHEVC_VLD_Main);
+    if (dxvkDevice->features().khrVideoDecodeH265) {
+      mappings.push_back({ m_vulkanDecodeProfiles[1] });
+      mappings.back().d3dProfiles.push_back(profile_ModeHEVC_VLD_Main);
+    }
 
     m_vulkanDecodeProfiles[2].profileName            = "AV1";
     m_vulkanDecodeProfiles[2].av1ProfileInfo         =
@@ -3396,8 +3400,10 @@ namespace dxvk {
     m_vulkanDecodeProfiles[2].videoCapabilities      =
       { VK_STRUCTURE_TYPE_VIDEO_CAPABILITIES_KHR, &m_vulkanDecodeProfiles[2].decodeCapabilities };
 
-    mappings.push_back({ m_vulkanDecodeProfiles[2] });
-    mappings.back().d3dProfiles.push_back(profile_ModeAV1_VLD_Profile0);
+    if (dxvkDevice->features().khrVideoDecodeAV1) {
+      mappings.push_back({ m_vulkanDecodeProfiles[2] });
+      mappings.back().d3dProfiles.push_back(profile_ModeAV1_VLD_Profile0);
+    }
 
     /* Check whether the format(s) support arrays and adjust ConfigDecoderSpecific caps accordingly. */
     for (auto& m: mappings) {
@@ -3522,6 +3528,8 @@ namespace dxvk {
       for (auto &p: m.d3dProfiles) {
         m_decoderProfiles.push_back({ p, m.dxvkProfile });
       }
+
+      Logger::info(str::format("DXVK: Video Decode: ", m.dxvkProfile.profileName, ": supported"));
     }
   }
 
