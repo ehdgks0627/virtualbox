@@ -1,4 +1,4 @@
-/* $Id: UIRecordingSettingsEditor.h 111886 2025-11-26 11:50:37Z sergey.dubov@oracle.com $ */
+/* $Id: UIRecordingSettingsEditor.h 111914 2025-11-27 11:37:23Z serkan.bayraktar@oracle.com $ */
 /** @file
  * VBox Qt GUI - UIRecordingSettingsEditor class declaration.
  */
@@ -49,7 +49,7 @@ class QIAdvancedSlider;
 class UIFilmContainer;
 class UIRecordingFilePathEditor;
 class UIRecordingVideoFrameRateEditor;
-
+class UIRecordingVideoBitrateEditor;
 
 /** UIEditor sub-class used as a recording settings editor. */
 class SHARED_LIBRARY_STUFF UIRecordingSettingsEditor : public UIEditor
@@ -97,10 +97,10 @@ public:
     /** Returns frame rate. */
     int frameRate() const;
 
-    /** Defines bit @a iRate. */
-    void setBitRate(int iRate);
-    /** Returns bit rate. */
-    int bitRate() const;
+    /** Defines bitrate @a iRate. */
+    void setBitrate(int iRate);
+    /** Returns bitrate. */
+    int bitrate() const;
 
     /** Defines video @a enmQuality. */
     void setVideoQuality(KRecordingCodecDeadline enmQuality);
@@ -138,10 +138,10 @@ private slots:
     void sltHandleFrameHeightChange();
     /** Handles frame rate change. */
     void sltHandleFrameRateChange(int iFrameRate);
-    /** Handles bit rate slider change. */
-    void sltHandleBitRateSliderChange();
-    /** Handles bit rate spinbox change. */
-    void sltHandleBitRateSpinboxChange();
+    /** Handles bit rate quality slider change. */
+    void sltHandleBitrateQualitySliderChange();
+    /** Handles bit rate  change. */
+    void sltHandleBitrateChange(int iBitrate);
 
 private:
 
@@ -170,8 +170,8 @@ private:
     /** Searches for the @a data field in corresponding @a pComboBox. */
     static void lookForCorrespondingPreset(QComboBox *pComboBox, const QVariant &data);
     /** Calculates recording bit rate for passed @a iFrameWidth, @a iFrameHeight, @a iFrameRate and @a iQuality. */
-    static int calculateBitRate(int iFrameWidth, int iFrameHeight, int iFrameRate, int iQuality);
-    /** Calculates recording quality for passed @a iFrameWidth, @a iFrameHeight, @a iFrameRate and @a iBitRate. */
+    static int calculateBitrate(int iFrameWidth, int iFrameHeight, int iFrameRate, int iQuality);
+    /** Calculates recording quality for passed @a iFrameWidth, @a iFrameHeight, @a iFrameRate and @a iBitrate. */
     static int calculateQuality(int iFrameWidth, int iFrameHeight, int iFrameRate, int iBitRate);
 
     /** @name Values
@@ -191,8 +191,8 @@ private:
         int                      m_iFrameWidth;
         /** Holds the frame height. */
         int                      m_iFrameHeight;
-        /** Holds the bit rate. */
-        int                      m_iBitRate;
+        /** Holds the bitrate. */
+        int                      m_iBitrate;
         /** Holds the video quality. */
         KRecordingCodecDeadline  m_enmVideoQuality;
         /** Holds the audio profile. */
@@ -224,20 +224,8 @@ private:
         QSpinBox           *m_pSpinboxFrameHeight;
         /** Holds the frame rate editor instance. */
         UIRecordingVideoFrameRateEditor *m_pEditorFrameRate;
-        /** Holds the bit rate label instance. */
-        QLabel             *m_pLabelBitRate;
-        /** Holds the bit rate settings widget instance. */
-        QWidget            *m_pWidgetBitRateSettings;
-        /** Holds the bit rate slider instance. */
-        QIAdvancedSlider   *m_pSliderBitRate;
-        /** Holds the bit rate spinbox instance. */
-        QSpinBox           *m_pSpinboxBitRate;
-        /** Holds the bit rate min label instance. */
-        QLabel             *m_pLabelBitRateMin;
-        /** Holds the bit rate med label instance. */
-        QLabel             *m_pLabelBitRateMed;
-        /** Holds the bit rate max label instance. */
-        QLabel             *m_pLabelBitRateMax;
+        /** Holds the bit rate editor instance. */
+        UIRecordingVideoBitrateEditor *m_pEditorBitrate;
         /** Holds the video quality label instance. */
         QLabel             *m_pLabelVideoQuality;
         /** Holds the video quality settings widget instance. */

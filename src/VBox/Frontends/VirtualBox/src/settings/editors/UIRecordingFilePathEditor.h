@@ -1,4 +1,4 @@
-/* $Id: UIRecordingFilePathEditor.h 111884 2025-11-26 11:12:11Z sergey.dubov@oracle.com $ */
+/* $Id: UIRecordingFilePathEditor.h 111914 2025-11-27 11:37:23Z serkan.bayraktar@oracle.com $ */
 /** @file
  * VBox Qt GUI - UIRecordingFilePathEditor class declaration.
  */
@@ -47,7 +47,7 @@ class SHARED_LIBRARY_STUFF UIRecordingFilePathEditor : public UIEditor
 public:
 
     /** Constructs editor passing @a pParent to the base-class. */
-    UIRecordingFilePathEditor(QWidget *pParent = 0);
+    UIRecordingFilePathEditor(QWidget *pParent = 0, bool fShowInBasicMode = false);
 
     /** Defines @a strFolder. */
     void setFolder(const QString &strFolder);

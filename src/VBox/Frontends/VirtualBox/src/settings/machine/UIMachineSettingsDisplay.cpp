@@ -1,4 +1,4 @@
-/* $Id: UIMachineSettingsDisplay.cpp 111853 2025-11-24 15:06:35Z sergey.dubov@oracle.com $ */
+/* $Id: UIMachineSettingsDisplay.cpp 111914 2025-11-27 11:37:23Z serkan.bayraktar@oracle.com $ */
 /** @file
  * VBox Qt GUI - UIMachineSettingsDisplay class implementation.
  */
@@ -409,7 +409,7 @@ void UIMachineSettingsDisplay::getFromCache()
         m_pEditorRecordingSettings->setFrameWidth(oldDisplayData.m_iRecordingVideoFrameWidth);
         m_pEditorRecordingSettings->setFrameHeight(oldDisplayData.m_iRecordingVideoFrameHeight);
         m_pEditorRecordingSettings->setFrameRate(oldDisplayData.m_iRecordingVideoFrameRate);
-        m_pEditorRecordingSettings->setBitRate(oldDisplayData.m_iRecordingVideoBitRate);
+        m_pEditorRecordingSettings->setBitrate(oldDisplayData.m_iRecordingVideoBitRate);
         m_pEditorRecordingSettings->setScreens(oldDisplayData.m_vecRecordingScreens);
         m_pEditorRecordingSettings->setVideoQuality(oldDisplayData.m_enmVideoQuality);
         m_pEditorRecordingSettings->setAudioProfile(oldDisplayData.m_strAudioProfile);
@@ -480,7 +480,7 @@ void UIMachineSettingsDisplay::putToCache()
         newDisplayData.m_iRecordingVideoFrameWidth = m_pEditorRecordingSettings->frameWidth();
         newDisplayData.m_iRecordingVideoFrameHeight = m_pEditorRecordingSettings->frameHeight();
         newDisplayData.m_iRecordingVideoFrameRate = m_pEditorRecordingSettings->frameRate();
-        newDisplayData.m_iRecordingVideoBitRate = m_pEditorRecordingSettings->bitRate();
+        newDisplayData.m_iRecordingVideoBitRate = m_pEditorRecordingSettings->bitrate();
         newDisplayData.m_vecRecordingScreens = m_pEditorRecordingSettings->screens();
         newDisplayData.m_enmVideoQuality = m_pEditorRecordingSettings->videoQuality();
         newDisplayData.m_strAudioProfile = m_pEditorRecordingSettings->audioProfile();

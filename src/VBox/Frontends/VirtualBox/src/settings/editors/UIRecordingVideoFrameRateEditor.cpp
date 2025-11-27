@@ -1,4 +1,4 @@
-/* $Id: UIRecordingVideoFrameRateEditor.cpp 111888 2025-11-26 11:59:27Z sergey.dubov@oracle.com $ */
+/* $Id: UIRecordingVideoFrameRateEditor.cpp 111914 2025-11-27 11:37:23Z serkan.bayraktar@oracle.com $ */
 /** @file
  * VBox Qt GUI - UIRecordingVideoFrameRateEditor class implementation.
  */
@@ -35,9 +35,8 @@
 #include "UICommon.h"
 #include "UIRecordingVideoFrameRateEditor.h"
 
-UIRecordingVideoFrameRateEditor::UIRecordingVideoFrameRateEditor(QWidget *pParent /* = 0 */)
-    : UIEditor(pParent)
-    , m_iFrameRate(0)
+UIRecordingVideoFrameRateEditor::UIRecordingVideoFrameRateEditor(QWidget *pParent /* = 0 */, bool fShowInBasicMode /* = false */)
+: UIEditor(pParent, fShowInBasicMode)
     , m_pLabel(0)
     , m_pSlider(0)
     , m_pSpinbox(0)
@@ -49,19 +48,14 @@ UIRecordingVideoFrameRateEditor::UIRecordingVideoFrameRateEditor(QWidget *pParen
 
 void UIRecordingVideoFrameRateEditor::setFrameRate(int iRate)
 {
-    /* Update cached value and
-     * spin-box if value has changed: */
-    if (m_iFrameRate != iRate)
-    {
-        m_iFrameRate = iRate;
-        if (m_pSpinbox)
-            m_pSpinbox->setValue(m_iFrameRate);
-    }
+    if (!m_pSpinbox || m_pSpinbox->value() == iRate)
+        return;
+    m_pSpinbox->setValue(iRate);
 }
 
 int UIRecordingVideoFrameRateEditor::frameRate() const
 {
-    return m_pSpinbox ? m_pSpinbox->value() : m_iFrameRate;
+    return m_pSpinbox ? m_pSpinbox->value() : 0;
 }
 
 int UIRecordingVideoFrameRateEditor::minimumLabelHorizontalHint() const
