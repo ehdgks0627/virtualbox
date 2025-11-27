@@ -1,4 +1,4 @@
-/* $Id: RTSystemGetNativeArch-win.cpp 111916 2025-11-27 12:32:44Z knut.osmundsen@oracle.com $ */
+/* $Id: RTSystemGetNativeArch-win.cpp 111917 2025-11-27 12:35:01Z knut.osmundsen@oracle.com $ */
 /** @file
  * IPRT - RTSystemGetNativeArch, Windows ring-3.
  */
@@ -86,13 +86,13 @@ RTDECL(uint32_t) RTSystemGetNativeArch(void)
     }
 
     /*
-     * The fallback is KUSER_SHARED_DATA::NativeProcessorArchitecture.
+     * The fallback is KUSER_SHARED_DATA::ImageNumberHigh.
      * This works for NT4 and later.
      */
     if (g_enmWinVer >= kRTWinOSType_NT4)
     {
         KUSER_SHARED_DATA volatile *pUserSharedData = (KUSER_SHARED_DATA volatile *)MM_SHARED_USER_DATA_VA;
-        return rtSystemNativeToArchVal(pUserSharedData->NativeProcessorArchitecture);
+        return rtSystemNativeToArchVal(pUserSharedData->ImageNumberHigh);
     }
     return RT_ARCH_VAL;
 }
