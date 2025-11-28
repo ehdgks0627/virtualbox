@@ -1,4 +1,4 @@
-# $Id: Makefile.kmk 111914 2025-11-27 11:37:23Z serkan.bayraktar@oracle.com $
+# $Id: Makefile.kmk 111932 2025-11-28 11:19:26Z serkan.bayraktar@oracle.com $
 ## @file
 # Makefile for the VirtualBox Qt GUI.
 #
@@ -887,6 +887,7 @@ UICommon_QT_MOCHDRS = \
 	src/settings/editors/UIRecordingFilePathEditor.h \
 	src/settings/editors/UIRecordingVideoBitrateEditor.h \
 	src/settings/editors/UIRecordingVideoFrameRateEditor.h \
+	src/settings/editors/UIRecordingVideoFrameSizeEditor.h \
 	src/settings/editors/UIScaleFactorEditor.h \
 	src/settings/editors/UISerialSettingsEditor.h \
 	src/settings/editors/UISharedClipboardEditor.h \
@@ -1475,6 +1476,7 @@ UICommon_SOURCES = \
 	src/settings/editors/UIRecordingFilePathEditor.cpp \
 	src/settings/editors/UIRecordingVideoBitrateEditor.cpp \
 	src/settings/editors/UIRecordingVideoFrameRateEditor.cpp \
+	src/settings/editors/UIRecordingVideoFrameSizeEditor.cpp \
 	src/settings/editors/UIScaleFactorEditor.cpp \
 	src/settings/editors/UISerialSettingsEditor.cpp \
 	src/settings/editors/UISharedClipboardEditor.cpp \

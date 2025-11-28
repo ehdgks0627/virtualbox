@@ -1,4 +1,4 @@
-/* $Id: UIRecordingSettingsEditor.h 111914 2025-11-27 11:37:23Z serkan.bayraktar@oracle.com $ */
+/* $Id: UIRecordingSettingsEditor.h 111932 2025-11-28 11:19:26Z serkan.bayraktar@oracle.com $ */
 /** @file
  * VBox Qt GUI - UIRecordingSettingsEditor class declaration.
  */
@@ -48,8 +48,9 @@ class QWidget;
 class QIAdvancedSlider;
 class UIFilmContainer;
 class UIRecordingFilePathEditor;
-class UIRecordingVideoFrameRateEditor;
 class UIRecordingVideoBitrateEditor;
+class UIRecordingVideoFrameRateEditor;
+class UIRecordingVideoFrameSizeEditor;
 
 /** UIEditor sub-class used as a recording settings editor. */
 class SHARED_LIBRARY_STUFF UIRecordingSettingsEditor : public UIEditor
@@ -130,12 +131,6 @@ private slots:
     void sltHandleFeatureToggled();
     /** Handles mode change. */
     void sltHandleModeComboChange();
-    /** Handles frame size change. */
-    void sltHandleFrameSizeComboChange();
-    /** Handles frame width change. */
-    void sltHandleFrameWidthChange();
-    /** Handles frame height change. */
-    void sltHandleFrameHeightChange();
     /** Handles frame rate change. */
     void sltHandleFrameRateChange(int iFrameRate);
     /** Handles bit rate quality slider change. */
@@ -161,14 +156,10 @@ private:
     void updateWidgetAvailability();
     /** Updates recording file size hint. */
     void updateRecordingFileSizeHint();
-    /** Searches for corresponding frame size preset. */
-    void lookForCorrespondingFrameSizePreset();
 
     /** Updates minimum layout hint. */
     void updateMinimumLayoutHint();
 
-    /** Searches for the @a data field in corresponding @a pComboBox. */
-    static void lookForCorrespondingPreset(QComboBox *pComboBox, const QVariant &data);
     /** Calculates recording bit rate for passed @a iFrameWidth, @a iFrameHeight, @a iFrameRate and @a iQuality. */
     static int calculateBitrate(int iFrameWidth, int iFrameHeight, int iFrameRate, int iQuality);
     /** Calculates recording quality for passed @a iFrameWidth, @a iFrameHeight, @a iFrameRate and @a iBitrate. */
@@ -214,14 +205,8 @@ private:
         QComboBox          *m_pComboMode;
         /** Holds the file path editor instance. */
         UIRecordingFilePathEditor *m_pEditorFilePath;
-        /** Holds the frame size label instance. */
-        QLabel             *m_pLabelFrameSize;
-        /** Holds the frame size combo instance. */
-        QComboBox          *m_pComboFrameSize;
-        /** Holds the frame width spinbox instance. */
-        QSpinBox           *m_pSpinboxFrameWidth;
-        /** Holds the frame height spinbox instance. */
-        QSpinBox           *m_pSpinboxFrameHeight;
+        /** Holds the frame size editor. */
+        UIRecordingVideoFrameSizeEditor *m_pEditorFrameSize;
         /** Holds the frame rate editor instance. */
         UIRecordingVideoFrameRateEditor *m_pEditorFrameRate;
         /** Holds the bit rate editor instance. */
