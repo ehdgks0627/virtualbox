@@ -1,4 +1,4 @@
-/* $Id: QITableView.h 111935 2025-11-28 15:36:02Z sergey.dubov@oracle.com $ */
+/* $Id: QITableView.h 111936 2025-11-28 15:38:41Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - Qt extensions: QITableView class declaration.
  */
@@ -138,11 +138,6 @@ private slots:
     void sltEditorDestroyed(QObject *pEditor);
 
 private:
-
-    /** Prepares all. */
-    void prepare();
-    /** Cleanups all. */
-    void cleanup();
 
     /** Holds the map of editors stored for passed indexes. */
     QMap<QModelIndex, QObject*> m_editors;
