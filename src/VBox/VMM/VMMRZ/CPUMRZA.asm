@@ -1,4 +1,4 @@
- ; $Id: CPUMRZA.asm 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $
+ ; $Id: CPUMRZA.asm 111960 2025-12-01 13:37:37Z alexander.eichner@oracle.com $
 ;; @file
 ; CPUM - Raw-mode and Ring-0 Context Assembly Routines.
 ;
@@ -60,21 +60,13 @@ SEH64_END_PROLOGUE
         ;
         ; Prologue - xAX+xDX must be free for XSAVE/XRSTOR input.
         ;
-%ifdef RT_ARCH_AMD64
- %ifdef ASM_CALL64_MSC
+%ifdef ASM_CALL64_MSC
         mov     r11, rcx
- %else
-        mov     r11, rdi
- %endif
- %define pCpumCpu   r11
- %define pXState    r10
 %else
-        push    ebx
-        push    esi
-        mov     ebx, dword [ebp + 8]
- %define pCpumCpu ebx
- %define pXState  esi
+        mov     r11, rdi
 %endif
+%define pCpumCpu   r11
+%define pXState    r10
 
         pushf                           ; The darwin kernel can get upset or upset things if an
         cli                             ; interrupt occurs while we're doing fxsave/fxrstor/cr0.
@@ -95,10 +87,6 @@ SEH64_END_PROLOGUE
         popf
 
         mov     eax, ecx                ; The return value from above.
-%ifdef RT_ARCH_X86
-        pop     esi
-        pop     ebx
-%endif
         leave
         ret
 %undef pCpumCpu
@@ -130,21 +118,14 @@ SEH64_END_PROLOGUE
         ;
         ; Prologue - xAX+xDX must be free for XSAVE/XRSTOR input.
         ;
-%ifdef RT_ARCH_AMD64
- %ifdef ASM_CALL64_MSC
+%ifdef ASM_CALL64_MSC
         mov     r11, rcx
- %else
-        mov     r11, rdi
- %endif
- %define pCpumCpu   r11
- %define pXState    r10
 %else
-        push    ebx
-        push    esi
-        mov     ebx, dword [ebp + 8]
- %define pCpumCpu   ebx
- %define pXState    esi
+        mov     r11, rdi
 %endif
+%define pCpumCpu   r11
+%define pXState    r10
+
         pushf                           ; The darwin kernel can get upset or upset things if an
         cli                             ; interrupt occurs while we're doing fxsave/fxrstor/cr0.
 
@@ -228,10 +209,6 @@ SEH64_END_PROLOGUE
 .no_cr0_restore:
  %endif
         popf
-%ifdef RT_ARCH_X86
-        pop     esi
-        pop     ebx
-%endif
         leave
         ret
 %undef pCpumCpu
@@ -262,8 +239,6 @@ SEH64_END_PROLOGUE
         ;
  %ifdef ASM_CALL64_GCC
         mov     xCX, rdi
- %elifdef RT_ARCH_X86
-        mov     xCX, dword [ebp + 8]
  %endif
         lea     xCX, [xCX + CPUMCPU.Guest.XState]
 
@@ -290,7 +265,6 @@ SEH64_END_PROLOGUE
         movdqa  [xCX + X86FXSTATE.xmm5 ], xmm5
         movdqa  [xCX + X86FXSTATE.xmm6 ], xmm6
         movdqa  [xCX + X86FXSTATE.xmm7 ], xmm7
- %if ARCH_BITS == 64
         movdqa  [xCX + X86FXSTATE.xmm8 ], xmm8
         movdqa  [xCX + X86FXSTATE.xmm9 ], xmm9
         movdqa  [xCX + X86FXSTATE.xmm10], xmm10
@@ -299,7 +273,6 @@ SEH64_END_PROLOGUE
         movdqa  [xCX + X86FXSTATE.xmm13], xmm13
         movdqa  [xCX + X86FXSTATE.xmm14], xmm14
         movdqa  [xCX + X86FXSTATE.xmm15], xmm15
- %endif
 
  %ifdef IN_RC
         CPUMRZ_RESTORE_CR0_IF_TS_OR_EM_SET edx  ; Restore CR0 if we changed it above.
@@ -336,8 +309,6 @@ SEH64_END_PROLOGUE
         ;
 %ifdef ASM_CALL64_GCC
         mov     xCX, rdi
-%elifdef RT_ARCH_X86
-        mov     xCX, dword [ebp + 8]
 %endif
         lea     xCX, [xCX + CPUMCPU.Guest.XState]
 
@@ -367,11 +338,7 @@ SEH64_END_PROLOGUE
         mov     eax, XSAVE_C_YMM | XSAVE_C_SSE ; The SSE component includes MXCSR.
 %endif
         xor     edx, edx
-%if ARCH_BITS == 64
         o64 xsave [xCX]
-%else
-        xsave   [xCX]
-%endif
 
 %ifdef IN_RC
         CPUMRZ_RESTORE_CR0_IF_TS_OR_EM_SET ebx  ; Restore CR0 if we changed it above.

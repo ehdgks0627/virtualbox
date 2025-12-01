@@ -1,4 +1,4 @@
-; $Id: PGMR3DbgA.asm 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $
+; $Id: PGMR3DbgA.asm 111960 2025-12-01 13:37:37Z alexander.eichner@oracle.com $
 ;; @file
 ; PGM - Page Manager and Monitor - Debugger & Debugging API Optimizations.
 ;
@@ -46,9 +46,6 @@ BEGINCODE ;; Doesn't end up in code seg on 64-bit darwin. weird.
  %define pvNeedle       rdx
  %define cbNeedle       esi
  %define bTmp           r9b
-%elifdef RT_ARCH_X86
- %define pvNeedle       dword [esp + 8h]
- %define cbNeedle       dword [esp + 10h]
 %else
  %error "Unsupported arch!"
 %endif
@@ -74,44 +71,11 @@ BEGINPROC pgmR3DbgFixedMemScan8Wide8Step
 %elifdef ASM_CALL64_GCC
         xchg    rcx, rsi                ; rcx=cbHaystack, rsi=cbNeedle
         mov     rax, [rdx]              ; *(uint64_t *)pvNeedle
-%elifdef RT_ARCH_X86
-        push    ebp
-        mov     ebp, esp
-        push    edi                     ; save it
-        mov     edi, [ebp + 08h]        ; pbHaystack
-        mov     ecx, [ebp + 0ch]        ; cbHaystack
-        mov     eax, [ebp + 10h]        ; pvNeedle
-        mov     edx, [eax + 4]          ; ((uint32_t *)pvNeedle)[1]
-        mov     eax, [eax]              ; ((uint32_t *)pvNeedle)[0]
 %else
  %error "Unsupported arch!"
 %endif
 SEH64_END_PROLOGUE
 
-%ifdef RT_ARCH_X86
-        ;
-        ; No string instruction to help us here.  Do a simple tight loop instead.
-        ;
-        shr     ecx, 3
-        jz      .return_null
-.again:
-        cmp     [edi], eax
-        je      .needle_check
-.continue:
-        add     edi, 8
-        dec     ecx
-        jnz     .again
-        jmp     .return_null
-
-        ; Check the needle 2nd dword, caller can do the rest.
-.needle_check:
-        cmp     edx, [edi + 4]
-        jne     .continue
-
-.return_edi:
-        mov     eax, edi
-
-%else  ; RT_ARCH_AMD64
         cmp     ecx, 8
         jb      .return_null
 .continue:
@@ -134,14 +98,10 @@ SEH64_END_PROLOGUE
 
 .return_edi:
         lea     xAX, [xDI - 8]
-%endif ; RT_ARCH_AMD64
 
 .return:
 %ifdef ASM_CALL64_MSC
         mov     rdi, r10
-%elifdef RT_ARCH_X86
-        pop     edi
-        leave
 %endif
         ret
 
@@ -170,12 +130,6 @@ BEGINPROC pgmR3DbgFixedMemScan4Wide4Step
 %elifdef ASM_CALL64_GCC
         xchg    rcx, rsi                ; rcx=cbHaystack, rsi=cbNeedle
         mov     eax, [rdx]              ; *(uint32_t *)pvNeedle
-%elifdef RT_ARCH_X86
-        mov     edx, edi                ; save it
-        mov     edi, [esp + 04h]        ; pbHaystack
-        mov     ecx, [esp + 08h]        ; cbHaystack
-        mov     eax, [esp + 0ch]        ; pvNeedle
-        mov     eax, [eax]              ; *(uint32_t *)pvNeedle
 %else
  %error "Unsupported arch!"
 %endif
@@ -188,7 +142,6 @@ SEH64_END_PROLOGUE
         repne   scasd
         jne     .return_null
 
-%ifdef RT_ARCH_AMD64
         ; check more of the needle if we can.
         mov     r11d, 4
 .needle_check:
@@ -201,15 +154,12 @@ SEH64_END_PROLOGUE
         jne     .continue
         inc     r11d
         jmp     .needle_check
-%endif
 
 .return_edi:
         lea     xAX, [xDI - 4]
 .return:
 %ifdef ASM_CALL64_MSC
         mov     rdi, r10
-%elifdef RT_ARCH_X86
-        mov     edi, edx
 %endif
         ret
 
@@ -238,12 +188,6 @@ BEGINPROC pgmR3DbgFixedMemScan2Wide2Step
 %elifdef ASM_CALL64_GCC
         xchg    rcx, rsi                ; rcx=cbHaystack, rsi=cbNeedle
         mov     ax, [rdx]               ; *(uint16_t *)pvNeedle
-%elifdef RT_ARCH_X86
-        mov     edx, edi                ; save it
-        mov     edi, [esp + 04h]        ; pbHaystack
-        mov     ecx, [esp + 08h]        ; cbHaystack
-        mov     eax, [esp + 0ch]        ; pvNeedle
-        mov     ax, [eax]               ; *(uint16_t *)pvNeedle
 %else
  %error "Unsupported arch!"
 %endif
@@ -256,7 +200,6 @@ SEH64_END_PROLOGUE
         repne   scasw
         jne     .return_null
 
-%ifdef RT_ARCH_AMD64
         ; check more of the needle if we can.
         mov     r11d, 2
 .needle_check:
@@ -269,15 +212,12 @@ SEH64_END_PROLOGUE
         jne     .continue
         inc     r11d
         jmp     .needle_check
-%endif
 
 .return_edi:
         lea     xAX, [xDI - 2]
 .return:
 %ifdef ASM_CALL64_MSC
         mov     rdi, r10
-%elifdef RT_ARCH_X86
-        mov     edi, edx
 %endif
         ret
 
@@ -304,12 +244,6 @@ BEGINPROC pgmR3DbgFixedMemScan1Wide1Step
 %elifdef ASM_CALL64_GCC
         xchg    rcx, rsi                ; rcx=cbHaystack, rsi=cbNeedle
         mov     al, [rdx]               ; *(uint8_t *)pvNeedle
-%elifdef RT_ARCH_X86
-        mov     edx, edi                ; save it
-        mov     edi, [esp + 04h]        ; pbHaystack
-        mov     ecx, [esp + 08h]        ; cbHaystack
-        mov     eax, [esp + 0ch]        ; pvNeedle
-        mov     al, [eax]               ; *(uint8_t *)pvNeedle
 %else
  %error "Unsupported arch!"
 %endif
@@ -321,7 +255,6 @@ SEH64_END_PROLOGUE
         repne   scasb
         jne     .return_null
 
-%ifdef RT_ARCH_AMD64
         ; check more of the needle if we can.
         mov     r11d, 1
 .needle_check:
@@ -334,15 +267,12 @@ SEH64_END_PROLOGUE
         jne     .continue
         inc     r11d
         jmp     .needle_check
-%endif
 
 .return_edi:
         lea     xAX, [xDI - 1]
 .return:
 %ifdef ASM_CALL64_MSC
         mov     rdi, r10
-%elifdef RT_ARCH_X86
-        mov     edi, edx
 %endif
         ret
 
@@ -350,8 +280,6 @@ SEH64_END_PROLOGUE
         xor     eax, eax
 %ifdef ASM_CALL64_MSC
         mov     rdi, r10
-%elifdef RT_ARCH_X86
-        mov     edi, edx
 %endif
         ret
 ENDPROC   pgmR3DbgFixedMemScan1Wide1Step
@@ -374,12 +302,6 @@ BEGINPROC pgmR3DbgFixedMemScan4Wide1Step
 %elifdef ASM_CALL64_GCC
         xchg    rcx, rsi                ; rcx=cbHaystack, rsi=cbNeedle
         mov     eax, [rdx]              ; *(uint32_t *)pvNeedle
-%elifdef RT_ARCH_X86
-        mov     edx, edi                ; save it
-        mov     edi, [esp + 04h]        ; pbHaystack
-        mov     ecx, [esp + 08h]        ; cbHaystack
-        mov     eax, [esp + 0ch]        ; pvNeedle
-        mov     eax, [eax]              ; *(uint32_t *)pvNeedle
 %else
  %error "Unsupported arch!"
 %endif
@@ -400,8 +322,6 @@ SEH64_END_PROLOGUE
 .return:
 %ifdef ASM_CALL64_MSC
         mov     rdi, r10
-%elifdef RT_ARCH_X86
-        mov     edi, edx
 %endif
         ret
 
@@ -409,8 +329,6 @@ SEH64_END_PROLOGUE
         xor     eax, eax
 %ifdef ASM_CALL64_MSC
         mov     rdi, r10
-%elifdef RT_ARCH_X86
-        mov     edi, edx
 %endif
         ret
 ENDPROC   pgmR3DbgFixedMemScan4Wide1Step
@@ -434,12 +352,6 @@ BEGINPROC pgmR3DbgFixedMemScan8Wide1Step
 %elifdef ASM_CALL64_GCC
         xchg    rcx, rsi                ; rcx=cbHaystack, rsi=cbNeedle
         mov     rax, [rdx]              ; *(uint64_t *)pvNeedle
-%elifdef RT_ARCH_X86
-        mov     edx, edi                ; save it
-        mov     edi, [esp + 04h]        ; pbHaystack
-        mov     ecx, [esp + 08h]        ; cbHaystack
-        mov     eax, [esp + 0ch]        ; pvNeedle
-        mov     eax, [eax]              ; *(uint32_t *)pvNeedle
 %else
  %error "Unsupported arch!"
 %endif
@@ -450,14 +362,12 @@ SEH64_END_PROLOGUE
 .continue:
         repne   scasb
         jne     .return_null
-%ifdef RT_ARCH_AMD64
         cmp     ecx, 7
         jb      .check_smaller
         cmp     rax, [xDI - 1]
         jne     .continue
         jmp     .return_edi
 .check_smaller:
-%endif
         cmp     ecx, 3
         jb      .return_null
         cmp     eax, [xDI - 1]
@@ -468,8 +378,6 @@ SEH64_END_PROLOGUE
 .return:
 %ifdef ASM_CALL64_MSC
         mov     rdi, r10
-%elifdef RT_ARCH_X86
-        mov     edi, edx
 %endif
         ret
 
@@ -477,8 +385,6 @@ SEH64_END_PROLOGUE
         xor     eax, eax
 %ifdef ASM_CALL64_MSC
         mov     rdi, r10
-%elifdef RT_ARCH_X86
-        mov     edi, edx
 %endif
         ret
 ENDPROC   pgmR3DbgFixedMemScan8Wide1Step

@@ -1,4 +1,4 @@
-/* $Id: VMR3Req.cpp 111695 2025-11-13 13:31:17Z knut.osmundsen@oracle.com $ */
+/* $Id: VMR3Req.cpp 111960 2025-12-01 13:37:37Z alexander.eichner@oracle.com $ */
 /** @file
  * VM - Virtual Machine
  */
@@ -1286,7 +1286,6 @@ static int  vmR3ReqProcessOne(PVMREQ pReq)
                 DECLCALLBACKMEMBER(int, pfn15,(uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t));
             } u;
             u.pfn = pReq->u.Internal.pfn;
-#ifndef RT_ARCH_X86
             switch (pReq->u.Internal.cArgs)
             {
                 case 0:  rcRet = u.pfn00(); break;
@@ -1310,44 +1309,7 @@ static int  vmR3ReqProcessOne(PVMREQ pReq)
                     rcRet = rcReq = VERR_VM_REQUEST_TOO_MANY_ARGS_IPE;
                     break;
             }
-#else /* x86: */
-            size_t cbArgs = pReq->u.Internal.cArgs * sizeof(uintptr_t);
-# ifdef __GNUC__
-            __asm__ __volatile__("movl  %%esp, %%edx\n\t"
-                                 "subl  %2, %%esp\n\t"
-                                 "andl  $0xfffffff0, %%esp\n\t"
-                                 "shrl  $2, %2\n\t"
-                                 "movl  %%esp, %%edi\n\t"
-                                 "rep movsl\n\t"
-                                 "movl  %%edx, %%edi\n\t"
-                                 "call  *%%eax\n\t"
-                                 "mov   %%edi, %%esp\n\t"
-                                 : "=a" (rcRet),
-                                   "=S" (pauArgs),
-                                   "=c" (cbArgs)
-                                 : "0" (u.pfn),
-                                   "1" (pauArgs),
-                                   "2" (cbArgs)
-                                 : "edi", "edx");
-# else
-            __asm
-            {
-                xor     edx, edx        /* just mess it up. */
-                mov     eax, u.pfn
-                mov     ecx, cbArgs
-                shr     ecx, 2
-                mov     esi, pauArgs
-                mov     ebx, esp
-                sub     esp, cbArgs
-                and     esp, 0xfffffff0
-                mov     edi, esp
-                rep movsd
-                call    eax
-                mov     esp, ebx
-                mov     rcRet, eax
-            }
-# endif
-#endif /* x86 */
+
             if ((pReq->fFlags & (VMREQFLAGS_RETURN_MASK)) == VMREQFLAGS_VOID)
                 rcRet = VINF_SUCCESS;
             rcReq = rcRet;

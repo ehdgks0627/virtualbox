@@ -1,4 +1,4 @@
-; $Id: HMR0UtilA-x86.asm 111950 2025-12-01 11:43:02Z alexander.eichner@oracle.com $
+; $Id: HMR0UtilA-x86.asm 111960 2025-12-01 13:37:37Z alexander.eichner@oracle.com $
 ;; @file
 ; HM - Ring-0 VMX & SVM Helpers.
 ;
@@ -46,27 +46,16 @@ BEGINCODE
 ;
 ALIGNCODE(16)
 BEGINPROC VMXWriteVmcs64
-%ifdef RT_ARCH_AMD64
- %ifdef ASM_CALL64_GCC
+%ifdef ASM_CALL64_GCC
     and         edi, 0ffffffffh
     xor         rax, rax
     vmwrite     rdi, rsi
- %else
+%else
     and         ecx, 0ffffffffh
     xor         rax, rax
     vmwrite     rcx, rdx
- %endif
-%else  ; RT_ARCH_X86
-    mov         ecx, [esp + 4]          ; idxField
-    lea         edx, [esp + 8]          ; &u64Data
-    vmwrite     ecx, [edx]              ; low dword
-    jz          .done
-    jc          .done
-    inc         ecx
-    xor         eax, eax
-    vmwrite     ecx, [edx + 4]          ; high dword
-.done:
-%endif ; RT_ARCH_X86
+%endif
+
     jnc         .valid_vmcs
     mov         eax, VERR_VMX_INVALID_VMCS_PTR
     ret
@@ -88,27 +77,16 @@ ENDPROC VMXWriteVmcs64
 ;DECLASM(int) VMXReadVmcs64(uint32_t idxField, uint64_t *pData);
 ALIGNCODE(16)
 BEGINPROC VMXReadVmcs64
-%ifdef RT_ARCH_AMD64
- %ifdef ASM_CALL64_GCC
+%ifdef ASM_CALL64_GCC
     and         edi, 0ffffffffh
     xor         rax, rax
     vmread      [rsi], rdi
- %else
+%else
     and         ecx, 0ffffffffh
     xor         rax, rax
     vmread      [rdx], rcx
- %endif
-%else  ; RT_ARCH_X86
-    mov         ecx, [esp + 4]          ; idxField
-    mov         edx, [esp + 8]          ; pData
-    vmread      [edx], ecx              ; low dword
-    jz          .done
-    jc          .done
-    inc         ecx
-    xor         eax, eax
-    vmread      [edx + 4], ecx          ; high dword
-.done:
-%endif ; RT_ARCH_X86
+%endif
+
     jnc         .valid_vmcs
     mov         eax, VERR_VMX_INVALID_VMCS_PTR
     ret
@@ -130,24 +108,18 @@ ENDPROC VMXReadVmcs64
 ;DECLASM(int) VMXReadVmcs32(uint32_t idxField, uint32_t *pu32Data);
 ALIGNCODE(16)
 BEGINPROC VMXReadVmcs32
-%ifdef RT_ARCH_AMD64
- %ifdef ASM_CALL64_GCC
+%ifdef ASM_CALL64_GCC
     and     edi, 0ffffffffh
     xor     rax, rax
     vmread  r10, rdi
     mov     [rsi], r10d
- %else
+%else
     and     ecx, 0ffffffffh
     xor     rax, rax
     vmread  r10, rcx
     mov     [rdx], r10d
- %endif
-%else  ; RT_ARCH_X86
-    mov     ecx, [esp + 4]              ; idxField
-    mov     edx, [esp + 8]              ; pu32Data
-    xor     eax, eax
-    vmread  [edx], ecx
-%endif ; RT_ARCH_X86
+%endif
+
     jnc     .valid_vmcs
     mov     eax, VERR_VMX_INVALID_VMCS_PTR
     ret
@@ -169,24 +141,18 @@ ENDPROC VMXReadVmcs32
 ;DECLASM(int) VMXWriteVmcs32(uint32_t idxField, uint32_t u32Data);
 ALIGNCODE(16)
 BEGINPROC VMXWriteVmcs32
-%ifdef RT_ARCH_AMD64
- %ifdef ASM_CALL64_GCC
+%ifdef ASM_CALL64_GCC
     and     edi, 0ffffffffh
     and     esi, 0ffffffffh
     xor     rax, rax
     vmwrite rdi, rsi
- %else
+%else
     and     ecx, 0ffffffffh
     and     edx, 0ffffffffh
     xor     rax, rax
     vmwrite rcx, rdx
- %endif
-%else  ; RT_ARCH_X86
-    mov     ecx, [esp + 4]              ; idxField
-    mov     edx, [esp + 8]              ; u32Data
-    xor     eax, eax
-    vmwrite ecx, edx
-%endif ; RT_ARCH_X86
+%endif
+
     jnc     .valid_vmcs
     mov     eax, VERR_VMX_INVALID_VMCS_PTR
     ret
@@ -206,18 +172,14 @@ ENDPROC VMXWriteVmcs32
 ;
 ;DECLASM(int) VMXEnable(RTHCPHYS HCPhysVMXOn);
 BEGINPROC VMXEnable
-%ifdef RT_ARCH_AMD64
     xor     rax, rax
- %ifdef ASM_CALL64_GCC
+%ifdef ASM_CALL64_GCC
     push    rdi
- %else
+%else
     push    rcx
- %endif
+%endif
     vmxon   [rsp]
-%else  ; RT_ARCH_X86
-    xor     eax, eax
-    vmxon   [esp + 4]
-%endif ; RT_ARCH_X86
+
     jnc     .good
     mov     eax, VERR_VMX_INVALID_VMXON_PTR
     jmp     .the_end
@@ -227,9 +189,7 @@ BEGINPROC VMXEnable
     mov     eax, VERR_VMX_VMXON_FAILED
 
 .the_end:
-%ifdef RT_ARCH_AMD64
     add     rsp, 8
-%endif
     ret
 ENDPROC VMXEnable
 
@@ -254,24 +214,17 @@ ENDPROC VMXDisable
 ;DECLASM(int) VMXClearVmcs(RTHCPHYS HCPhysVmcs);
 ALIGNCODE(16)
 BEGINPROC VMXClearVmcs
-%ifdef RT_ARCH_AMD64
     xor     rax, rax
- %ifdef ASM_CALL64_GCC
+%ifdef ASM_CALL64_GCC
     push    rdi
- %else
+%else
     push    rcx
- %endif
+%endif
     vmclear [rsp]
-%else  ; RT_ARCH_X86
-    xor     eax, eax
-    vmclear [esp + 4]
-%endif ; RT_ARCH_X86
     jnc     .the_end
     mov     eax, VERR_VMX_INVALID_VMCS_PTR
 .the_end:
-%ifdef RT_ARCH_AMD64
     add     rsp, 8
-%endif
     ret
 ENDPROC VMXClearVmcs
 
@@ -285,24 +238,18 @@ ENDPROC VMXClearVmcs
 ;DECLASM(int) VMXLoadVmcs(RTHCPHYS HCPhysVmcs);
 ALIGNCODE(16)
 BEGINPROC VMXLoadVmcs
-%ifdef RT_ARCH_AMD64
     xor     rax, rax
- %ifdef ASM_CALL64_GCC
+%ifdef ASM_CALL64_GCC
     push    rdi
- %else
-    push    rcx
- %endif
-    vmptrld [rsp]
 %else
-    xor     eax, eax
-    vmptrld [esp + 4]
+    push    rcx
 %endif
+    vmptrld [rsp]
+
     jnc     .the_end
     mov     eax, VERR_VMX_INVALID_VMCS_PTR
 .the_end:
-%ifdef RT_ARCH_AMD64
     add     rsp, 8
-%endif
     ret
 ENDPROC VMXLoadVmcs
 
@@ -319,14 +266,10 @@ BEGINPROC VMXGetCurrentVmcs
     mov     eax, VERR_NOT_SUPPORTED
     ret
 %else
- %ifdef RT_ARCH_AMD64
-  %ifdef ASM_CALL64_GCC
+ %ifdef ASM_CALL64_GCC
     vmptrst qword [rdi]
-  %else
-    vmptrst qword [rcx]
-  %endif
  %else
-    vmptrst qword [esp+04h]
+    vmptrst qword [rcx]
  %endif
     xor     eax, eax
 .the_end:
@@ -343,25 +286,18 @@ ENDPROC VMXGetCurrentVmcs
 ;
 ;DECLASM(int) VMXR0InvEPT(VMXTLBFLUSHEPT enmTlbFlush, uint64_t *pDescriptor);
 BEGINPROC VMXR0InvEPT
-%ifdef RT_ARCH_AMD64
- %ifdef ASM_CALL64_GCC
+%ifdef ASM_CALL64_GCC
     and         edi, 0ffffffffh
     xor         rax, rax
 ;    invept      rdi, qword [rsi]
     DB          0x66, 0x0F, 0x38, 0x80, 0x3E
- %else
+%else
     and         ecx, 0ffffffffh
     xor         rax, rax
 ;    invept      rcx, qword [rdx]
     DB          0x66, 0x0F, 0x38, 0x80, 0xA
- %endif
-%else
-    mov         ecx, [esp + 4]
-    mov         edx, [esp + 8]
-    xor         eax, eax
-;    invept      ecx, qword [edx]
-    DB          0x66, 0x0F, 0x38, 0x80, 0xA
 %endif
+
     jnc         .valid_vmcs
     mov         eax, VERR_VMX_INVALID_VMCS_PTR
     ret
@@ -381,25 +317,18 @@ ENDPROC VMXR0InvEPT
 ;
 ;DECLASM(int) VMXR0InvVPID(VMXTLBFLUSHVPID enmTlbFlush, uint64_t *pDescriptor);
 BEGINPROC VMXR0InvVPID
-%ifdef RT_ARCH_AMD64
- %ifdef ASM_CALL64_GCC
+%ifdef ASM_CALL64_GCC
     and         edi, 0ffffffffh
     xor         rax, rax
 ;    invvpid     rdi, qword [rsi]
     DB          0x66, 0x0F, 0x38, 0x81, 0x3E
- %else
+%else
     and         ecx, 0ffffffffh
     xor         rax, rax
 ;    invvpid     rcx, qword [rdx]
     DB          0x66, 0x0F, 0x38, 0x81, 0xA
- %endif
-%else
-    mov         ecx, [esp + 4]
-    mov         edx, [esp + 8]
-    xor         eax, eax
-;    invvpid     ecx, qword [edx]
-    DB          0x66, 0x0F, 0x38, 0x81, 0xA
 %endif
+
     jnc         .valid_vmcs
     mov         eax, VERR_VMX_INVALID_VMCS_PTR
     ret
@@ -419,18 +348,14 @@ ENDPROC VMXR0InvVPID
 ;
 ;DECLASM(void) SVMR0InvlpgA(RTGCPTR pPageGC, uint32_t uASID);
 BEGINPROC SVMR0InvlpgA
-%ifdef RT_ARCH_AMD64
- %ifdef ASM_CALL64_GCC
+%ifdef ASM_CALL64_GCC
     mov     rax, rdi
     mov     rcx, rsi
- %else
+%else
     mov     rax, rcx
     mov     rcx, rdx
- %endif
-%else
-    mov     eax, [esp + 4]
-    mov     ecx, [esp + 0Ch]
 %endif
+
     invlpga [xAX], ecx
     ret
 ENDPROC SVMR0InvlpgA
