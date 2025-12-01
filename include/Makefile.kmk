@@ -1,4 +1,4 @@
-# $Id: Makefile.kmk 111963 2025-12-01 15:13:01Z brent.paulson@oracle.com $
+# $Id: Makefile.kmk 111964 2025-12-01 15:32:49Z brent.paulson@oracle.com $
 ## @file
 # Some hacks to allow syntax and prerequisite include checking of headers.
 # This makefile doesn't and shouldn't build successfully.
@@ -96,6 +96,7 @@ VBOX_HDRS_R3_ONLY := \
 	VBox/HostServices/Service.h \
 	VBox/HostServices/TstHGCMMock.h \
 	VBox/HostServices/TstHGCMMockUtils.h \
+	VBox/HostServices/VBoxSharedClipboardSvc.h \
 	iprt/win/% \
 	iprt/alloca.h \
 	iprt/tcp.h \
