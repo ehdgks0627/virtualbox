@@ -468,13 +468,7 @@ typedef PDMDEVREGR3 const *PCPDMDEVREGR3;
 #define PDM_DEVREG_FLAGS_GUEST_BITS_32_64               UINT32_C(0x00003000)
 /** @def PDM_DEVREG_FLAGS_GUEST_BITS_DEFAULT
  * The guest bit count for the current compilation. */
-#if GC_ARCH_BITS == 32
-# define PDM_DEVREG_FLAGS_GUEST_BITS_DEFAULT            PDM_DEVREG_FLAGS_GUEST_BITS_32
-#elif GC_ARCH_BITS == 64
-# define PDM_DEVREG_FLAGS_GUEST_BITS_DEFAULT            PDM_DEVREG_FLAGS_GUEST_BITS_32_64
-#else
-# error Unsupported GC_ARCH_BITS value.
-#endif
+#define PDM_DEVREG_FLAGS_GUEST_BITS_DEFAULT             PDM_DEVREG_FLAGS_GUEST_BITS_32_64
 /** The guest bit count mask. */
 #define PDM_DEVREG_FLAGS_GUEST_BITS_MASK                UINT32_C(0x00003000)
 

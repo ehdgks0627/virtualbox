@@ -1,4 +1,4 @@
-/* $Id: PGMInternal.h 111945 2025-12-01 08:24:18Z alexander.eichner@oracle.com $ */
+/* $Id: PGMInternal.h 111950 2025-12-01 11:43:02Z alexander.eichner@oracle.com $ */
 /** @file
  * PGM - Internal header file.
  */
@@ -1665,9 +1665,6 @@ typedef struct PGMPHYSCACHEENTRY
     R3PTRTYPE(uint8_t *)                pbR3;
     /** GC Physical address for cache entry */
     RTGCPHYS                            GCPhys;
-#if HC_ARCH_BITS == 64 && GC_ARCH_BITS == 32
-    RTGCPHYS                            u32Padding0; /**< alignment padding. */
-#endif
 } PGMPHYSCACHEENTRY;
 
 /**
@@ -2137,9 +2134,7 @@ typedef struct PGMPOOLPAGE
     /** @} */
     /** Used to indicate that this page can't be flushed. Important for cr3 root pages or shadow pae pd pages. */
     uint32_t volatile   cLocked;
-#if GC_ARCH_BITS == 64
     uint32_t            u32Alignment3;
-#endif
 # ifdef VBOX_STRICT
     RTGCPTR             GCPtrDirtyFault;
 # endif

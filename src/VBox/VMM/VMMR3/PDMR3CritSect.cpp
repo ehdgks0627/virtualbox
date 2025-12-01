@@ -1,4 +1,4 @@
-/* $Id: PDMR3CritSect.cpp 111695 2025-11-13 13:31:17Z knut.osmundsen@oracle.com $ */
+/* $Id: PDMR3CritSect.cpp 111950 2025-12-01 11:43:02Z alexander.eichner@oracle.com $ */
 /** @file
  * PDM - Critical Sections, Ring-3.
  */
@@ -381,9 +381,6 @@ static int pdmR3CritSectRwInitOne(PVM pVM, PPDMCRITSECTRWINT pCritSect, void *pv
  */
 VMMR3DECL(int) PDMR3CritSectInit(PVM pVM, PPDMCRITSECT pCritSect, RT_SRC_POS_DECL, const char *pszNameFmt, ...)
 {
-#if HC_ARCH_BITS == 64 && GC_ARCH_BITS == 32
-    AssertCompile(sizeof(pCritSect->padding) >= sizeof(pCritSect->s));
-#endif
     Assert(RT_ALIGN_P(pCritSect, sizeof(uintptr_t)) == pCritSect);
     va_list va;
     va_start(va, pszNameFmt);
@@ -410,9 +407,6 @@ VMMR3DECL(int) PDMR3CritSectInit(PVM pVM, PPDMCRITSECT pCritSect, RT_SRC_POS_DEC
  */
 VMMR3DECL(int) PDMR3CritSectRwInit(PVM pVM, PPDMCRITSECTRW pCritSect, RT_SRC_POS_DECL, const char *pszNameFmt, ...)
 {
-#if HC_ARCH_BITS == 64 && GC_ARCH_BITS == 32
-    AssertCompile(sizeof(pCritSect->padding) >= sizeof(pCritSect->s));
-#endif
     Assert(RT_ALIGN_P(pCritSect, sizeof(uintptr_t)) == pCritSect);
     va_list va;
     va_start(va, pszNameFmt);

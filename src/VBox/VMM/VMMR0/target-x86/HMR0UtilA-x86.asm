@@ -1,4 +1,4 @@
-; $Id: HMR0UtilA-x86.asm 111701 2025-11-13 14:05:10Z knut.osmundsen@oracle.com $
+; $Id: HMR0UtilA-x86.asm 111950 2025-12-01 11:43:02Z alexander.eichner@oracle.com $
 ;; @file
 ; HM - Ring-0 VMX & SVM Helpers.
 ;
@@ -411,7 +411,6 @@ BEGINPROC VMXR0InvVPID
 ENDPROC VMXR0InvVPID
 
 
-%if GC_ARCH_BITS == 64
 ;;
 ; Executes INVLPGA.
 ;
@@ -435,35 +434,4 @@ BEGINPROC SVMR0InvlpgA
     invlpga [xAX], ecx
     ret
 ENDPROC SVMR0InvlpgA
-
-%else ; GC_ARCH_BITS != 64
-;;
-; Executes INVLPGA
-;
-; @param   pPageGC  msc:ecx  gcc:edi  x86:[esp+04]  Virtual page to invalidate
-; @param   uASID    msc:edx  gcc:esi  x86:[esp+08]  Tagged TLB id
-;
-;DECLASM(void) SVMR0InvlpgA(RTGCPTR pPageGC, uint32_t uASID);
-BEGINPROC SVMR0InvlpgA
-%ifdef RT_ARCH_AMD64
- %ifdef ASM_CALL64_GCC
-    movzx   rax, edi
-    mov     ecx, esi
- %else
-    ; from http://www.cs.cmu.edu/~fp/courses/15213-s06/misc/asm64-handout.pdf:
-    ; "Perhaps unexpectedly, instructions that move or generate 32-bit register
-    ;  values also set the upper 32 bits of the register to zero. Consequently
-    ;  there is no need for an instruction movzlq."
-    mov     eax, ecx
-    mov     ecx, edx
- %endif
-%else
-    mov     eax, [esp + 4]
-    mov     ecx, [esp + 8]
-%endif
-    invlpga [xAX], ecx
-    ret
-ENDPROC SVMR0InvlpgA
-
-%endif ; GC_ARCH_BITS != 64
 
