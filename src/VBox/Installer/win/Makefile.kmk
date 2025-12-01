@@ -1,4 +1,4 @@
-# $Id: Makefile.kmk 111643 2025-11-12 08:44:15Z alexander.eichner@oracle.com $
+# $Id: Makefile.kmk 111968 2025-12-01 17:06:39Z andreas.loeffler@oracle.com $
 ## @file
 # Makefile for the Windows installer.
 #
@@ -1242,10 +1242,13 @@ $$(RePackScripts_0_OUTDIR)/sign-ev.cmd: | $$(dir $$@)
 $$(RePackScripts_0_OUTDIR)/VMMR0.inf: $(PATH_SUB_CURRENT)/Scripts/VMMR0.inf $(MAKEFILE_CURRENT) | $$(dir $$@)
 	$(call MSG_GENERATE,RePackScripts,$@,$<)
 	$(call VBOX_EDIT_INF_FN,$<,$@)
-
 $$(RePackScripts_0_OUTDIR)/VBoxExtPackPuel.inf: $(PATH_SUB_CURRENT)/Scripts/VBoxExtPackPuel.inf $(MAKEFILE_CURRENT) | $$(dir $$@)
 	$(call MSG_GENERATE,RePackScripts,$@,$<)
 	$(call VBOX_EDIT_INF_FN,$<,$@)
 
+vbox_uninstall:
+	@kmk_builtin_echo "Uninstalling VirtualBox ..."
+	@kmk_builtin_echo ""
+	@powershell -Command "Start-Process -Wait powershell -Verb RunAs -ArgumentList '-NoProfile -ExecutionPolicy Bypass -File \"$(PATH_SUB_CURRENT)/Scripts/vbox_uninstall.ps1\" \"*VirtualBox*\"'"
 
 include $(FILE_KBUILD_SUB_FOOTER)
