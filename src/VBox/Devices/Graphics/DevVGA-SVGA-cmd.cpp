@@ -1,4 +1,4 @@
-/* $Id: DevVGA-SVGA-cmd.cpp 111630 2025-11-11 12:22:24Z vitali.pelenjow@oracle.com $ */
+/* $Id: DevVGA-SVGA-cmd.cpp 112002 2025-12-03 22:26:32Z knut.osmundsen@oracle.com $ */
 /** @file
  * VMware SVGA device - implementation of VMSVGA commands.
  */
@@ -441,6 +441,9 @@ int vmsvgaR3GboMapPages(PPDMDEVINS pDevIns, PVMSVGAGBO pGbo)
     if (pGbo->cTotalPages == 0)
         return VINF_SUCCESS;
 
+    uint32_t const cbPage = PDMDevHlpPhysGetPageSize(pDevIns);
+    AssertReturn(cbPage == X86_PAGE_SIZE, VERR_INTERNAL_ERROR); /** @todo see vmsvgaR3GboCreate */
+
     /* Do the bulk mapping, as we don't know whether this will be written to by us we always map it read/writable. */
     int rc = PDMDevHlpPhysBulkGCPhys2CCPtr(pDevIns, pGbo->cTotalPages, pGbo->paGCPhysPages, 0 /*fFlags*/,
                                            pGbo->papvPages, pGbo->paPageLocks);
@@ -450,7 +453,7 @@ int vmsvgaR3GboMapPages(PPDMDEVINS pDevIns, PVMSVGAGBO pGbo)
     uint32_t iSeg = 0;
 
     pGbo->paSegs[0].pvSeg = pGbo->papvPages[0];
-    pGbo->paSegs[0].cbSeg = X86_PAGE_SIZE;
+    pGbo->paSegs[0].cbSeg = cbPage;
 
     for (uint32_t i = 1; i < pGbo->cTotalPages; ++i)
     {
@@ -458,13 +461,13 @@ int vmsvgaR3GboMapPages(PPDMDEVINS pDevIns, PVMSVGAGBO pGbo)
         if ((uintptr_t)pGbo->papvPages[i] == (uintptr_t)pGbo->paSegs[iSeg].pvSeg + pGbo->paSegs[iSeg].cbSeg)
         {
             Assert(pGbo->paSegs[iSeg].cbSeg);
-            pGbo->paSegs[iSeg].cbSeg += X86_PAGE_SIZE;
+            pGbo->paSegs[iSeg].cbSeg += cbPage;
         }
         else
         {
             iSeg++;
             pGbo->paSegs[iSeg].pvSeg = pGbo->papvPages[i];
-            pGbo->paSegs[iSeg].cbSeg = X86_PAGE_SIZE;
+            pGbo->paSegs[iSeg].cbSeg = cbPage;
         }
     }
 
@@ -506,6 +509,10 @@ static int vmsvgaR3GboCreate(PVMSVGAR3STATE pSvgaR3State, SVGAMobFormat ptDepth,
         fGCPhys64 = false; /* Does not matter, there is no page table. */
     else
         ASSERT_GUEST_FAILED_RETURN(VERR_INVALID_PARAMETER);
+
+    /** @todo Rewrite this, vmsvgaR3GboMapPages and friends to not use
+     *        X86_PAGE_SIZE! */
+    AssertReturn(PDMDevHlpPhysGetPageSize(pSvgaR3State->pDevIns) == X86_PAGE_SIZE, VERR_INTERNAL_ERROR);
 
     uint32_t const cPPNsPerPage = X86_PAGE_SIZE / (fGCPhys64 ? sizeof(PPN64) : sizeof(PPN));
 
