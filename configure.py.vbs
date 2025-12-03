@@ -1,4 +1,4 @@
-' $Id: configure.py.vbs 111915 2025-11-27 11:46:09Z andreas.loeffler@oracle.com $
+' $Id: configure.py.vbs 111995 2025-12-03 14:57:58Z andreas.loeffler@oracle.com $
 ' Thin VBScript wrapper to call configure.py with passed arguments.
 
 '
@@ -39,6 +39,11 @@ If Not objShell.Exec("cmd /c where python3").StdOut.AtEndOfStream Then
 ElseIf Not objShell.Exec("cmd /c where python").StdOut.AtEndOfStream Then
     strPythonPath = "python"
 End If
+
+WScript.Echo "Deprecation notice: VBScript has been marked as being deprecated and will be removed in the future."
+WScript.Echo "                    Please either invoke configure.py via Python or use the Powershell script via configure.ps1"
+WScript.Echo ""
+WScript.Sleep 3000 ' Make it painful to use.
 
 If strPythonPath = "" Then
     WScript.Echo "Python is not found."
