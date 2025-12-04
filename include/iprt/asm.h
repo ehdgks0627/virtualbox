@@ -9026,13 +9026,17 @@ DECLINLINE(void *) ASMReadStackPointer(void) RT_NOTHROW_DEF
                          : "=r" (pv));
 
 #else
+# ifdef RT_ARCH_AMD64
     __asm
     {
-# ifdef RT_ARCH_AMD64
         mov [pv], rsp
+    }
 # elif defined(RT_ARCH_X86)
 #  if ARCH_BITS == 32
+    __asm
+    {
         mov [pv], esp
+    }
 #  else
     AssertFailed();  /** @todo 16-bit */
 #  endif
