@@ -1,4 +1,4 @@
-/* $Id: DevVGA-SVGA.cpp 111041 2025-09-18 10:49:32Z vitali.pelenjow@oracle.com $ */
+/* $Id: DevVGA-SVGA.cpp 112019 2025-12-04 17:44:20Z knut.osmundsen@oracle.com $ */
 /** @file
  * VMware SVGA device.
  *
@@ -7942,6 +7942,15 @@ int vmsvgaR3Init(PPDMDEVINS pDevIns)
     REG_CNT(&pSVGAState->StatFifoCursorPosition,          "VMSVGA/FifoCursorPosition",             "Cursor position and visibility changes.");
     REG_CNT(&pSVGAState->StatFifoCursorVisiblity,         "VMSVGA/FifoCursorVisiblity",            "Cursor visibility changes.");
     REG_CNT(&pSVGAState->StatFifoWatchdogWakeUps,         "VMSVGA/FifoWatchdogWakeUps",            "Number of times the FIFO refresh poller/watchdog woke up the FIFO thread.");
+
+# ifdef VBOX_WITH_STATISTICS
+    REG_PRF(&pSVGAState->aGboOTables[SVGA_OTABLE_MOB].StatTransfer,          "VMSVGA/Gbo-Xfers/MOB",          "vmsvgaR3GboTransfer + SVGA_OTABLE_MOB.");
+    REG_PRF(&pSVGAState->aGboOTables[SVGA_OTABLE_SURFACE].StatTransfer,      "VMSVGA/Gbo-Xfers/SURFACE",      "vmsvgaR3GboTransfer + SVGA_OTABLE_SURFACE.");
+    REG_PRF(&pSVGAState->aGboOTables[SVGA_OTABLE_CONTEXT].StatTransfer,      "VMSVGA/Gbo-Xfers/CONTEXT",      "vmsvgaR3GboTransfer + SVGA_OTABLE_CONTEXT.");
+    REG_PRF(&pSVGAState->aGboOTables[SVGA_OTABLE_SHADER].StatTransfer,       "VMSVGA/Gbo-Xfers/SHADER",       "vmsvgaR3GboTransfer + SVGA_OTABLE_SHADER.");
+    REG_PRF(&pSVGAState->aGboOTables[SVGA_OTABLE_SCREENTARGET].StatTransfer, "VMSVGA/Gbo-Xfers/SCREENTARGET", "vmsvgaR3GboTransfer + SVGA_OTABLE_SCREENTARGET.");
+    REG_PRF(&pSVGAState->aGboOTables[SVGA_OTABLE_DXCONTEXT].StatTransfer,    "VMSVGA/Gbo-Xfers/DXCONTEXT",    "vmsvgaR3GboTransfer + SVGA_OTABLE_DXCONTEXT.");
+# endif
 
 # undef REG_CNT
 # undef REG_PRF

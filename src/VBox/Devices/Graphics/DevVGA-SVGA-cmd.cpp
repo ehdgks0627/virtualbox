@@ -1,4 +1,4 @@
-/* $Id: DevVGA-SVGA-cmd.cpp 112002 2025-12-03 22:26:32Z knut.osmundsen@oracle.com $ */
+/* $Id: DevVGA-SVGA-cmd.cpp 112019 2025-12-04 17:44:20Z knut.osmundsen@oracle.com $ */
 /** @file
  * VMware SVGA device - implementation of VMSVGA commands.
  */
@@ -413,13 +413,13 @@ int vmsvgaR3GboAllocDescriptors(PVMSVGAGBO pGbo)
     pGbo->pvDescriptors = RTMemAlloc(pGbo->cTotalPages * (  sizeof(RTGCPHYS)
                                                           + sizeof(PGMPAGEMAPLOCK)
                                                           + sizeof(void *)
-                                                          + sizeof(RTSGSEG)));
+                                                          + sizeof(VMSVGAGBOSEG)));
     AssertReturn(pGbo->pvDescriptors, VERR_NO_MEMORY);
 
     pGbo->paGCPhysPages = (RTGCPHYS *)pGbo->pvDescriptors;
     pGbo->paPageLocks   = (PPGMPAGEMAPLOCK)((uintptr_t)pGbo->paGCPhysPages + (pGbo->cTotalPages * sizeof(*pGbo->paGCPhysPages)));
     pGbo->papvPages     = (void **)((uintptr_t)pGbo->paPageLocks + (pGbo->cTotalPages * sizeof(*pGbo->paPageLocks)));
-    pGbo->paSegs        = (PRTSGSEG)((uintptr_t)pGbo->papvPages + (pGbo->cTotalPages * sizeof(*pGbo->papvPages)));
+    pGbo->paSegs        = (PVMSVGAGBOSEG)((uintptr_t)pGbo->papvPages + (pGbo->cTotalPages * sizeof(*pGbo->papvPages)));
     return VINF_SUCCESS;
 }
 
@@ -441,8 +441,9 @@ int vmsvgaR3GboMapPages(PPDMDEVINS pDevIns, PVMSVGAGBO pGbo)
     if (pGbo->cTotalPages == 0)
         return VINF_SUCCESS;
 
-    uint32_t const cbPage = PDMDevHlpPhysGetPageSize(pDevIns);
-    AssertReturn(cbPage == X86_PAGE_SIZE, VERR_INTERNAL_ERROR); /** @todo see vmsvgaR3GboCreate */
+    unsigned const cGuestPageShift = PDMDevHlpPhysGetPageShift(pDevIns);
+    uint32_t const cbGuestPage = RT_BIT_32(cGuestPageShift);
+    AssertReturn(cbGuestPage == X86_PAGE_SIZE, VERR_INTERNAL_ERROR); /** @todo see vmsvgaR3GboCreate */
 
     /* Do the bulk mapping, as we don't know whether this will be written to by us we always map it read/writable. */
     int rc = PDMDevHlpPhysBulkGCPhys2CCPtr(pDevIns, pGbo->cTotalPages, pGbo->paGCPhysPages, 0 /*fFlags*/,
@@ -453,7 +454,8 @@ int vmsvgaR3GboMapPages(PPDMDEVINS pDevIns, PVMSVGAGBO pGbo)
     uint32_t iSeg = 0;
 
     pGbo->paSegs[0].pvSeg = pGbo->papvPages[0];
-    pGbo->paSegs[0].cbSeg = cbPage;
+    pGbo->paSegs[0].cbSeg = cbGuestPage;
+    pGbo->paSegs[0].offSeg = 0;
 
     for (uint32_t i = 1; i < pGbo->cTotalPages; ++i)
     {
@@ -461,13 +463,14 @@ int vmsvgaR3GboMapPages(PPDMDEVINS pDevIns, PVMSVGAGBO pGbo)
         if ((uintptr_t)pGbo->papvPages[i] == (uintptr_t)pGbo->paSegs[iSeg].pvSeg + pGbo->paSegs[iSeg].cbSeg)
         {
             Assert(pGbo->paSegs[iSeg].cbSeg);
-            pGbo->paSegs[iSeg].cbSeg += cbPage;
+            pGbo->paSegs[iSeg].cbSeg += cbGuestPage;
         }
         else
         {
             iSeg++;
             pGbo->paSegs[iSeg].pvSeg = pGbo->papvPages[i];
-            pGbo->paSegs[iSeg].cbSeg = cbPage;
+            pGbo->paSegs[iSeg].cbSeg = cbGuestPage;
+            pGbo->paSegs[iSeg].offSeg = i << cGuestPageShift;
         }
     }
 
@@ -782,6 +785,7 @@ static int vmsvgaR3GboTransfer(PVMSVGAR3STATE pSvgaR3State, PVMSVGAGBO pGbo,
                                VMSVGAGboTransferDirection enmDirection)
 {
     //DEBUG_BREAKPOINT_TEST();
+    STAM_PROFILE_START(&pGbo->StatTransfer, a);
     int rc = VINF_SUCCESS;
     uint8_t *pu8CurrentHost  = (uint8_t *)pvData;
 
@@ -839,37 +843,105 @@ static int vmsvgaR3GboTransfer(PVMSVGAR3STATE pSvgaR3State, PVMSVGAGBO pGbo,
 #else /* VMSVGA_WITH_PGM_LOCKING */
     RT_NOREF(pSvgaR3State);
 
-    /* Find the right segment to start at. */
-    PCRTSGSEG paSegs = pGbo->paSegs;
-    uint32_t iSeg = 0;
-    while (paSegs[iSeg].cbSeg <= off)
+    /*
+     * Special case: If the access is within a page, we just use the page array.
+     */
+    if (   cbData <= (X86_PAGE_SIZE - (off & X86_PAGE_OFFSET_MASK))
+        && (uint64_t)off + cbData <= pGbo->cbTotal)
     {
-        off -= (uint32_t)paSegs[iSeg++].cbSeg;
-        AssertReturn(iSeg < pGbo->cSegsUsed, VERR_INTERNAL_ERROR);
-    }
+        uint32_t const idxPage = off >> X86_PAGE_SHIFT;
+        AssertReturn(idxPage < pGbo->cTotalPages, VERR_INTERNAL_ERROR);
 
-    while (cbData)
-    {
-        AssertReturn(iSeg < pGbo->cSegsUsed, VERR_INTERNAL_ERROR);
-
-        uint32_t cbToCopy = RT_MIN((uint32_t)paSegs[iSeg].cbSeg - off, cbData);
-
-        void *pv = (void *)((uintptr_t)paSegs[iSeg].pvSeg + off);
-        Log5Func(("%s pv=%p\n", (enmDirection == VMSVGAGboTransferDirection_Read) ? "READ" : "WRITE", pv));
+        void * const pv = &((uint8_t *)pGbo->papvPages[idxPage])[off & X86_PAGE_OFFSET_MASK];
+        Log5Func(("%s pv=%p LB %#x\n", enmDirection == VMSVGAGboTransferDirection_Read ? "READ" : "WRITE", pv, cbData));
+        AssertPtr(pv);
 
         if (enmDirection == VMSVGAGboTransferDirection_Read)
-            memcpy(pu8CurrentHost, pv, cbToCopy);
+            memcpy(pvData, pv, cbData);
         else
-            memcpy(pv, pu8CurrentHost, cbToCopy);
+            memcpy(pv, pvData, cbData);
+    }
+    else
+    {
+        /*
+         * Find the right segment to start at.
+         *
+         * Since there is reasonable chance that we have a 1:1 mapping of pages
+         * and segments, start by converting off into a page index.  If that
+         * doesn't work out, it will at least give us a lower upper limit when
+         * doing a binary search.
+         */
+        PCVMSVGAGBOSEG const paSegs = pGbo->paSegs;
+# if 1
+        AssertReturn(off < pGbo->cbTotal,  VERR_INTERNAL_ERROR);
+        uint32_t iSegEnd   = pGbo->cSegsUsed;
+        uint32_t iSeg      = RT_MIN(off >> X86_PAGE_SHIFT, iSegEnd - 1);
+        if (off - paSegs[iSeg].offSeg < paSegs[iSeg].cbSeg)
+        { /* direct hit */ }
+        else
+        {
+            uint32_t iSegFirst = 0; /* We could set this to iSeg - (pGbo->cTotalPages - pGbo->cSegsUsed) if iSeg is higher... */
+            iSegEnd = ++iSeg;
+            iSeg    = iSeg / 2;
+            for (;;)
+            {
+                uint32_t const offSeg = paSegs[iSeg].offSeg;
+                if (off < offSeg)
+                {
+                    AssertReturn(iSeg > iSegFirst, VERR_INTERNAL_ERROR);
+                    iSegEnd = iSeg;
+                }
+                else if (off - offSeg >= paSegs[iSeg].cbSeg)
+                {
+                    iSeg += 1;
+                    AssertReturn(iSeg < iSegEnd, VERR_INTERNAL_ERROR);
+                    iSegFirst = iSeg;
+                }
+                else
+                    break; /* found it! */
+                iSeg = iSegFirst + (iSegEnd - iSegFirst) / 2;
+            }
+        }
+        Assert(   iSeg <  pGbo->cSegsUsed
+               && off  >= paSegs[iSeg].offSeg
+               && off  <  paSegs[iSeg].offSeg + paSegs[iSeg].cbSeg);
+        off -= paSegs[iSeg].offSeg;
+# else
+        uint32_t iSeg = 0;
+        while (paSegs[iSeg].cbSeg <= off)
+        {
+            off -= (uint32_t)paSegs[iSeg++].cbSeg;
+            AssertReturn(iSeg < pGbo->cSegsUsed, VERR_INTERNAL_ERROR);
+        }
+# endif
 
-        cbData         -= cbToCopy;
-        pu8CurrentHost += cbToCopy;
-        off             = 0; /* This is always 0 after the first page. */
-        iSeg++;
+        /*
+         * Do the actual data transfer.
+         */
+        while (cbData)
+        {
+            AssertReturn(iSeg < pGbo->cSegsUsed, VERR_INTERNAL_ERROR);
+
+            uint32_t cbToCopy = RT_MIN(paSegs[iSeg].cbSeg - off, cbData);
+
+            void *pv = (void *)((uintptr_t)paSegs[iSeg].pvSeg + off);
+            Log5Func(("%s pv=%p\n", (enmDirection == VMSVGAGboTransferDirection_Read) ? "READ" : "WRITE", pv));
+
+            if (enmDirection == VMSVGAGboTransferDirection_Read)
+                memcpy(pu8CurrentHost, pv, cbToCopy);
+            else
+                memcpy(pv, pu8CurrentHost, cbToCopy);
+
+            cbData         -= cbToCopy;
+            pu8CurrentHost += cbToCopy;
+            off             = 0; /* This is always 0 after the first page. */
+            iSeg++;
+        }
     }
 
     ASMMemoryFence();
 #endif /* VMSVGA_WITH_PGM_LOCKING */
+    STAM_PROFILE_STOP(&pGbo->StatTransfer, a);
     return rc;
 }
 

@@ -1,4 +1,4 @@
-/* $Id: DevVGA-SVGA.h 110780 2025-08-21 13:49:48Z vitali.pelenjow@oracle.com $ */
+/* $Id: DevVGA-SVGA.h 112019 2025-12-04 17:44:20Z knut.osmundsen@oracle.com $ */
 /** @file
  * VMware SVGA device
  */
@@ -642,6 +642,26 @@ typedef struct VMSVGAGBODESCRIPTOR
    uint64_t                 cPages;
 } VMSVGAGBODESCRIPTOR, *PVMSVGAGBODESCRIPTOR;
 typedef VMSVGAGBODESCRIPTOR const *PCVMSVGAGBODESCRIPTOR;
+#else
+/**
+ * GBO segment.
+ *
+ * This is basically RTSGSEG but with 32-bit size and an added offset member to
+ * enable binary searching.
+ */
+typedef struct VMSVGAGBOSEG
+{
+    /** Pointer to the first byte in the segment. */
+    void    *pvSeg;
+    /** The segment size in bytes. */
+    uint32_t cbSeg;
+    /** The segment byte offset within the GBO. */
+    uint32_t offSeg;
+} VMSVGAGBOSEG;
+/** Pointer to a GBO segment. */
+typedef VMSVGAGBOSEG *PVMSVGAGBOSEG;
+/** Pointer to a const GBO segment. */
+typedef VMSVGAGBOSEG const *PCVMSVGAGBOSEG;
 #endif
 
 /* GBO.
@@ -660,9 +680,10 @@ typedef struct VMSVGAGBO
     RTGCPHYS               *paGCPhysPages;    /**< Pointer to the array of guest physical address for the pages. */
     PPGMPAGEMAPLOCK         paPageLocks;      /**< Pointer to the array of PGM page map locks. */
     void                  **papvPages;        /**< Pointer to the host adresses of mapped pages. */
-    PRTSGSEG                paSegs;           /**< Pointer to an array of segments. */
+    PVMSVGAGBOSEG           paSegs;           /**< Pointer to an array of segments (compressed w/ offset lookup). */
 #endif
     void                   *pvHost; /* Pointer to cbTotal bytes on the host if VMSVGAGBO_F_HOST_BACKED is set. */
+    STAMPROFILE             StatTransfer;     /**< Profiles vmsvgaR3GboTransfer(). */
 } VMSVGAGBO, *PVMSVGAGBO;
 typedef VMSVGAGBO const *PCVMSVGAGBO;
 
