@@ -7044,7 +7044,7 @@ DECLINLINE(void) ASMBitSet(volatile void RT_FAR *pvBitmap, int32_t iBit) RT_NOTH
 
 # else
     int32_t offBitmap = iBit / 32;
-    AssertStmt(!((uintptr_t)pvBitmap & 3), offBitmap += (uintptr_t)pvBitmap & 3; iBit += ((uintptr_t)pvBitmap & 3) * 8);
+    AssertStmt(!((uintptr_t)pvBitmap & 3), offBitmap += (uint32_t)(uintptr_t)pvBitmap & 3; iBit += (uint32_t)((uintptr_t)pvBitmap & 3) * 8);
     ASMAtomicUoOrU32(&((uint32_t volatile *)pvBitmap)[offBitmap], RT_H2LE_U32(RT_BIT_32(iBit & 31)));
 # endif
 }
@@ -7142,7 +7142,7 @@ DECLINLINE(void) ASMBitClear(volatile void RT_FAR *pvBitmap, int32_t iBit) RT_NO
 
 # else
     int32_t offBitmap = iBit / 32;
-    AssertStmt(!((uintptr_t)pvBitmap & 3), offBitmap += (uintptr_t)pvBitmap & 3; iBit += ((uintptr_t)pvBitmap & 3) * 8);
+    AssertStmt(!((uintptr_t)pvBitmap & 3), offBitmap += (int32_t)(uintptr_t)pvBitmap & 3; iBit += (int32_t)((uintptr_t)pvBitmap & 3) * 8);
     ASMAtomicUoAndU32(&((uint32_t volatile *)pvBitmap)[offBitmap], RT_H2LE_U32(~RT_BIT_32(iBit & 31)));
 # endif
 }
@@ -7235,7 +7235,7 @@ DECLINLINE(void) ASMBitToggle(volatile void RT_FAR *pvBitmap, int32_t iBit) RT_N
 #  endif
 # else
     int32_t offBitmap = iBit / 32;
-    AssertStmt(!((uintptr_t)pvBitmap & 3), offBitmap += (uintptr_t)pvBitmap & 3; iBit += ((uintptr_t)pvBitmap & 3) * 8);
+    AssertStmt(!((uintptr_t)pvBitmap & 3), offBitmap += (int32_t)(uintptr_t)pvBitmap & 3; iBit += (int32_t)((uintptr_t)pvBitmap & 3) * 8);
     ASMAtomicUoXorU32(&((uint32_t volatile *)pvBitmap)[offBitmap], RT_H2LE_U32(RT_BIT_32(iBit & 31)));
 # endif
 }
@@ -7338,7 +7338,7 @@ DECLINLINE(bool) ASMBitTestAndSet(volatile void RT_FAR *pvBitmap, int32_t iBit) 
 
 # else
     int32_t offBitmap = iBit / 32;
-    AssertStmt(!((uintptr_t)pvBitmap & 3), offBitmap += (uintptr_t)pvBitmap & 3; iBit += ((uintptr_t)pvBitmap & 3) * 8);
+    AssertStmt(!((uintptr_t)pvBitmap & 3), offBitmap += (int32_t)(uintptr_t)pvBitmap & 3; iBit += (int32_t)((uintptr_t)pvBitmap & 3) * 8);
     rc.u32 = RT_LE2H_U32(ASMAtomicUoOrExU32(&((uint32_t volatile *)pvBitmap)[offBitmap], RT_H2LE_U32(RT_BIT_32(iBit & 31))))
           >> (iBit & 31);
     rc.u32 &= 1;
@@ -7459,7 +7459,7 @@ DECLINLINE(bool) ASMBitTestAndClear(volatile void RT_FAR *pvBitmap, int32_t iBit
 
 # else
     int32_t offBitmap = iBit / 32;
-    AssertStmt(!((uintptr_t)pvBitmap & 3), offBitmap += (uintptr_t)pvBitmap & 3; iBit += ((uintptr_t)pvBitmap & 3) * 8);
+    AssertStmt(!((uintptr_t)pvBitmap & 3), offBitmap += (int32_t)(uintptr_t)pvBitmap & 3; iBit += (int32_t)((uintptr_t)pvBitmap & 3) * 8);
     rc.u32 = RT_LE2H_U32(ASMAtomicUoAndExU32(&((uint32_t volatile *)pvBitmap)[offBitmap], RT_H2LE_U32(~RT_BIT_32(iBit & 31))))
           >> (iBit & 31);
     rc.u32 &= 1;
@@ -7582,7 +7582,7 @@ DECLINLINE(bool) ASMBitTestAndToggle(volatile void RT_FAR *pvBitmap, int32_t iBi
 
 # else
     int32_t offBitmap = iBit / 32;
-    AssertStmt(!((uintptr_t)pvBitmap & 3), offBitmap += (uintptr_t)pvBitmap & 3; iBit += ((uintptr_t)pvBitmap & 3) * 8);
+    AssertStmt(!((uintptr_t)pvBitmap & 3), offBitmap += (int32_t)(uintptr_t)pvBitmap & 3; iBit += (int32_t)((uintptr_t)pvBitmap & 3) * 8);
     rc.u32 = RT_LE2H_U32(ASMAtomicUoXorExU32(&((uint32_t volatile *)pvBitmap)[offBitmap], RT_H2LE_U32(RT_BIT_32(iBit & 31))))
           >> (iBit & 31);
     rc.u32 &= 1;
