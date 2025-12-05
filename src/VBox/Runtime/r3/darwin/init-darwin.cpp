@@ -1,4 +1,4 @@
-/* $Id: init-darwin.cpp 112039 2025-12-05 11:15:47Z alexander.eichner@oracle.com $ */
+/* $Id: init-darwin.cpp 112040 2025-12-05 11:29:33Z alexander.eichner@oracle.com $ */
 /** @file
  * IPRT - Init Ring-3, POSIX Specific Code.
  */
@@ -128,22 +128,22 @@ static void rtR3DarwinSigSegvBusHandler(int iSignum, siginfo_t *pSigInfo, void *
         mcontext_t    pXcptCtx = pCtx->uc_mcontext;
 #ifdef RT_ARCH_AMD64
         RTLogLoggerWeak(pLogger, NULL, "\ncs:rip=%04x:%016RX64\n",
-                        pXcptCtx->__ss.__ss64.__cs, pXcptCtx->__ss.__ss64.__rip);
-        RTLogLoggerWeak(pLogger, NULL, "ss:rsp=%04x:%016RX64 rbp=%016RX64\n",
-                        pXcptCtx->__ss.__ss, pXcptCtx->__ss.__ss64.__rsp, pXcptCtx->__ss.__ss64.__rbp);
+                        pXcptCtx->__ss.__cs, pXcptCtx->__ss.__rip);
+        RTLogLoggerWeak(pLogger, NULL, "rsp=%016RX64 rbp=%016RX64\n",
+                        pXcptCtx->__ss.__rsp, pXcptCtx->__ss.__rbp);
         RTLogLoggerWeak(pLogger, NULL, "rax=%016RX64 rcx=%016RX64 rdx=%016RX64 rbx=%016RX64\n",
-                        pXcptCtx->__ss.__ss64.__rax, pXcptCtx->__ss.__ss64.__rcx, pXcptCtx->__ss.__ss64.__rdx, pXcptCtx->__ss.__ss64.__rbx);
+                        pXcptCtx->__ss.__rax, pXcptCtx->__ss.__rcx, pXcptCtx->__ss.__rdx, pXcptCtx->__ss.__rbx);
         RTLogLoggerWeak(pLogger, NULL, "rsi=%016RX64 rdi=%016RX64 rsp=%016RX64 rbp=%016RX64\n",
-                        pXcptCtx->__ss.__ss64.__rsi, pXcptCtx->__ss.__ss64.__rdi, pXcptCtx->__ss.__ss64.__rsp, pXcptCtx->__ss.__ss64.__rbp);
+                        pXcptCtx->__ss.__rsi, pXcptCtx->__ss.__rdi, pXcptCtx->__ss.__rsp, pXcptCtx->__ss.__rbp);
         RTLogLoggerWeak(pLogger, NULL, "r8 =%016RX64 r9 =%016RX64 r10=%016RX64 r11=%016RX64\n",
-                        pXcptCtx->__ss.__ss64.__r8,  pXcptCtx->__ss.__ss64.__r9,  pXcptCtx->__ss.__ss64.__r10, pXcptCtx->__ss.__ss64.__r11);
+                        pXcptCtx->__ss.__r8,  pXcptCtx->__ss.__r9,  pXcptCtx->__ss.__r10, pXcptCtx->__ss.__r11);
         RTLogLoggerWeak(pLogger, NULL, "r12=%016RX64 r13=%016RX64 r14=%016RX64 r15=%016RX64\n",
-                        pXcptCtx->__ss.__ss64.__r12,  pXcptCtx->__ss.__ss64.__r13,  pXcptCtx->__ss.__ss64.__r14, pXcptCtx->__ss.__ss64.__r15);
-        RTLogLoggerWeak(pLogger, NULL, "fs=%04x gs=%04x ds=%04x es=%04x eflags=%08x\n",
-                        pXcptCtx->__ss.__ss64.__fs, pXcptCtx->__ss.__ss64.__gs, pXcptCtx->__ss.__ds, pXcptCtx->__ss.__es,
-                        pXcptCtx->__ss.__ss64.__rflags);
-        uXcptSP = pXcptCtx->__ss.__ss64.__rsp;
-        uXcptPC = pXcptCtx->__ss.__ss64.__rip;
+                        pXcptCtx->__ss.__r12,  pXcptCtx->__ss.__r13,  pXcptCtx->__ss.__r14, pXcptCtx->__ss.__r15);
+        RTLogLoggerWeak(pLogger, NULL, "fs=%04x gs=%04x eflags=%08x\n",
+                        pXcptCtx->__ss.__fs, pXcptCtx->__ss.__gs,
+                        pXcptCtx->__ss.__rflags);
+        uXcptSP = pXcptCtx->__ss.__rsp;
+        uXcptPC = pXcptCtx->__ss.__rip;
 
 #elif defined(RT_ARCH_X86)
         /** @todo Only useful for the guest additions which aren't officially supported, so not worth the hassle right now. */
