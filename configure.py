@@ -4,7 +4,7 @@ Configuration script for building VirtualBox.
 """
 
 # -*- coding: utf-8 -*-
-# $Id: configure.py 112038 2025-12-05 11:08:29Z andreas.loeffler@oracle.com $
+# $Id: configure.py 112048 2025-12-05 14:44:35Z andreas.loeffler@oracle.com $
 # pylint: disable=consider-using-f-string
 # pylint: disable=global-statement
 # pylint: disable=line-too-long
@@ -39,6 +39,7 @@ SPDX-License-Identifier: GPL-3.0-only
 import argparse
 import ctypes
 import datetime
+import fnmatch
 import glob
 import importlib;
 import io
@@ -156,9 +157,18 @@ g_asPathsPrepend = { 'programfiles' : [], 'ewdk'  : [], 'tools'  : [] };
 g_asPathsAppend = { 'programfiles' : [], 'ewdk'  : [], 'tools'  : [] };
 
 
+def printWarn(sMessage, fLogOnly = False, fDontCount = False):
+    """
+    Prints warning message to stdout.
+    """
+    _ = fLogOnly;
+    print(f"--> Warning: {sMessage}", file=sys.stdout);
+    if not fDontCount:
+        globals()['g_cWarnings'] += 1;
+
 def printError(sMessage, fLogOnly = False, fDontCount = False):
     """
-    Prints an error message to stderr in red.
+    Prints an error message to stderr.
     """
     _ = fLogOnly;
     print(f"*** Error: {sMessage}", file=sys.stderr);
@@ -701,7 +711,7 @@ class LibraryCheck:
             sInTreePath = os.path.join(g_sScriptPath, 'src/libs', self.sName + '-*');
             asPatternMatches = glob.glob(sInTreePath);
             for sCurMatch in asPatternMatches:
-                print(f"{self.sName}: Found library in-tree at '{sCurMatch}, skipping check");
+                print(f"{self.sName}: Found library in-tree at '{sCurMatch}', skipping check");
                 self.fHave = True;
                 # Extract the version from the directory name.
                 oReMatch = re.search(r'-([\d\.]+)$', os.path.basename(os.path.normpath(sCurMatch)));
@@ -895,7 +905,7 @@ class ToolCheck:
                     asCmd = [ sPath,
                              '-sort', # Sort newest version first.
                              '-products', '*',
-                             '-requires', 'Microsoft.VisualStudio.BuildTools*',
+                             '-requires', 'Microsoft.VisualStudio*',
                              '-property', sCurProp,
                              '-format', 'json' ];
                     oProc = subprocess.run(asCmd, capture_output = True, check = False, text = True);
@@ -908,7 +918,7 @@ class ToolCheck:
                             if sCurProp == 'installationPath':
                                 sVCPPPath = curProd.get('installationPath', None);
                             if sCurProp == 'displayName':
-                                print(f"Found {curProd.get('displayName', '')} version {sVCPPVer} at '{sVCPPPath}'");
+                                printVerbose(1, f"Found {curProd.get('displayName', '')} version {sVCPPVer} at '{sVCPPPath}'");
 
                 if not g_fDebug:
                     break;
@@ -921,8 +931,8 @@ class ToolCheck:
             import winreg
             for uVer, sName in [(14, "2015"), (12, "2013"), (11, "2012"), (10, "2010")]:
                 try:
-                    sKey = r'SOFTWARE\Microsoft\VisualStudio\{}.0\Setup\VC'.format(uVer);
-                    with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, sKey) as k:
+                    sVer = r'SOFTWARE\Microsoft\VisualStudio\{}.0\Setup\VC'.format(uVer);
+                    with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, sVer) as k:
                         sVCPPPath, _ = winreg.QueryValueEx(k, "ProductDir");
                         sVCPPVer     = sName;
                         break;
@@ -935,12 +945,60 @@ class ToolCheck:
             sVCPPPath = os.path.join(sVCPPPath, 'VC', 'Tools', 'MSVC');
             asVCPPVer = sorted(glob.glob(os.path.join(sVCPPPath, '*')), reverse = True);
             for sVer in asVCPPVer:
-                sVCPPPath = os.path.join(sVCPPPath, sVer, 'bin', 'Hostx64', 'x64', 'cl.exe');
+                sVCPPPath = os.path.join(sVCPPPath, sVer);
 
-            g_oEnv.set(f'PATH_TOOL_{sVCPPVer}', sVCPPPath);
-            g_oEnv.set(f'PATH_TOOL_{sVCPPVer}X86', sVCPPPath);
-            g_oEnv.set(f'PATH_TOOL_{sVCPPVer}AMD64', sVCPPPath);
-            ## @todo ARM?
+            mapVsToolsScheme = {
+                ## @todo Anything older we support?
+                "14.0"      : ("14.0.xxxxx",       "VCC140", "Visual Studio 2015 (initial)"),
+                "15.0-15.2" : ("14.10.xxxxx",      "VCC141", "Visual Studio 2017 (initial)"),
+                "15.3"      : ("14.11.xxxxx",      "VCC141", "Visual Studio 2017 Update 3"),
+                "15.5"      : ("14.12.xxxxx",      "VCC141", "Visual Studio 2017 Update 5"),
+                "15.6"      : ("14.13.xxxxx",      "VCC141", "Visual Studio 2017 Update 6"),
+                "15.7"      : ("14.14.xxxxx",      "VCC141", "Visual Studio 2017 Update 7"),
+                "15.8"      : ("14.15.xxxxx",      "VCC141", "Visual Studio 2017 Update 8"),
+                "15.9"      : ("14.16.xxxxx",      "VCC141", "Visual Studio 2017 Update 9"),
+                "16.0"      : ("14.20.xxxxx",      "VCC142", "Visual Studio 2019 (initial)"),
+                "16.1-16.11": ("14.21–14.29.xxxxx","VCC142", "Visual Studio 2019 Updates"),
+                "17.0"      : ("14.30.xxxxx",      "VCC143", "Visual Studio 2022 (initial)"),
+                "17.x"      : ("14.3x.xxxxx",      "VCC143", "Visual Studio 2022 Updates")
+            };
+
+            sVCPPVer = '.'.join(sVCPPVer.split('.')[:2]); # Strip build #.
+            sPattern = sVCPPVer;
+            if not any(c in sPattern for c in '*?[]'):
+                sPattern += '*';
+            asMatches = [];
+            # Match all versions.
+            for sVer, (sToolset, sScheme, sDesc) in mapVsToolsScheme.items():
+                sFirstVer = sVer.split('-', maxsplit = 1)[0];
+                if fnmatch.fnmatch(sFirstVer, sPattern):
+                    asMatches.append((sVer, sToolset, sScheme, sDesc));
+
+            if asMatches:
+                # Process all versions matched.
+                for _, _, sScheme, sDesc in asMatches:
+
+                    # Warn if not the current version we're going to use by default.
+                    if int(sScheme.replace("VCC", "")) < 143:
+                        printWarn(f'Warning: Found unsupported {sDesc}, but it may work');
+
+                    # Construct paths.
+                    mapArch2Dir = {
+                        BuildArch.X86  : 'x86',
+                        BuildArch.AMD64: 'x64',
+                        BuildArch.ARM64: 'arm64'
+                    };
+                    g_oEnv.set(f'PATH_TOOL_{sScheme}', sVCPPPath);
+                    for sArch, sDirName in mapArch2Dir.items():
+                        sVCPPBinDir = os.path.join(sVCPPPath, f'Host{sDirName}', sDirName, 'bin');
+                        g_oEnv.set(f'PATH_TOOL_{sScheme}{sArch.upper()}', sVCPPBinDir);
+                        if g_oEnv['KBUILD_TARGET_ARCH'] == sArch:
+                            # Make sure that we have cl.exe in our path so that we can use it for tests compilation lateron.
+                            g_oEnv.prependPath('PATH', sVCPPBinDir);
+                            # Same goes for the libs.
+                            g_oEnv.prependPath('LIB', os.path.join(sVCPPPath, 'lib', sDirName));
+            else:
+                printWarn(f'Warning: Found unsupported Visual C++ version {sVCPPVer}, but it may work');
 
             ## @todo Fix this.
             g_oEnv.prependPath('INCLUDE', r'C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Tools\MSVC\14.16.27023\include');
@@ -949,13 +1007,160 @@ class ToolCheck:
             g_oEnv.prependPath('LIB', r'C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Tools\MSVC\14.16.27023\lib\x64');
             g_oEnv.prependPath('LIB', r'C:\Program Files (x86)\Windows Kits\10\Lib\10.0.19041.0\ucrt\x64');
             g_oEnv.prependPath('LIB', r'C:\Program Files (x86)\Windows Kits\10\Lib\10.0.19041.0\um\x64');
-            g_oEnv.prependPath('PATH', r'c:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Tools\MSVC\14.16.27023\bin\Hostx64\x64');
 
-            g_oEnv.set('config_c_compiler', sVCPPPath);
-            g_oEnv.set('config_cpp_compiler', sVCPPPath);
-            ## @todo VBOX_WITH_NEW_VCC?
+            g_oEnv.set('config_c_compiler', 'cl.exe');
+            g_oEnv.set('config_cpp_compiler', 'cl.exe');
 
         return True if sVCPPVer else False;
+
+    def getHighestVersionDir(self, sPath):
+        """
+        Finds the directory with the highest version number in the given path.
+        """
+        asVer = [];
+        for sCurPath in os.listdir(sPath):
+            sPathFull = os.path.join(sPath, sCurPath);
+            if os.path.isdir(sPathFull):
+                try:
+                    # Strip any number prefixes.
+                    m = re.match(r'^(?:v|[ver]sion[\-_]?|release)?([0-9].*)$', sCurPath, re.IGNORECASE);
+                    sCurPathStripped = m.group(1) if m else sCurPath;
+                    asParts = re.split(r'[\.\-]', sCurPathStripped);
+                    asVerParts = [];
+                    for sPart in asParts:
+                        m = re.match(r'(\d+)(.*)', sPart)
+                        if m:
+                            asVerParts.append(int(m.group(1)));
+                            if m.group(2):
+                                asVerParts.append(m.group(2));
+                        else:
+                            asVerParts.append(sPart);
+                    sVerTuple = tuple(asVerParts);
+                    asVer.append((sVerTuple, sPathFull));
+                except ValueError:
+                    pass;
+
+        # Get the entry with the highest version tuple.
+        return max(asVer) if asVer else (None, None);
+
+    def checkCallback_Win10SDK(self):
+        """
+        Checks for Windows 10 SDK.
+        """
+
+        # Check our tools first.
+        sSDKVer, sSDKPath = self.getHighestVersionDir(os.path.join(g_sScriptPath, 'tools', 'win.x86', 'sdk'));
+        if sSDKVer:
+            sSDKVer = '.'.join(str(s) for _, s in enumerate(sSDKVer));
+        else:
+            try:
+                import winreg;
+                with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
+                                    r"SOFTWARE\Microsoft\Windows Kits\Installed Roots") as oKey:
+
+                    sSDKPath, _ = winreg.QueryValueEx(oKey, "KitsRoot10");
+                    printVerbose(1, f"Found Windows 10 SDK at '{sSDKPath}'");
+
+                    sPathInc = os.path.join(sSDKPath, "Include");
+                    if not os.path.isdir(sPathInc):
+                        printVerbose(1, f"Windows 10 SDK Include path not found in '{sPathInc}'");
+                    else:
+                        asVersions = [];
+                        for sCurPath in os.listdir(sPathInc):
+                            sPathVer = os.path.join(sPathInc, sCurPath);
+                            if os.path.isdir(sPathVer) and sCurPath[0].isdigit():
+                                asVersions.append(sCurPath);
+
+                        # Sort by version (splitting at '.' and converting to ints);
+                        if asVersions:
+                            asVersions.sort(key=lambda v: [int(sPart) for sPart in v.split('.')], reverse = True);
+                            sSDKVer = asVersions[0];
+
+            except FileNotFoundError as ex:
+                printVerbose(1, f'Could not find Windows 10 SDK path in registry: {ex}');
+            finally:
+                pass;
+
+        if sSDKPath:
+            g_oEnv.set('PATH_SDK_WINSDK10', sSDKPath);
+            g_oEnv.set('SDK_WINSDK10_VERSION', sSDKVer);
+            self.sVer = sSDKVer;
+            self.sCmdPath = sSDKPath;
+
+        return True if sSDKVer else False;
+
+    def checkCallback_WinDDK(self):
+        """
+        Checks for the Windows DDK/WDK.
+        """
+
+        # Check our tools first.
+        sDDKVer, sDDKPath = self.getHighestVersionDir(os.path.join(g_sScriptPath, 'tools', 'win.x86', 'ddk'));
+        if sDDKVer:
+            sDDKVer = '.'.join(str(s) for _, s in enumerate(sDDKVer));
+        else:
+            asVer = [];
+            asRegKey = [
+                r"SOFTWARE\Microsoft\Windows Kits\WDK",
+                r"SOFTWARE\Wow6432Node\Microsoft\WINDDK" # Legacy DDKs.
+            ];
+
+            import winreg;
+            for sCurKey in asRegKey:
+                try:
+                    with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, sCurKey) as key:
+                        uIdx = 0;
+                        while True:
+                            try:
+                                sSubKey = winreg.EnumKey(key, uIdx);
+                                with winreg.OpenKey(key, sSubKey) as oSubKey:
+                                    sPath, _ = winreg.QueryValueEx(oSubKey, "InstallationFolder");
+                                    if os.path.exists(sPath):
+                                        asVer.append((sSubKey, sPath));
+                                        printVerbose(1, "{self.sName}: Found directroy in registry '{sPath}'");
+                                uIdx += 1;
+                            except OSError:
+                                break;
+                except FileNotFoundError:
+                    continue;
+
+            asDir = [
+                r"C:\Program Files (x86)\Windows Kits\10",
+                r"C:\WINDDK"
+            ];
+
+            for sCurDir in asDir:
+                if os.path.isdir(sCurDir):
+                    for sPath in os.listdir(sCurDir):
+                        sPathAbs = os.path.join(sCurDir, sPath);
+                        if   os.path.isdir(sPathAbs) \
+                        and (sPathAbs.lower().startswith("wdk") or sPathAbs[0].isdigit()):
+                            asVer.append((sPathAbs, sPathAbs));
+                            printVerbose(1, "{self.sName}: Found file system directroy '{sPathAbs}'");
+
+            # Find 7600.16385.1 (Windows 7 Driver Development Kit, also for Server 2008 R2).
+            if asVer:
+                for sCurPath, _ in asVer:
+                    asFiles = [
+                        "inc/api/ntdef.h",
+                        "lib/win7/i386/int64.lib",
+                        "lib/wlh/i386/int64.lib",
+                        "lib/wnet/i386/int64.lib",
+                        "lib/wxp/i386/int64.lib",
+                        "bin/x86/rc.exe"
+                    ];
+                    for sFile in asFiles:
+                        if not os.path.exists(os.path.join(sCurPath, sFile)):
+                            printError("{self.sName}: File '{sFile} not found in '{sCurPath}'");
+                            return False;
+
+        if sDDKVer:
+            g_oEnv.set('PATH_SDK_WINDDK71', sDDKPath);
+            g_oEnv.set('SDK_WINDDK71_VERSION', sDDKVer);
+            self.sVer = sDDKVer;
+            self.sCmdPath = sDDKPath;
+
+        return True if sDDKVer else False;
 
     def checkCallback_kBuild(self):
         """
@@ -1301,12 +1506,13 @@ class EnvManager:
                     aValueNew = sKey[idxSep + 1:];
                     self.set(sKeyNew, str(aValueNew));
 
-    def write_single(self, fh, sKey, sVal, sWhat = None):
+    def write_single(self, fh, sKey, sVal = None, sWhat = None):
         """
         Writes a single key=value pair to the given file handle.
         """
-        sVal = ''.join(c if c != '\\' else '/' for c in sVal); # Translate to UNIX paths (for kBuild).
-        fh.write(f'{sWhat if sWhat else ''}{sKey}={sVal}\n');
+        if sVal:
+            sVal = ''.join(c if c != '\\' else '/' for c in sVal); # Translate to UNIX paths (for kBuild).
+        fh.write(f'{sWhat if sWhat else ''}{sKey}={sVal if sVal else self.env[sKey]}\n');
 
     def write_all(self, fh, sWhat = None, asPrefixInclude = None, asPrefixExclude = None):
         """
@@ -1524,6 +1730,8 @@ g_aoLibs = sorted([
 g_aoTools = [
     ToolCheck("gcc", asCmd = [ "gcc" ], fnCallback = ToolCheck.checkCallback_gcc, aeTargets = [ BuildTarget.LINUX, BuildTarget.SOLARIS ] ),
     ToolCheck("visualcpp", asCmd = [ ], fnCallback = ToolCheck.checkCallback_VisualCPP, aeTargets = [ BuildTarget.WINDOWS ] ),
+    ToolCheck("win10sdk", asCmd = [ ], fnCallback = ToolCheck.checkCallback_Win10SDK, aeTargets = [ BuildTarget.WINDOWS ] ),
+    ToolCheck("winddk", asCmd = [ ], fnCallback = ToolCheck.checkCallback_WinDDK, aeTargets = [ BuildTarget.WINDOWS ] ),
     ToolCheck("devtools", asCmd = [ ], fnCallback = ToolCheck.checkCallback_devtools ),
     ToolCheck("gsoap", asCmd = [ ], fnCallback = ToolCheck.checkCallback_GSOAP),
     ToolCheck("java", asCmd = [ "java" ]),
@@ -1571,6 +1779,9 @@ def write_autoconfig_kmk(sFilePath, enmBuildTarget, oEnv, aoLibs, aoTools):
                         g_oEnv.write_single(fh, f'SDK_{sVarBase}_LIBS', oLibCur.asLibPaths[0]);
                     if oLibCur.asIncPaths:
                         g_oEnv.write_single(fh, f'SDK_{sVarBase}_INCS', oLibCur.asIncPaths[0]);
+
+            g_oEnv.write_single(fh, 'PATH_SDK_WINSDK10');
+            g_oEnv.write_single(fh, 'SDK_WINSDK10_VERSION');
 
         return True;
     except OSError as ex:
