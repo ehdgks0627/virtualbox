@@ -1,4 +1,4 @@
-/* $Id: init-linux.cpp 112039 2025-12-05 11:15:47Z alexander.eichner@oracle.com $ */
+/* $Id: init-darwin.cpp 112039 2025-12-05 11:15:47Z alexander.eichner@oracle.com $ */
 /** @file
  * IPRT - Init Ring-3, POSIX Specific Code.
  */
@@ -52,26 +52,15 @@
 #include "internal/thread.h"
 
 #include <signal.h>
+#define _XOPEN_SOURCE
 #include <ucontext.h>
-#include <link.h>
-#include <fcntl.h>
-#include <unistd.h>
+#include <mach/mach.h>
+#include <mach-o/dyld.h>
 
 
 /*********************************************************************************************************************************
 *   Structures and Typedefs                                                                                                      *
 *********************************************************************************************************************************/
-
-/**
- * Arguments for the iterate shared objects callback.
- */
-typedef struct RTITSOARGS
-{
-    PRTLOGGER pLogger;
-    uintptr_t uXcptPC;
-} RTITSOARGS;
-typedef RTITSOARGS *PRTITSOARGS;
-typedef const RTITSOARGS *PCRTITSOARGS;
 
 
 /*********************************************************************************************************************************
@@ -87,52 +76,11 @@ static struct sigaction g_SigActionAbort; /**< The default action for SIGABRT. *
 *********************************************************************************************************************************/
 
 /**
- * Tries to log information about the given shared object.
- */
-static int rtR3InitLnxIterateSharedObjects(struct dl_phdr_info *pDlInfo, size_t cbInfo, void *pvUser)
-{
-    PCRTITSOARGS pArgs = (PCRTITSOARGS)pvUser;
-    PRTLOGGER pLogger = pArgs->pLogger;
-    uintptr_t const uXcptPC = pArgs->uXcptPC;
-
-    AssertReturn(cbInfo >= sizeof(*pDlInfo), 0);
-
-    /* Iterate over the program headers and dump the executable segments. */
-    for (uint32_t i = 0; i < pDlInfo->dlpi_phnum; i++)
-    {
-#if defined(RT_ARCH_AMD64) || defined(RT_ARCH_ARM64)
-        const Elf64_Phdr *pPHdr = &pDlInfo->dlpi_phdr[i];
-#elif defined(RT_ARCH_X86)
-        const Elf32_Phdr *pPHdr = &pDlInfo->dlpi_phdr[i];
-#else
-# error "Port me"
-#endif
-        uint32_t const fFlags = pPHdr->p_flags;
-
-        if (fFlags & PF_X)
-        {
-            char chInd = ' ';
-            uintptr_t uAddrStart = pDlInfo->dlpi_addr;
-            uintptr_t uAddrEnd   = uAddrStart + (uintptr_t)pPHdr->p_vaddr + pPHdr->p_memsz - 1;
-
-            if (uXcptPC >= uAddrStart && uXcptPC <= uAddrEnd)
-                chInd = '*';
-
-            RTLogLoggerWeak(pLogger, NULL, "%p..%p%c  %s\n",
-                            uAddrStart, uAddrEnd, chInd, pDlInfo->dlpi_name);
-        }
-    }
-
-    return 0;
-}
-
-
-/**
  * Signal handler callback.
  *
  * Will try log stuff.
  */
-static void rtR3LnxSigSegvBusHandler(int iSignum, siginfo_t *pSigInfo, void *pvContext)
+static void rtR3DarwinSigSegvBusHandler(int iSignum, siginfo_t *pSigInfo, void *pvContext)
 {
     /* Restore the default handler so we do the default action after we finished. */
     struct sigaction *pAction = NULL;
@@ -156,7 +104,7 @@ static void rtR3LnxSigSegvBusHandler(int iSignum, siginfo_t *pSigInfo, void *pvC
         pLogger = RTLogGetDefaultInstanceWeak();
     if (pLogger)
     {
-        RTLogLoggerWeak(pLogger, NULL, "\n!!! rtR3LnxSigSegvBusHandler caught an exception on thread %p in %u !!!\n",
+        RTLogLoggerWeak(pLogger, NULL, "\n!!! rtR3DarwinSigSegvBusHandler caught an exception on thread %p in %u !!!\n",
                         RTThreadNativeSelf(), RTProcSelf());
 
         /*
@@ -177,61 +125,50 @@ static void rtR3LnxSigSegvBusHandler(int iSignum, siginfo_t *pSigInfo, void *pvC
          */
         uintptr_t     uXcptPC = 0;
         uintptr_t     uXcptSP = 0;
-        mcontext_t *pXcptCtx = &pCtx->uc_mcontext;
+        mcontext_t    pXcptCtx = pCtx->uc_mcontext;
 #ifdef RT_ARCH_AMD64
         RTLogLoggerWeak(pLogger, NULL, "\ncs:rip=%04x:%016RX64\n",
-                        pXcptCtx->gregs[REG_CSGSFS], pXcptCtx->gregs[REG_RIP]);
+                        pXcptCtx->__ss.__ss64.__cs, pXcptCtx->__ss.__ss64.__rip);
         RTLogLoggerWeak(pLogger, NULL, "ss:rsp=%04x:%016RX64 rbp=%016RX64\n",
-                        pXcptCtx->gregs[REG_CSGSFS], pXcptCtx->gregs[REG_RSP], pXcptCtx->gregs[REG_RBP]);
+                        pXcptCtx->__ss.__ss, pXcptCtx->__ss.__ss64.__rsp, pXcptCtx->__ss.__ss64.__rbp);
         RTLogLoggerWeak(pLogger, NULL, "rax=%016RX64 rcx=%016RX64 rdx=%016RX64 rbx=%016RX64\n",
-                        pXcptCtx->gregs[REG_RAX], pXcptCtx->gregs[REG_RCX], pXcptCtx->gregs[REG_RDX], pXcptCtx->gregs[REG_RBX]);
+                        pXcptCtx->__ss.__ss64.__rax, pXcptCtx->__ss.__ss64.__rcx, pXcptCtx->__ss.__ss64.__rdx, pXcptCtx->__ss.__ss64.__rbx);
         RTLogLoggerWeak(pLogger, NULL, "rsi=%016RX64 rdi=%016RX64 rsp=%016RX64 rbp=%016RX64\n",
-                        pXcptCtx->gregs[REG_RSI], pXcptCtx->gregs[REG_RDI], pXcptCtx->gregs[REG_RSP], pXcptCtx->gregs[REG_RBP]);
+                        pXcptCtx->__ss.__ss64.__rsi, pXcptCtx->__ss.__ss64.__rdi, pXcptCtx->__ss.__ss64.__rsp, pXcptCtx->__ss.__ss64.__rbp);
         RTLogLoggerWeak(pLogger, NULL, "r8 =%016RX64 r9 =%016RX64 r10=%016RX64 r11=%016RX64\n",
-                        pXcptCtx->gregs[REG_R8],  pXcptCtx->gregs[REG_R9],  pXcptCtx->gregs[REG_R10], pXcptCtx->gregs[REG_R11]);
+                        pXcptCtx->__ss.__ss64.__r8,  pXcptCtx->__ss.__ss64.__r9,  pXcptCtx->__ss.__ss64.__r10, pXcptCtx->__ss.__ss64.__r11);
         RTLogLoggerWeak(pLogger, NULL, "r12=%016RX64 r13=%016RX64 r14=%016RX64 r15=%016RX64\n",
-                        pXcptCtx->gregs[REG_R12],  pXcptCtx->gregs[REG_R13],  pXcptCtx->gregs[REG_R14], pXcptCtx->gregs[REG_R15]);
-        RTLogLoggerWeak(pLogger, NULL, "fs=%04x gs=%04x eflags=%08x\n",
-                        pXcptCtx->gregs[REG_CSGSFS], pXcptCtx->gregs[REG_CSGSFS], pXcptCtx->gregs[REG_EFL]);
-
-        uXcptSP = pXcptCtx->gregs[REG_RSP];
-        uXcptPC = pXcptCtx->gregs[REG_RIP];
+                        pXcptCtx->__ss.__ss64.__r12,  pXcptCtx->__ss.__ss64.__r13,  pXcptCtx->__ss.__ss64.__r14, pXcptCtx->__ss.__ss64.__r15);
+        RTLogLoggerWeak(pLogger, NULL, "fs=%04x gs=%04x ds=%04x es=%04x eflags=%08x\n",
+                        pXcptCtx->__ss.__ss64.__fs, pXcptCtx->__ss.__ss64.__gs, pXcptCtx->__ss.__ds, pXcptCtx->__ss.__es,
+                        pXcptCtx->__ss.__ss64.__rflags);
+        uXcptSP = pXcptCtx->__ss.__ss64.__rsp;
+        uXcptPC = pXcptCtx->__ss.__ss64.__rip;
 
 #elif defined(RT_ARCH_X86)
-        RTLogLoggerWeak(pLogger, NULL, "\ncs:eip=%04x:%08RX32\n", pXcptCtx->gregs[REG_CS], pXcptCtx->gregs[REG_EIP]);
-        RTLogLoggerWeak(pLogger, NULL, "ss:esp=%04x:%08RX32 ebp=%08RX32\n",
-                        pXcptCtx->gregs[REG_SS], pXcptCtx->gregs[REG_ESP], pXcptCtx->gregs[REG_EBP]);
-        RTLogLoggerWeak(pLogger, NULL, "eax=%08RX32 ecx=%08RX32 edx=%08RX32 ebx=%08RX32\n",
-                        pXcptCtx->gregs[REG_EAX], pXcptCtx->gregs[REG_ECX], pXcptCtx->gregs[REG_EDX], pXcptCtx->gregs[REG_EBX]);
-        RTLogLoggerWeak(pLogger, NULL, "esi=%08RX32 edi=%08RX32 esp=%08RX32 ebp=%08RX32\n",
-                        pXcptCtx->gregs[REG_ESI], pXcptCtx->gregs[REG_EDI], pXcptCtx->gregs[REG_ESI], pXcptCtx->gregs[REG_EBP]);
-        RTLogLoggerWeak(pLogger, NULL, "ds=%04x es=%04x fs=%04x gs=%04x eflags=%08x\n",
-                        pXcptCtx->gregs[REG_DS], pXcptCtx->gregs[REG_ES], pXcptCtx->gregs[REG_FS],
-                        pXcptCtx->gregs[REG_GS], pXcptCtx->gregs[REG_EFL]);
-        uXcptSP = pXcptCtx->gregs[REG_ESP];
-        uXcptPC = pXcptCtx->gregs[REG_EIP];
-
+        /** @todo Only useful for the guest additions which aren't officially supported, so not worth the hassle right now. */
 #elif defined(RT_ARCH_ARM64)
-        RTLogLoggerWeak(pLogger, NULL, "\npc=%016RX64 pstate=%016RX64\n", pXcptCtx->pc, pXcptCtx->pstate);
-        RTLogLoggerWeak(pLogger, NULL, "sp=%016RX64\n", pXcptCtx->sp);
+        uXcptSP = arm_thread_state64_get_sp(pXcptCtx->__ss);
+        uXcptPC = arm_thread_state64_get_pc(pXcptCtx->__ss);
+
+        RTLogLoggerWeak(pLogger, NULL, "\npc=%016RX64 pstate=%08RX32\n", uXcptPC, pXcptCtx->__ss.__cpsr);
+        RTLogLoggerWeak(pLogger, NULL, "sp=%016RX64\n", uXcptSP);
         RTLogLoggerWeak(pLogger, NULL, "r0=%016RX64 r1=%016RX64 r2=%016RX64 r3=%016RX64\n",
-                        pXcptCtx->regs[0], pXcptCtx->regs[1], pXcptCtx->regs[2], pXcptCtx->regs[3]);
+                        pXcptCtx->__ss.__x[0], pXcptCtx->__ss.__x[1], pXcptCtx->__ss.__x[2], pXcptCtx->__ss.__x[3]);
         RTLogLoggerWeak(pLogger, NULL, "r4=%016RX64 r5=%016RX64 r6=%016RX64 r7=%016RX64\n",
-                        pXcptCtx->regs[4], pXcptCtx->regs[5], pXcptCtx->regs[6], pXcptCtx->regs[7]);
+                        pXcptCtx->__ss.__x[4], pXcptCtx->__ss.__x[5], pXcptCtx->__ss.__x[6], pXcptCtx->__ss.__x[7]);
         RTLogLoggerWeak(pLogger, NULL, "r8=%016RX64 r9=%016RX64 r10=%016RX64 r11=%016RX64\n",
-                        pXcptCtx->regs[8], pXcptCtx->regs[9], pXcptCtx->regs[10], pXcptCtx->regs[11]);
+                        pXcptCtx->__ss.__x[8], pXcptCtx->__ss.__x[9], pXcptCtx->__ss.__x[10], pXcptCtx->__ss.__x[11]);
         RTLogLoggerWeak(pLogger, NULL, "r12=%016RX64 r13=%016RX64 r14=%016RX64 r15=%016RX64\n",
-                        pXcptCtx->regs[12], pXcptCtx->regs[13], pXcptCtx->regs[14], pXcptCtx->regs[15]);
+                        pXcptCtx->__ss.__x[12], pXcptCtx->__ss.__x[13], pXcptCtx->__ss.__x[14], pXcptCtx->__ss.__x[15]);
         RTLogLoggerWeak(pLogger, NULL, "r16=%016RX64 r17=%016RX64 r18=%016RX64 r19=%016RX64\n",
-                        pXcptCtx->regs[16], pXcptCtx->regs[17], pXcptCtx->regs[18], pXcptCtx->regs[19]);
+                        pXcptCtx->__ss.__x[16], pXcptCtx->__ss.__x[17], pXcptCtx->__ss.__x[18], pXcptCtx->__ss.__x[19]);
         RTLogLoggerWeak(pLogger, NULL, "r20=%016RX64 r21=%016RX64 r22=%016RX64 r23=%016RX64\n",
-                        pXcptCtx->regs[20], pXcptCtx->regs[21], pXcptCtx->regs[22], pXcptCtx->regs[23]);
+                        pXcptCtx->__ss.__x[20], pXcptCtx->__ss.__x[21], pXcptCtx->__ss.__x[22], pXcptCtx->__ss.__x[23]);
         RTLogLoggerWeak(pLogger, NULL, "r24=%016RX64 r25=%016RX64 r26=%016RX64 r27=%016RX64\n",
-                        pXcptCtx->regs[24], pXcptCtx->regs[25], pXcptCtx->regs[26], pXcptCtx->regs[27]);
-        RTLogLoggerWeak(pLogger, NULL, "r28=%016RX64 r29=%016RX64 r30=%016RX64 r31=%016RX64\n",
-                        pXcptCtx->regs[28], pXcptCtx->regs[29], pXcptCtx->regs[30], pXcptCtx->regs[31]);
-        uXcptSP = pXcptCtx->sp;
-        uXcptPC = pXcptCtx->pc;
+                        pXcptCtx->__ss.__x[24], pXcptCtx->__ss.__x[25], pXcptCtx->__ss.__x[26], pXcptCtx->__ss.__x[27]);
+        RTLogLoggerWeak(pLogger, NULL, "r28=%016RX64 r29=%016RX64 r30=%016RX64\n",
+                        pXcptCtx->__ss.__x[28], arm_thread_state64_get_fp(pXcptCtx->__ss), arm_thread_state64_get_lr(pXcptCtx->__ss));
 #endif
 
         /*
@@ -281,38 +218,18 @@ static void rtR3LnxSigSegvBusHandler(int iSignum, siginfo_t *pSigInfo, void *pvC
                         "\nLoaded Modules:\n"
                         "%-*s[*] Path\n", sizeof(void *) * 4 + 2 - 1, "Address range"
                         );
-        RTITSOARGS Args;
-        Args.pLogger = pLogger;
-        Args.uXcptPC = uXcptPC;
-        dl_iterate_phdr(rtR3InitLnxIterateSharedObjects, &Args);
 
-        /** @todo Dump /proc/self/maps ? */
+        /** @todo This is not working right. */
+        uint32_t const cImages = _dyld_image_count();
+        for (uint32_t i = 0; i < cImages; i++)
+        {
+            RTLogLoggerWeak(pLogger, NULL, "%p..%p%c  %s\n",
+                            _dyld_get_image_vmaddr_slide(i), 0, ' ', _dyld_get_image_name(i));
+        }
 
         /*
-         * Dump the command line. We do this last in case it crashes.
+         * Dump the command line.
          */
-        int iFd = -1;
-        iFd = open("/proc/self/cmdline", O_RDONLY);
-        if (iFd != -1)
-        {
-            /* Keep it simple and use a static buffer. */
-            char aszCmdline[_1K];
-            ssize_t cbRead = read(iFd, &aszCmdline[0], sizeof(aszCmdline) - 1);
-            close(iFd);
-            if (cbRead > 0)
-            {
-                aszCmdline[cbRead] = '\0'; /* Terminate */
-                RTLogLoggerWeak(pLogger, NULL, "\nCommandLine: ");
-
-                ssize_t off = 0;
-                while (off < cbRead)
-                {
-                    RTLogLoggerWeak(pLogger, NULL, "%s\n", &aszCmdline[off]);
-                    off += strlen(&aszCmdline[off]) + 1;
-                }
-                RTLogLoggerWeak(pLogger, NULL, "\n");
-            }
-        }
     }
 }
 
@@ -324,7 +241,7 @@ static int rtR3InitNativeObtrusiveWorker(uint32_t fFlags)
     /* Install our own SIGSEGV/SIGBUS/SIGABORT handlers. */
     struct sigaction Action; RT_ZERO(Action);
     Action.sa_flags     = SA_SIGINFO;
-    Action.sa_sigaction = rtR3LnxSigSegvBusHandler;
+    Action.sa_sigaction = rtR3DarwinSigSegvBusHandler;
     sigaction(SIGSEGV, &Action, &g_SigActionSegv);
     sigaction(SIGBUS,  &Action, &g_SigActionBus);
     sigaction(SIGBUS,  &Action, &g_SigActionAbort);

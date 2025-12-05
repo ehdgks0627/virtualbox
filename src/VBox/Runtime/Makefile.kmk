@@ -1,4 +1,4 @@
-# $Id: Makefile.kmk 112026 2025-12-04 19:01:28Z alexander.eichner@oracle.com $
+# $Id: Makefile.kmk 112039 2025-12-05 11:15:47Z alexander.eichner@oracle.com $
 ## @file
 # Sub-Makefile for the IPRT.
 #
@@ -1414,6 +1414,7 @@ RuntimeBaseR3_SOURCES.darwin = \
 	r3/darwin/RTCrStoreCreateSnapshotById-darwin.cpp \
 	r3/darwin/filelock-darwin.cpp \
 	r3/darwin/RTFileQuerySectorSize-darwin.cpp \
+	r3/darwin/init-darwin.cpp \
 	r3/darwin/krnlmod-darwin.cpp \
 	r3/darwin/mp-darwin.cpp \
 	r3/darwin/pathhost-darwin.cpp \
