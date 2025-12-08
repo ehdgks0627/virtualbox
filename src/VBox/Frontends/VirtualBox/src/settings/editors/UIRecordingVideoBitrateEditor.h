@@ -1,4 +1,4 @@
-/* $Id: UIRecordingVideoBitrateEditor.h 111975 2025-12-02 14:53:20Z serkan.bayraktar@oracle.com $ */
+/* $Id: UIRecordingVideoBitrateEditor.h 112053 2025-12-08 13:26:11Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - UIRecordingVideoBitrateEditor class declaration.
  */
@@ -34,37 +34,38 @@
 /* GUI includes: */
 #include "UIEditor.h"
 
-
 /* Forward declarations: */
 class QGridLayout;
 class QLabel;
 class QSpinBox;
 class QIAdvancedSlider;
 
-
-/** UIEditor sub-class used as a recording settings editor. */
+/** UIEditor sub-class used as a recording video bitrate editor. */
 class SHARED_LIBRARY_STUFF UIRecordingVideoBitrateEditor : public UIEditor
 {
     Q_OBJECT;
+
 signals:
 
-    void sigBitrateQualitySliderChanged();
-    void sigBitrateChanged(int iBitrate);
+    /** Notifies listeners about video @a iBitrate change. */
+    void sigVideoBitrateChanged(int iBitrate);
+    /** Notifies listeners about video @a iQuality change. */
+    void sigVideoQualityChanged(int iQuality);
 
 public:
 
     /** Constructs editor passing @a pParent to the base-class. */
-    UIRecordingVideoBitrateEditor(QWidget *pParent = 0, bool fShowInBasicMode = false);
+    UIRecordingVideoBitrateEditor(QWidget *pParent = 0);
 
-    /** Defines bitrate @a iRate. */
-    void setBitrate(int iRate);
-    /** Returns bit rate. */
-    int bitrate() const;
-
-    /** Defines quality @a iQuality. */
+    /** Defines video @a iQuality. */
     void setQuality(int iQuality);
-    /** Return the value of the quality slider. */
+    /** Return video quality. */
     int quality() const;
+
+    /** Defines video @a iBitrate. */
+    void setBitrate(int iBitrate);
+    /** Returns video bitrate. */
+    int bitrate() const;
 
     /** Returns minimum layout hint. */
     int minimumLabelHorizontalHint() const;
@@ -75,10 +76,11 @@ private slots:
 
     /** Handles translation event. */
     virtual void sltRetranslateUI() RT_OVERRIDE RT_FINAL;
-    /** Handles bit rate slider change. */
-    void sltHandleBitRateSliderChange();
-    /** Handles bit rate spinbox change. */
-    void sltHandleBitRateSpinboxChange();
+
+    /** Handles bitrate slider change. */
+    void sltHandleBitrateSliderChange();
+    /** Handles bitrate spinbox change. */
+    void sltHandleBitrateSpinboxChange();
 
 private:
 
@@ -89,27 +91,30 @@ private:
     /** Prepares connections. */
     void prepareConnections();
 
-    /** Populates mode combo-box. */
-    void populateComboMode();
+    /** @name Values
+     * @{ */
+        /** Holds the quality. */
+        int  m_iQuality;
+        /** Holds the bitrate. */
+        int  m_iBitrate;
+    /** @} */
 
     /** @name Widgets
      * @{ */
-        /** Holds the bit rate label instance. */
-        QLabel             *m_pLabel;
-        /** Holds the bit rate settings widget instance. */
-        QWidget            *m_pWidgetBitRateSettings;
-        /** Holds the bit rate slider instance. */
-        QIAdvancedSlider   *m_pSliderQuality;
-        /** Holds the bit rate spinbox instance. */
-        QSpinBox           *m_pSpinbox;
-        /** Holds the bit rate min label instance. */
-        QLabel             *m_pLabelMin;
-        /** Holds the bit rate med label instance. */
-        QLabel             *m_pLabelMed;
-        /** Holds the bit rate max label instance. */
-        QLabel             *m_pLabelMax;
         /** Holds the main layout instance. */
-        QGridLayout        *m_pLayout;
+        QGridLayout      *m_pLayout;
+        /** Holds the bitrate label instance. */
+        QLabel           *m_pLabel;
+        /** Holds the bitrate slider instance. */
+        QIAdvancedSlider *m_pSlider;
+        /** Holds the bitrate spinbox instance. */
+        QSpinBox         *m_pSpinbox;
+        /** Holds the bitrate min label instance. */
+        QLabel           *m_pLabelMin;
+        /** Holds the bitrate med label instance. */
+        QLabel           *m_pLabelMed;
+        /** Holds the bitrate max label instance. */
+        QLabel           *m_pLabelMax;
     /** @} */
 };
 

@@ -1,4 +1,4 @@
-/* $Id: UIRecordingSettingsEditor.h 112015 2025-12-04 13:34:45Z serkan.bayraktar@oracle.com $ */
+/* $Id: UIRecordingSettingsEditor.h 112053 2025-12-08 13:26:11Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - UIRecordingSettingsEditor class declaration.
  */
@@ -98,8 +98,8 @@ public:
     /** Returns frame rate. */
     int frameRate() const;
 
-    /** Defines bitrate @a iRate. */
-    void setBitrate(int iRate);
+    /** Defines @a iBitrate. */
+    void setBitrate(int iBitrate);
     /** Returns bitrate. */
     int bitrate() const;
 
@@ -126,12 +126,10 @@ private slots:
     void sltHandleFeatureToggled();
     /** Handles mode change. */
     void sltHandleModeComboChange();
-    /** Handles frame rate change. */
-    void sltHandleFrameRateChange(int iFrameRate);
-    /** Handles bit rate quality slider change. */
-    void sltHandleBitrateQualitySliderChange();
-    /** Handles bit rate  change. */
-    void sltHandleBitrateChange(int iBitrate);
+    /** Handles video quality change. */
+    void sltHandleVideoQualityChange();
+    /** Handles video bitrate change. */
+    void sltHandleVideoBitrateChange(int iBitrate);
 
 private:
 
@@ -171,13 +169,11 @@ private:
         UISettingsDefs::RecordingMode           m_enmMode;
 
         /** Holds the frame width. */
-        int                      m_iFrameWidth;
+        int      m_iFrameWidth;
         /** Holds the frame height. */
-        int                      m_iFrameHeight;
-        /** Holds the bitrate. */
-        int                      m_iBitrate;
+        int      m_iFrameHeight;
         /** Holds the audio profile. */
-        QString                  m_strAudioProfile;
+        QString  m_strAudioProfile;
 
         /** Holds the screens. */
         QVector<bool>  m_screens;

@@ -1,4 +1,4 @@
-/* $Id: UIRecordingSettingsEditor.cpp 112015 2025-12-04 13:34:45Z serkan.bayraktar@oracle.com $ */
+/* $Id: UIRecordingSettingsEditor.cpp 112053 2025-12-08 13:26:11Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - UIRecordingSettingsEditor class implementation.
  */
@@ -55,7 +55,6 @@ UIRecordingSettingsEditor::UIRecordingSettingsEditor(QWidget *pParent /* = 0 */)
     , m_enmMode(UISettingsDefs::RecordingMode_Max)
     , m_iFrameWidth(0)
     , m_iFrameHeight(0)
-    , m_iBitrate(0)
     , m_pCheckboxFeature(0)
     , m_pLayoutSettings(0)
     , m_pEditorMode(0)
@@ -174,21 +173,15 @@ int UIRecordingSettingsEditor::frameRate() const
     return m_pEditorFrameRate ? m_pEditorFrameRate->frameRate() : 0;
 }
 
-void UIRecordingSettingsEditor::setBitrate(int iRate)
+void UIRecordingSettingsEditor::setBitrate(int iBitrate)
 {
-    /* Update cached value and
-     * spin-box if value has changed: */
-    if (m_iBitrate != iRate)
-    {
-        m_iBitrate = iRate;
-        if (m_pEditorBitrate)
-            m_pEditorBitrate->setBitrate(m_iBitrate);
-    }
+    if (m_pEditorBitrate)
+        m_pEditorBitrate->setBitrate(iBitrate);
 }
 
 int UIRecordingSettingsEditor::bitrate() const
 {
-    return m_pEditorBitrate ? m_pEditorBitrate->bitrate() : m_iBitrate;
+    return m_pEditorBitrate ? m_pEditorBitrate->bitrate() : 0;
 }
 
 void UIRecordingSettingsEditor::setAudioProfile(const QString &strProfile)
@@ -253,14 +246,7 @@ void UIRecordingSettingsEditor::sltHandleModeComboChange()
     updateWidgetAvailability();
 }
 
-void UIRecordingSettingsEditor::sltHandleFrameRateChange(int iFrameRate)
-{
-    Q_UNUSED(iFrameRate);
-    /* Update quality and bit rate: */
-    sltHandleBitrateQualitySliderChange();
-}
-
-void UIRecordingSettingsEditor::sltHandleBitrateQualitySliderChange()
+void UIRecordingSettingsEditor::sltHandleVideoQualityChange()
 {
     /* Calculate/apply proposed bit rate: */
     m_pEditorBitrate->blockSignals(true);
@@ -272,7 +258,7 @@ void UIRecordingSettingsEditor::sltHandleBitrateQualitySliderChange()
     updateRecordingFileSizeHint();
 }
 
-void UIRecordingSettingsEditor::sltHandleBitrateChange(int iBitrate)
+void UIRecordingSettingsEditor::sltHandleVideoBitrateChange(int iBitrate)
 {
     /* Calculate/apply proposed quality: */
     m_pEditorBitrate->blockSignals(true);
@@ -355,7 +341,7 @@ void UIRecordingSettingsEditor::prepareWidgets()
                     addEditor(m_pEditorFrameRate);
                     m_pLayoutSettings->addWidget(m_pEditorFrameRate, ++iLayoutSettingsRow, 0, 1, 4);
                 }
-                m_pEditorBitrate = new UIRecordingVideoBitrateEditor(pWidgetSettings, true);
+                m_pEditorBitrate = new UIRecordingVideoBitrateEditor(pWidgetSettings);
                 if (m_pEditorBitrate)
                 {
                     addEditor(m_pEditorBitrate);
@@ -394,13 +380,13 @@ void UIRecordingSettingsEditor::prepareConnections()
     connect(m_pEditorMode, &UIRecordingModeEditor::sigModeChange,
             this, &UIRecordingSettingsEditor::sltHandleModeComboChange);
     connect(m_pEditorFrameSize, &UIRecordingVideoFrameSizeEditor::sigFrameSizeChanged,
-            this, &UIRecordingSettingsEditor::sltHandleBitrateQualitySliderChange);
+            this, &UIRecordingSettingsEditor::sltHandleVideoQualityChange);
     connect(m_pEditorFrameRate, &UIRecordingVideoFrameRateEditor::sigFrameRateChanged,
-            this, &UIRecordingSettingsEditor::sltHandleFrameRateChange);
-    connect(m_pEditorBitrate, &UIRecordingVideoBitrateEditor::sigBitrateQualitySliderChanged,
-            this, &UIRecordingSettingsEditor::sltHandleBitrateQualitySliderChange);
-    connect(m_pEditorBitrate, &UIRecordingVideoBitrateEditor::sigBitrateChanged,
-            this, &UIRecordingSettingsEditor::sltHandleBitrateChange);
+            this, &UIRecordingSettingsEditor::sltHandleVideoQualityChange);
+    connect(m_pEditorBitrate, &UIRecordingVideoBitrateEditor::sigVideoQualityChanged,
+            this, &UIRecordingSettingsEditor::sltHandleVideoQualityChange);
+    connect(m_pEditorBitrate, &UIRecordingVideoBitrateEditor::sigVideoBitrateChanged,
+            this, &UIRecordingSettingsEditor::sltHandleVideoBitrateChange);
 }
 
 void UIRecordingSettingsEditor::updateWidgetVisibility()
