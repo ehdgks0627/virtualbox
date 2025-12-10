@@ -1,4 +1,4 @@
-/* $Id: memobj-r0drv-linux.c 112071 2025-12-09 22:01:33Z knut.osmundsen@oracle.com $ */
+/* $Id: memobj-r0drv-linux.c 112077 2025-12-10 00:20:57Z knut.osmundsen@oracle.com $ */
 /** @file
  * IPRT - Ring-0 Memory Objects, Linux.
  */
@@ -2161,7 +2161,13 @@ DECLHIDDEN(int) rtR0MemObjNativeProtect(PRTR0MEMOBJINTERNAL pMem, size_t offSub,
         /* Invalidate the mapping and instruction cache, just to be on the safe side... */
         if (fProt & RTMEM_PROT_EXEC)
             flush_icache_range((uintptr_t)pMemLnx->Core.pv + offSub, cbSub);
+#  if defined(RT_ARCH_AMD64) || defined(RT_ARCH_X86) /* flush_tlb_kernel_range is not exported, but __flush_tlb_all is. */
+        preempt_disable();
+        __flush_tlb_all();
+        preempt_enable();
+#  else
         flush_tlb_kernel_range((uintptr_t)pMemLnx->Core.pv + offSub, cbSub);
+#  endif
         return VINF_SUCCESS;
     }
 # endif
