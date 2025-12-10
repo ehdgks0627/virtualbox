@@ -1,4 +1,4 @@
-/* $Id: init-linux.cpp 112039 2025-12-05 11:15:47Z alexander.eichner@oracle.com $ */
+/* $Id: init-linux.cpp 112094 2025-12-10 09:39:09Z knut.osmundsen@oracle.com $ */
 /** @file
  * IPRT - Init Ring-3, POSIX Specific Code.
  */
@@ -61,7 +61,6 @@
 /*********************************************************************************************************************************
 *   Structures and Typedefs                                                                                                      *
 *********************************************************************************************************************************/
-
 /**
  * Arguments for the iterate shared objects callback.
  */
@@ -82,9 +81,6 @@ static struct sigaction g_SigActionBus;   /**< The default action for SIGBUS. */
 static struct sigaction g_SigActionAbort; /**< The default action for SIGABRT. */
 
 
-/*********************************************************************************************************************************
-*   Internal Functions                                                                                                           *
-*********************************************************************************************************************************/
 
 /**
  * Tries to log information about the given shared object.
@@ -175,9 +171,9 @@ static void rtR3LnxSigSegvBusHandler(int iSignum, siginfo_t *pSigInfo, void *pvC
         /*
          * Dump the machine context.
          */
-        uintptr_t     uXcptPC = 0;
-        uintptr_t     uXcptSP = 0;
-        mcontext_t *pXcptCtx = &pCtx->uc_mcontext;
+        uintptr_t     uXcptPC  = 0;
+        uintptr_t     uXcptSP  = 0;
+        mcontext_t   *pXcptCtx = &pCtx->uc_mcontext;
 #ifdef RT_ARCH_AMD64
         RTLogLoggerWeak(pLogger, NULL, "\ncs:rip=%04x:%016RX64\n",
                         pXcptCtx->gregs[REG_CSGSFS], pXcptCtx->gregs[REG_RIP]);
@@ -228,8 +224,8 @@ static void rtR3LnxSigSegvBusHandler(int iSignum, siginfo_t *pSigInfo, void *pvC
                         pXcptCtx->regs[20], pXcptCtx->regs[21], pXcptCtx->regs[22], pXcptCtx->regs[23]);
         RTLogLoggerWeak(pLogger, NULL, "r24=%016RX64 r25=%016RX64 r26=%016RX64 r27=%016RX64\n",
                         pXcptCtx->regs[24], pXcptCtx->regs[25], pXcptCtx->regs[26], pXcptCtx->regs[27]);
-        RTLogLoggerWeak(pLogger, NULL, "r28=%016RX64 r29=%016RX64 r30=%016RX64 r31=%016RX64\n",
-                        pXcptCtx->regs[28], pXcptCtx->regs[29], pXcptCtx->regs[30], pXcptCtx->regs[31]);
+        RTLogLoggerWeak(pLogger, NULL, "r28=%016RX64 r29=%016RX64 r30=%016RX64\n",
+                        pXcptCtx->regs[28], pXcptCtx->regs[29], pXcptCtx->regs[30]);
         uXcptSP = pXcptCtx->sp;
         uXcptPC = pXcptCtx->pc;
 #endif
