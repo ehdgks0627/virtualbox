@@ -4,7 +4,7 @@ Configuration script for building VirtualBox.
 """
 
 # -*- coding: utf-8 -*-
-# $Id: configure.py 112104 2025-12-10 13:15:40Z andreas.loeffler@oracle.com $
+# $Id: configure.py 112111 2025-12-12 17:44:03Z andreas.loeffler@oracle.com $
 # pylint: disable=bare-except
 # pylint: disable=consider-using-f-string
 # pylint: disable=global-statement
@@ -184,6 +184,18 @@ def printVerbose(uVerbosity, sMessage, fLogOnly = False):
     if g_cVerbosity >= uVerbosity:
         print(f"--- {sMessage}");
 
+
+def strip_library_suffix(sLib):
+    """
+    Strips common static/dynamic library suffixes (UNIX, macOS, Windows) from a filename.
+    """
+    sName = os.path.basename(sLib);
+    # Handle .so.X[.Y...] versioned shared libraries.
+    sName = re.sub(r'\.so(\.\d+)*$', '', sName);
+    # Handle .dylib (macOS), .dll/.lib (Windows), .a (static).
+    sName = re.sub(r'\.(dylib|dll|lib|a)$', '', sName, flags = re.IGNORECASE);
+    return sName;
+
 def getLinuxGnuTypeFromPlatform():
     """
     Returns the Linux GNU type based on the platform.
@@ -246,7 +258,7 @@ def checkWhich(sCmdName, sToolDesc = None, sCustomPath = None, asVersionSwitches
             printError(f"Error while checking version of {sToolDesc if sToolDesc else sCmdName}: {str(ex)}");
         return None, None;
 
-    printError(f"'{sCmdName}' not found in PATH.");
+    printVerbose(1, f"'{sCmdName}' not found in PATH.");
     return None, None;
 
 def getLinkerArgs(enmBuildTarget, asLibFiles):
@@ -303,7 +315,7 @@ def getWinError(uCode):
         return wszBuf.value.strip();
     return f'{uCode:#x}'; # Return the plain error (as hex).
 
-def compileAndExecute(sName, enmBuildTarget, enmBuildArch, asIncPaths, asLibPaths, asIncFiles, asLibFiles, sCode, oEnv = None, fLog = True):
+def compileAndExecute(sName, enmBuildTarget, enmBuildArch, asIncPaths, asLibPaths, asIncFiles, asLibFiles, sCode, oEnv = None, asLinkerFlags = None, fLog = True):
     """
     Compiles and executes a test program.
 
@@ -359,6 +371,8 @@ def compileAndExecute(sName, enmBuildTarget, enmBuildArch, asIncPaths, asLibPath
         asCmd.extend( [ sFileSource ] );
         asCmd.extend( [ '-o', sFileImage ] );
     asCmd.extend(getLinkerArgs(enmBuildTarget, asLibFiles));
+    if asLinkerFlags:
+        asCmd.extend(asLinkerFlags);
 
     if g_fDebug:
         print(f'Process environment: {oProcEnv.env}');
@@ -434,8 +448,35 @@ def getPackageLibs(sPackageName):
             raise RuntimeError("Unsupported OS");
 
         oProc = subprocess.run(sCmd, shell = True, check = True, stdout = subprocess.PIPE, stderr = subprocess.PIPE, text =True);
-        asLibs = [ oProc.stdout.strip() ];
-        return True, asLibs;
+        if oProc \
+        and oProc.returncode == 0:
+            asArg = shlex.split(oProc.stdout.strip());
+            asLibDir = [];
+            asLibName = [];
+            asLibs = [];
+            # Gather library dirs and names.
+            for sCurArg in asArg:
+                if sCurArg.startswith("-L"):
+                    asLibDir.append(sCurArg[2:]);
+                elif sCurArg.startswith("-l"):
+                    asLibName.append(sCurArg[2:]);
+            # For each lib, search in the lib_dirs for its corresponding file.
+            for sCurLibName in asLibName:
+                fFound = False;
+                asLibPattern = [ f'lib{sCurLibName}.dylib',
+                                 f'lib{sCurLibName}.so',
+                                 f'lib{sCurLibName}.a' ];
+                for sCurLibDir in asLibDir:
+                    for sCurPattern in asLibPattern:
+                        sCandidate = os.path.join(sCurLibDir, sCurPattern);
+                        asMatches = glob.glob(sCandidate);
+                        if asMatches:
+                            asLibs.append(os.path.abspath(asMatches[0]));
+                            fFound = True;
+                            break;
+                    if fFound:
+                        break;
+            return True, asLibs;
     except subprocess.CalledProcessError:
         printVerbose(1, f'Package "{sPackageName}" invalid or not found');
     return False, None;
@@ -446,7 +487,8 @@ def getPackagePath(sPackageName):
     """
     try:
         if g_enmHostTarget in [ BuildTarget.LINUX, BuildTarget.SOLARIS, BuildTarget.DARWIN ]:
-            # Use pkg-config on Linux and macOS.
+            # Use pkg-config on Linux and Solaris.
+            # On Darwin we ask pkg-config first, then try brew down below.
             sCmd = f"pkg-config --variable=exec_prefix {shlex.quote(sPackageName)}"
         elif g_enmHostTarget == BuildTarget.WINDOWS:
             # Detect VCPKG.
@@ -456,27 +498,39 @@ def getPackagePath(sPackageName):
                 sVcPkgRoot = g_oEnv.get('config_vcpkg_root', os.environ['VCPKG_ROOT'] if 'VCPKG_ROOT' in os.environ else None);
                 if sVcPkgRoot:
                     printVerbose(1, f"vcpkg found at '{sVcPkgRoot}'");
+                    ## @todo Implement this.
                 else:
                     printError('vcpkg found, but VCPKG_ROOT is not defined');
         else:
-            raise RuntimeError("Unsupported OS");
+            raise RuntimeError('Unsupported OS');
 
-        oProc = subprocess.run(sCmd, shell = True, check = True, stdout = subprocess.PIPE, stderr = subprocess.PIPE, text =True);
-        sPath = oProc.stdout.strip();
-        return True, sPath;
-    except subprocess.CalledProcessError:
-        printVerbose(1, f'Package "{sPackageName}" invalid or not found');
+        oProc = subprocess.run(sCmd, shell = True, check = False, stdout = subprocess.PIPE, stderr = subprocess.PIPE, text =True);
+        if oProc.returncode == 0 and oProc.stdout.strip():
+            sPath = oProc.stdout.strip();
+            return True, sPath;
+
+        # If pkg-config fails on Darwin, try asking brew instead.
+        if BuildTarget.DARWIN:
+            sCmd = f'brew --prefix {sPackageName}';
+            oProc = subprocess.run(sCmd, shell = True, check = False, stdout = subprocess.PIPE, stderr = subprocess.PIPE, text =True);
+            if oProc.returncode == 0 and oProc.stdout.strip():
+                sPath = oProc.stdout.strip();
+                return True, sPath;
+
+    except subprocess.CalledProcessError as ex:
+        printVerbose(1, f'Package "{sPackageName}" invalid or not found: {ex}');
     return False, None;
 
 class LibraryCheck:
     """
     Constructor.
     """
-    def __init__(self, sName, asIncFiles, asLibFiles, aeTargets, sCode, aeTargetsExcluded = None, asAltIncFiles = None):
+    def __init__(self, sName, asIncFiles, asLibFiles, aeTargets, sCode, fnCallback = None, aeTargetsExcluded = None, asAltIncFiles = None):
         self.sName = sName
         self.asIncFiles = asIncFiles or [];
         self.asLibFiles = asLibFiles or [];
         self.sCode = sCode;
+        self.fnCallback = fnCallback;
         self.aeTargets = aeTargets;
         self.aeTargetsExcluded = aeTargetsExcluded if aeTargetsExcluded else [];
         self.asAltIncFiles = asAltIncFiles or [];
@@ -484,10 +538,12 @@ class LibraryCheck:
         self.sCustomPath = None;
         # Note: The first entry (index 0) always points to the library include path.
         #       The following indices are for auxillary header paths.
-        self.asIncPaths = None;
+        self.asIncPaths = [];
         # Note: The first entry (index 0) always points to the library include path.
         #       The following indices are for auxillary header paths.
-        self.asLibPaths = None;
+        self.asLibPaths = [];
+        # Additional linker flags.
+        self.asLinkerFlags = [];
         # Is a tri-state: None if not required (optional or not needed), False if required but not found, True if found.
         self.fHave = None;
         # Contains the (parsable) version string if detected.
@@ -519,7 +575,8 @@ class LibraryCheck:
         Returns a tuple (Success, StdOut, StdErr).
         """
         fRc, sStdOut, sStdErr = compileAndExecute(self.sName, enmBuildTarget, enmBuildArch, \
-                                                  self.asIncPaths, self.asLibPaths, self.asIncFiles, self.asLibFiles, self.getTestCode());
+                                                  self.asIncPaths, self.asLibPaths, self.asIncFiles, self.asLibFiles, \
+                                                  self.getTestCode(), asLinkerFlags = self.asLinkerFlags);
         if fRc and sStdOut:
             self.sVer = sStdOut;
         return fRc, sStdOut, sStdErr;
@@ -546,7 +603,7 @@ class LibraryCheck:
         #
         # Windows
         #
-        if  g_oEnv['KBUILD_TARGET'] == BuildTarget.WINDOWS:
+        if g_oEnv['KBUILD_TARGET'] == BuildTarget.WINDOWS:
             #
             # Try VCPKG first.
             #
@@ -560,6 +617,14 @@ class LibraryCheck:
                 asPaths.extend([ os.path.join(r, p) for p in [
                     "\\msys64\\mingw64\\include", "\\msys64\\mingw32\\include", "\\include" ]]);
                 asPaths.extend([ r"c:\\Program Files", r"c:\\Program Files (x86)" ]);
+
+        #
+        # macOS (Darwin)
+        #
+        elif g_oEnv['KBUILD_TARGET'] == BuildTarget.DARWIN:
+            asPaths.extend([ '/opt/homebrew/include',
+                             os.path.join(g_oEnv['config_macos_sdk_path'], 'usr', 'include', 'c++', 'v1') ]);
+
         #
         # Linux / MacOS / Solaris
         #
@@ -570,8 +635,7 @@ class LibraryCheck:
                              "/usr/include/" + sGnuType, "/usr/local/include/" + sGnuType,
                              "/usr/include/" + self.sName, "/usr/local/include/" + self.sName,
                              "/opt/include", "/opt/local/include" ]);
-            if  g_oEnv['KBUILD_TARGET'] == BuildTarget.DARWIN:
-                asPaths.extend([ "/opt/homebrew/include" ]);
+
         #
         # Walk the custom path to guess where the include files are.
         #
@@ -650,19 +714,18 @@ class LibraryCheck:
         if not self.asIncFiles and not self.asAltIncFiles:
             return True;
         asHeaderToSearch = [];
+        asHeaderToSearch = [ 'iostream' ];
         if self.asIncFiles:
             asHeaderToSearch.extend(self.asIncFiles);
         asAltHeaderToSearch = self.asAltIncFiles;
         asHeaderFound = [];
-        asSearchPaths = self.getIncSearchPaths();
+        asSearchPaths = self.asIncPaths + self.getIncSearchPaths();
         for sCurHeader in asHeaderToSearch + asAltHeaderToSearch:
             for sCurSearchPath in asSearchPaths:
                 printVerbose(1, f"{self.sName}: Checking include path for '{sCurHeader}': {sCurSearchPath}");
                 if os.path.isfile(os.path.join(sCurSearchPath, sCurHeader)):
                     if os.sep == "\\":
                         sCurSearchPath = sCurSearchPath.replace("/", "\\");
-                    if not self.asIncPaths:
-                        self.asIncPaths = [];
                     self.asIncPaths.extend([ sCurSearchPath ]);
                     asHeaderFound.extend([ sCurHeader ]);
                     break;
@@ -684,22 +747,21 @@ class LibraryCheck:
         asLibToSearch = self.asLibFiles;
         asLibExts = [];
         if  g_oEnv['KBUILD_TARGET'] == BuildTarget.WINDOWS:
-            asLibExts = ['.lib', '.dll', '.a', '.dll.a'];
+            asLibExts = [ '.lib', '.dll' ];
         elif  g_oEnv['KBUILD_TARGET'] == BuildTarget.DARWIN:
-            asLibExts = ['.a', '.dylib', '.so'];
+            asLibExts = [ '', '.a', '.dylib', '.so' ];
         else:
-            asLibExts = ['.a', '.so'];
+            asLibExts = [ '.a', '.so' ];
         asLibFound = [];
-        asSearchPaths = self.getLibSearchPaths();
+        asSearchPaths = self.asLibPaths + self.getLibSearchPaths();
         for sCurSearchPath in asSearchPaths:
-            printVerbose(1, f'{self.sName}: Checking library path: {sCurSearchPath}');
             for sCurLib in asLibToSearch:
                 for sCurExt in asLibExts:
                     sPattern = os.path.join(sCurSearchPath, f"{sCurLib}*{sCurExt}");
+                    printVerbose(1, f"{self.sName}: Checking library path for '{sPattern}': {sCurSearchPath}");
                     for sCurFile in glob.glob(sPattern):
-                        if os.path.isfile(sCurFile):
-                            if not self.asLibPaths:
-                                self.asLibPaths = [];
+                        if os.path.isfile(sCurFile) \
+                        or os.path.islink(sCurFile):
                             self.asLibPaths.extend([ sCurSearchPath ]);
                             return True;
 
@@ -729,15 +791,17 @@ class LibraryCheck:
                 oReMatch = re.search(r'-([\d\.]+)$', os.path.basename(os.path.normpath(sCurMatch)));
                 if oReMatch:
                     self.sVer = oReMatch.group(1);
-                if not self.asIncPaths:
-                    self.asIncPaths = [];
                 self.asIncPaths.extend([ os.path.relpath(sCurMatch, g_sScriptPath) ]); # Make the path relative to the script.
                 return True; # ASSUMES that we only have one version per lib in-tree.
         self.fHave = False;
         if  g_oEnv['KBUILD_TARGET'] in self.aeTargets \
         or BuildTarget.ANY in self.aeTargets:
             print(f"{self.sName}: Testing library ...");
-            if self.checkInc():
+            fRc = True;
+            if self.fnCallback:
+                fRc = self.fnCallback(self);
+            if  fRc \
+            and self.checkInc():
                 if self.checkLib():
                     self.fHave, _, _ = self.compileAndExecute(g_oEnv['KBUILD_TARGET'], g_oEnv['KBUILD_TARGET_ARCH']);
             if not self.fHave:
@@ -756,6 +820,63 @@ class LibraryCheck:
             return "?";
         else:
             return "failed";
+
+    def checkCallback_Qt6(self):
+        """
+        Tweaks needed for using Qt 6.x.
+        """
+
+        sPathFramework = None;
+
+        # On macOS we have to ask brew for the Qt installation path.
+        if g_enmHostTarget == BuildTarget.DARWIN:
+            asPathFramework = glob.glob(os.path.join(g_oEnv['PATH_DEVTOOLS'], 'qt', '*'));
+            for sPathBase in asPathFramework:
+                sPathFramework = os.path.join(sPathBase, 'lib');
+                if os.path.isdir(sPathFramework):
+                    g_oEnv.set('VBOX_WITH_ORACLE_QT', '1');
+                    return True;
+
+            # Search for the library file.
+            # Note: Ordered by precedence. Do not change!
+            asPath = [ self.sCustomPath,
+                       getPackagePath('qt@6')[1],
+                       '/System/Library',
+                       '/Library' ];
+            sPathFramework = None;
+            for sPathBase in asPath:
+                if not sPathBase: # No custom path? Skip.
+                    continue;
+                asLibFile = [ 'Frameworks/QtCore.framework/QtCore',
+                              'clang_64/lib/QtCore.framework/QtCore',
+                              'lib/QtCore.framework/QtCore' ];
+                for sLibFile in asLibFile:
+                    sPath = os.path.join(sPathBase, sLibFile);
+                    if os.path.isfile(sPath):
+                        sPathFramework = os.path.dirname(sPath);
+                        printVerbose(1, f"{self.sName}: Using framework at '{sPathFramework}'");
+                        break;
+                if sPathFramework:
+                    break;
+
+            if sPathFramework:
+                # We need to clear the library defined the the LibraryCheck definition
+                # -- macOS uses the framework concept instead.
+                self.asLibFiles = [];
+                self.asLibPaths.extend([ sPathFramework ]);
+                self.asLinkerFlags.extend([ '-std=c++17', '-framework', 'QtCore', '-F', f'{sPathBase}/lib', '-g', '-O', '-Wall' ]);
+                self.asIncPaths.extend([ f'{sPathBase}/lib/QtCore.framework/Headers' ]);
+
+            if sPathBase:
+                g_oEnv.set('PATH_SDK_QT6', sPathBase);
+                g_oEnv.set('PATH_SDK_QT6_INC', os.path.join(sPathBase, 'lib'));
+                g_oEnv.set('PATH_SDK_QT6_LIB', os.path.join(sPathBase, 'lib'));
+                if os.path.isfile(os.path.join(sPathBase, 'bin', 'lrelease')):
+                    g_oEnv.set('PATH_TOOL_QT6_BIN', os.path.join(sPathBase, 'bin'));
+                if os.path.isfile(os.path.join(sPathBase, 'libexec', 'moc')):
+                    g_oEnv.set('PATH_TOOL_QT6_LIBEXEC', os.path.join(sPathBase, 'libexec'));
+
+        return True if sPathBase else False;
 
     def __repr__(self):
         return f"{self.sName}: {self.getStatusString()}";
@@ -806,7 +927,7 @@ class ToolCheck:
         if g_oEnv['KBUILD_TARGET'] in self.aeTargets \
         or BuildTarget.ANY in self.aeTargets:
             self.fHave = False;
-            print(f"{self.sName}: Checking ...");
+            print(f"{self.sName}: Checking tool ...");
             if self.fnCallback: # Custom callback function provided?
                 self.fHave = self.fnCallback(self);
             else:
@@ -866,7 +987,6 @@ class ToolCheck:
 
         if not sPath:
             _, sPath = getPackagePath('gsoapssl++');
-
         _, asLibs = getPackageLibs('gsoapssl++');
 
         if not sPath: # Try in dev tools.
@@ -875,9 +995,10 @@ class ToolCheck:
                 if os.path.exists(sDevPath):
                     sPath = sDevPath;
 
-        self.sCmdPath, self.sVer = checkWhich('soapcpp2', sCustomPath = os.path.join(sPath, 'bin'));
-        if not self.sCmdPath:
-            self.sCmdPath, self.sVer = checkWhich('wsdl2h', sCustomPath = os.path.join(sPath, 'bin'));
+        if sPath:
+            self.sCmdPath, self.sVer = checkWhich('soapcpp2', sCustomPath = os.path.join(sPath, 'bin'));
+            if not self.sCmdPath:
+                self.sCmdPath, self.sVer = checkWhich('wsdl2h', sCustomPath = os.path.join(sPath, 'bin'));
 
         if sPath:
             printVerbose(1, f"GSOAP base path is '{sPath}'");
@@ -892,7 +1013,9 @@ class ToolCheck:
 
         g_oEnv.set('VBOX_GSOAP_INSTALLED', '1' if sPath else None);
         g_oEnv.set('VBOX_PATH_GSOAP_IMPORT', sPathImport if sPathImport else None);
-        g_oEnv.set('VBOX_GSOAP_CXX_LIBS', 'libgsoapssl++' if asLibs else None);
+        g_oEnv.set('VBOX_PATH_GSOAP_BIN', os.path.join(sPath, 'bin'));
+        g_oEnv.set('VBOX_GSOAP_CXX_LIBS', strip_library_suffix(asLibs[0]) if asLibs else None);
+        g_oEnv.set('VBOX_GSOAP_INCS', os.path.join(sPath, 'include'));
         # Note: VBOX_GSOAP_CXX_SOURCES gets resolved in checkCallback_GSOAPSources().
 
         return True if sPath else False;
@@ -935,54 +1058,93 @@ class ToolCheck:
         if not sJavaHome:
             sJavaHome = os.environ.get('JAVA_HOME');
         if not sJavaHome:
-            try:
-                sStdErr = subprocess.check_output(['java', '-XshowSettings:properties', '-version'], stderr=subprocess.STDOUT);
-                for sLine in sStdErr.decode().splitlines():
-                    if 'java.home =' in sLine:
-                        sJavaHome = sLine.split('=', 1)[1].strip();
-                        break;
-            except:
-                pass;
+            if g_enmHostTarget == BuildTarget.DARWIN:
+                _, sJavaHome = getPackagePath('openjdk');
+                if sJavaHome:
+                    sJavaHome = sJavaHome + '@17';
+            else:
+                try:
+                    sStdErr = subprocess.check_output(['java', '-XshowSettings:properties', '-version'], stderr=subprocess.STDOUT);
+                    for sLine in sStdErr.decode().splitlines():
+                        if 'java.home =' in sLine:
+                            sJavaHome = sLine.split('=', 1)[1].strip();
+                            break;
+                except:
+                    pass;
 
         if not sJavaHome:
             printError(f'{self.sName}: Unable to detect Java home directory');
+            return False;
+        if not os.path.isdir(sJavaHome):
+            printError(f"{self.sName}: Java home directory '{sJavaHome}' does not exist");
+            return False;
 
         # Strip 'jre' component if found.
         sHead, sTail = os.path.split(os.path.normpath(sJavaHome));
         if sTail == 'jre':
             sJavaHome = sHead;
-
         g_oEnv.set('VBOX_JAVA_HOME', sJavaHome);
 
-        mapCmds = { 'java':  r'version "(\d+)\.(\d+)\.(\d+)_?.*"',
-                    'javac': r'javac (\d+)\.(\d+)\.(\d+)_?.*' };
-        for sCmd, (sRegEx) in mapCmds.items():
-            try:
-                _, sVer = checkWhich(sCmd, sCustomPath = os.path.join(sJavaHome, 'bin'));
-                reMatch = re.search(sRegEx, sVer);
-                if reMatch:
-                    uMaj = int(reMatch.group(1));
-                    # For Java 8 and below, major version is 1 and minor is 8 or less.
-                    # Java 9+ is labeled as "version "9.xx".
-                    if uMaj == 1:
-                        uMaj = int(reMatch.group(2));
-                    if uMaj > 8:
-                        printError(f'{self.sName}: OpenJDK {uMaj} installed ({sCmd}), but need <= 8');
+        mapCmds = { 'java':  [ r'openjdk (\d+)\.(\d+)\.(\d+)' ],
+                    'javac': [ r'javac (\d+)\.(\d+)\.(\d+)_?.*' ] };
+        for sCmd, (asRegEx) in mapCmds.items():
+            for sRegEx in asRegEx:
+                try:
+                    _, sVer = checkWhich(sCmd, sCustomPath = os.path.join(sJavaHome, 'bin') if sJavaHome else None);
+                    reMatch = re.search(sRegEx, sVer);
+                    if reMatch:
+                        uMaj = int(reMatch.group(1));
+                        # For Java 8 and below, major version is 1 and minor is 8 or less.
+                        # Java 9+ is labeled as "version "9.xx".
+                        if uMaj == 1:
+                            uMaj = int(reMatch.group(2));
+                        if uMaj > 17:
+                            printError(f'{self.sName}: OpenJDK {uMaj} installed ({sCmd}), but need <= 8');
+                            fRc = False;
+                            break;
+                    else:
+                        printError(f'{self.sName}: Unable to detect Java version');
                         fRc = False;
                         break;
-                else:
-                    printError(f'{self.sName}: Unable to detect Java version');
+                except:
+                    printError(f'{self.sName}: Java is not installed or not found in PATH');
                     fRc = False;
                     break;
-            except:
-                printError(f'{self.sName}: Java is not installed or not found in PATH');
-                fRc = False;
-                break;
-
         if fRc:
             printVerbose(1, f'{self.sName}: OpenJDK {uMaj} installed');
 
         return fRc;
+
+    def checkCallback_MacOSSDK(self):
+        """
+        Checks for the macOS SDK.
+        """
+
+        sPath = g_oEnv['config_macos_sdk_path'];
+        sVer  = None;
+        if not sPath:
+            asPath = [ '/Library/Developer/CommandLineTools/SDKs' ];
+            oPattern = re.compile(r'MacOSX(\d+)\.(\d+)\.sdk');
+            asSDK = [];
+            for sCurPath in asPath:
+                for d in os.listdir(sCurPath):
+                    if oPattern.match(d):
+                        asSDK.append(d);
+                if asSDK:
+                    sPath = max(asSDK, key=lambda d: tuple(map(int, oPattern.match(d).groups())));
+                    reMatch = oPattern.match(sPath);
+
+                    sPath = os.path.join(sCurPath, sPath);
+                    assert reMatch;
+                    sVer  = reMatch.group(1) + '.' + reMatch.group(2);
+
+        if  sPath \
+        and os.path.isdir(sPath):
+            self.sCmdPath = sPath;
+            self.sVer = sVer;
+            g_oEnv.set('config_macos_sdk_path', self.sCmdPath);
+
+        return True if self.sCmdPath is not None else False;
 
     def checkCallback_VisualCPP(self):
         """
@@ -1114,8 +1276,9 @@ class ToolCheck:
         """
         Finds the directory with the highest version number in the given path.
         """
-        asVer = [];
-        for sCurPath in os.listdir(sPath):
+        asPath = os.listdir(sPath);
+        asVer  = [];
+        for sCurPath in asPath:
             sPathFull = os.path.join(sPath, sCurPath);
             if os.path.isdir(sPathFull):
                 try:
@@ -1306,6 +1469,12 @@ class ToolCheck:
         if not self.sCmdPath:
             self.sCmdPath, self.sVer = checkWhich('clang');
 
+        if  self.sCmdPath \
+        and g_enmHostTarget == BuildTarget.DARWIN:
+            g_oEnv.set('config_c_compiler',   self.sCmdPath);
+            self.sCmdPath, self.sVer = checkWhich('clang++');
+            g_oEnv.set('config_cpp_compiler', self.sCmdPath);
+
         return True if self.sCmdPath else False;
 
     def checkCallback_gcc(self):
@@ -1415,6 +1584,13 @@ class ToolCheck:
         Checks for OpenWatcom tools.
         """
 
+        g_oEnv.set('VBOX_WITH_OPEN_WATCOM', ''); # Set to disabled by default first.
+
+        if  g_enmHostTarget == BuildTarget.DARWIN \
+        and g_enmHostArch   == BuildArch.ARM64:
+            printVerbose(1, 'OpenWatcom not used here (yet), skipping');
+            return True;
+
         # These are the sub directories OpenWatcom ships its binaries in.
         mapBuildTarget2Bin = {
             BuildTarget.DARWIN:  "binosx",  ## @todo Still correct for Apple Silicon?
@@ -1447,6 +1623,7 @@ class ToolCheck:
                 return False;
 
         g_oEnv.set('PATH_TOOL_OPENWATCOM', sPath);
+        g_oEnv.set('VBOX_WITH_OPEN_WATCOM', '1');
         return True;
 
     def checkCallback_PythonC_API(self):
@@ -1529,20 +1706,28 @@ int main()
         #
         # Detect Xcode.
         #
-        asPathsToCheck.extend([
-            '/Library/Developer/CommandLineTools'
-        ]);
+        try:
+            oProc = subprocess.run(['xcode-select', '-p'], capture_output = True, check = False, text = True)
+            if oProc.returncode == 0:
+                asPathsToCheck.extend([ oProc.stdout.strip() ]);
+        except subprocess.SubprocessError:
+            pass;
+
+        fRc = False;
 
         for sPathCur in asPathsToCheck:
             if os.path.isdir(sPathCur):
-                sPathClang      = os.path.join(sPathCur, 'usr/bin/clang');
-                sPathXcodebuild = os.path.join(sPathCur, 'usr/bin/xcodebuild');
+                sPathClang = os.path.join(sPathCur, 'usr/bin/clang');
                 printVerbose(1, ('Checking for CommandLineTools at:', sPathCur));
-                if  os.path.isfile(sPathClang) \
-                and os.path.isfile(sPathXcodebuild):
-                    print('Found CommandLineTools at:', sPathCur);
-                    self.sCmdPath = sPathXcodebuild;
-                    return True;
+                if os.path.isfile(sPathClang):
+                    printVerbose(1, f"{self.sName}: Found CommandLineTools at '{sPathCur}'");
+                    fRc = True;
+                    break;
+
+        if fRc:
+            self.sCmdPath, self.sVer = checkWhich('xcodebuild');
+            if self.sCmdPath: # Note: Does not emit a version.
+                return True;
 
         printError('CommandLineTools not found.');
         return False;
@@ -1633,7 +1818,7 @@ class EnvManager:
         """
         if sKey not in self.env:
             if g_fDebug:
-                printWarn(f'Key {sKey} does not exist -- skipping!');
+                printVerbose(1, f'Key {sKey} does not exist -- skipping!');
             return True;
         if sVal:
             sVal = ''.join(c if c != '\\' else '/' for c in sVal); # Translate to UNIX paths (for kBuild).
@@ -1829,9 +2014,9 @@ g_aoLibs = sorted([
                  '#include <lwip/init.h>\nint main() { printf("%d.%d.%d", LWIP_VERSION_MAJOR, LWIP_VERSION_MINOR, LWIP_VERSION_REVISION); return 0; }\n'),
     LibraryCheck("opengl", [ "GL/gl.h" ], [ "libGL" ], [ BuildTarget.ANY ],
                  '#include <GL/gl.h>\n#include <stdio.h>\nint main() { const GLubyte *s = glGetString(GL_VERSION); printf("%s", s ? (const char *)s : "<found>"); return 0; }\n'),
-    LibraryCheck("qt6", [ "qt6/QtCore/qconfig.h" ], [ "libQt6Core" ], [ BuildTarget.ANY ],
-                 '#include <stdio.h>\n#include <qt6/QtCore/qconfig.h>\nint main() { printf("%s", QT_VERSION_STR); }',
-                 asAltIncFiles = [ "qt/QtCore/qconfig.h" ] ),
+    LibraryCheck("qt6", [ "QtGlobal" ], [ "QtCore" ], [ BuildTarget.ANY ],
+                 '#include <stdio.h>\n#include <QtGlobal>\nint main() { printf("%s", QT_VERSION_STR); }',
+                 asAltIncFiles = [ "qt/QtCore/QtGlobal" ], fnCallback = LibraryCheck.checkCallback_Qt6 ),
     LibraryCheck("sdl2", [ "SDL2/SDL.h" ], [ "libSDL2" ], [ BuildTarget.LINUX, BuildTarget.SOLARIS, BuildTarget.BSD ],
                  '#include <SDL2/SDL.h>\nint main() { printf("%d.%d.%d", SDL_MAJOR_VERSION, SDL_MINOR_VERSION, SDL_PATCHLEVEL); return 0; }\n',
                  asAltIncFiles = [ "SDL.h" ]),
@@ -1853,9 +2038,10 @@ g_aoLibs = sorted([
 # Note: The order is important here for subsequent checks.
 #       Don't change without proper testing!
 g_aoTools = [
-    ToolCheck("clang", asCmd = [ ], fnCallback = ToolCheck.checkCallback_clang, aeTargets = [ BuildTarget.LINUX, BuildTarget.SOLARIS ] ),
+    ToolCheck("clang", asCmd = [ ], fnCallback = ToolCheck.checkCallback_clang, aeTargets = [ BuildTarget.LINUX, BuildTarget.SOLARIS, BuildTarget.DARWIN ] ),
     ToolCheck("gcc", asCmd = [ "gcc" ], fnCallback = ToolCheck.checkCallback_gcc, aeTargets = [ BuildTarget.LINUX, BuildTarget.SOLARIS ] ),
     ToolCheck("glslang-tools", asCmd = [ "glslangValidator" ], aeTargets = [ BuildTarget.LINUX, BuildTarget.SOLARIS ] ),
+    ToolCheck("macossdk", asCmd = [ ], fnCallback = ToolCheck.checkCallback_MacOSSDK, aeTargets = [ BuildTarget.DARWIN ] ),
     ToolCheck("visualcpp", asCmd = [ ], fnCallback = ToolCheck.checkCallback_VisualCPP, aeTargets = [ BuildTarget.WINDOWS ] ),
     ToolCheck("win10sdk", asCmd = [ ], fnCallback = ToolCheck.checkCallback_Win10SDK, aeTargets = [ BuildTarget.WINDOWS ] ),
     ToolCheck("winddk", asCmd = [ ], fnCallback = ToolCheck.checkCallback_WinDDK, aeTargets = [ BuildTarget.WINDOWS ] ),
@@ -2017,7 +2203,8 @@ def main():
     oParser.add_argument('--file-log', help='Path to output log file', action='store_true', default='configure.log', dest='config_file_log');
     oParser.add_argument('--only-additions', help='Only build Guest Additions related libraries and tools', action='store_true', default=None, dest='VBOX_ONLY_ADDITIONS=');
     oParser.add_argument('--only-docs', help='Only build the documentation', action='store_true', default=None, dest='VBOX_ONLY_DOCS=1');
-    oParser.add_argument('--path-out-base', help='Specifies the output directory', action='store', default=None, dest='config_path_out_base');
+    oParser.add_argument('--path-devtools', help='Specifies the devtools directory', default=None, dest='config_path_devtools');
+    oParser.add_argument('--path-out-base', help='Specifies the output directory', default=None, dest='config_path_out_base');
     oParser.add_argument('--ose', help='Builds the OSE version', action='store_true', default=None, dest='VBOX_OSE=1');
     oParser.add_argument('--debug', help='Runs in debug mode. Only use for development', action='store_true', default=False, dest='config_debug');
     oParser.add_argument('--nofatal', '--continue-on-error', help='Continues execution on fatal errors', action='store_true', dest='config_nofatal');
@@ -2036,14 +2223,16 @@ def main():
     oParser.add_argument('--prepend-tools-path', '--prepend-tools-dir', help='Adds an alternative tools directory to search.', dest='config_path_prepend_tools');
     # Windows-specific arguments (the second arguments points to legacy versions kept for backwards compatibility).
     oParser.add_argument('--disable-com', '--disable-com', help='Disable building components which require COM', action='store_true', dest='config_disable_com');
-    oParser.add_argument('--with-win-ddk', '--with-DDK', help='Where the WDK is to be found', action='store_true', dest='config_win_ddk_path');
-    oParser.add_argument('--with-win-midl', '--with-midl', help='Where midl.exe is to be found', action='store_true', dest='config_win_midl_path');
-    oParser.add_argument('--with-win-sdk', '--with-SDK', help='Where the Windows SDK is to be found', action='store_true', dest='config_win_sdk_path');
-    oParser.add_argument('--with-win-sdk10', '--with-SDK10', help='Where the Windows 10 SDK/WDK is to be found', action='store_true', dest='config_win_sdk10_path');
+    oParser.add_argument('--with-win-ddk-path', '--with-DDK', help='Where the WDK is to be found', dest='config_win_ddk_path');
+    oParser.add_argument('--with-win-midl-path', '--with-midl', help='Where midl.exe is to be found', dest='config_win_midl_path');
+    oParser.add_argument('--with-win-sdk-path', '--with-SDK', help='Where the Windows SDK is to be found', dest='config_win_sdk_path');
+    oParser.add_argument('--with-win-sdk10-path', '--with-SDK10', help='Where the Windows 10 SDK/WDK is to be found', dest='config_win_sdk10_path');
     oParser.add_argument('--with-win-vc-common', '--with-VC-Common', help='Maybe needed for 2015 and older to locate the Common7 directory', action='store_true', dest='config_win_vc_common_path');
-    oParser.add_argument('--with-win-vc', '--with-VC', help='Where the Visual C++ compiler is to be found. Expecting bin, include and lib subdirs', action='store_true', dest='config_win_vc_path');
-    oParser.add_argument('--with-win-vcpkg-root', help='Where the VCPKG root directory to be found', action='store_true', dest='config_win_vcpkg_root');
-    oParser.add_argument('--with-win-yasm', '--with-yasm', help='Where YASM is to be found', action='store_true', dest='config_libs_path_yasm'); ## Note: Same as above in libs block.
+    oParser.add_argument('--with-win-vc-path', '--with-VC', help='Where the Visual C++ compiler is to be found. Expecting bin, include and lib subdirs', action='store_true', dest='config_win_vc_path');
+    oParser.add_argument('--with-win-vcpkg-root', help='Where the VCPKG root directory to be found', dest='config_win_vcpkg_root');
+    oParser.add_argument('--with-win-yasm-path', '--with-yasm', help='Where YASM is to be found', action='store_true', dest='config_libs_path_yasm'); ## Note: Same as above in libs block.
+    # MacOS-specific arguments.
+    oParser.add_argument('--with-macos-sdk-path', help='Where the macOS SDK is to be found', dest='config_macos_sdk_path');
 
     try:
         oArgs = oParser.parse_args();
@@ -2078,6 +2267,10 @@ def main():
     g_oEnv.set('KBUILD_PATH', oArgs.config_tools_path_kbuild);
     g_oEnv.set('VBOX_WITH_HARDENING', '1');
     g_oEnv.set('PATH_OUT_BASE', oArgs.config_path_out_base);
+    if getattr(oArgs, 'config_path_devtools'):
+        g_oEnv.set('PATH_DEVTOOLS', oArgs.config_path_devtools);
+    else:
+        g_oEnv.set('PATH_DEVTOOLS', os.path.join(g_sScriptPath, 'tools', g_oEnv['KBUILD_TARGET'] + '.' + g_oEnv['KBUILD_TARGET_ARCH']));
 
     # Handle prepending / appending certain paths ('--[prepend|append]-<whatever>-path') arguments.
     for sArgCur, _ in g_asPathsPrepend.items(): # ASSUMES that g_asPathsAppend and g_asPathsPrepend are in sync.
@@ -2128,6 +2321,9 @@ def main():
     # For instance, building OSE requires certain components to be disabled. Same when a certain library gets disabled.
     #
     envTransforms = [
+        #
+        # Generic
+        #
         # Disabling building the docs when only building Additions or explicitly disabled building the docs.
         lambda env: { 'VBOX_WITH_DOCS_PACKING': ''} if g_oEnv['VBOX_ONLY_ADDITIONS'] or g_oEnv['VBOX_WITH_DOCS'] == '' else {},
         # Disable building the ExtPack VNC when only building Additions or OSE.
@@ -2136,7 +2332,8 @@ def main():
         # Disable stuff which aren't available in OSE.
         lambda env: { 'VBOX_WITH_VALIDATIONKIT': '' , 'VBOX_WITH_WIN32_ADDITIONS': '' } if g_oEnv['VBOX_OSE'] else {},
         lambda env: { 'VBOX_WITH_EXTPACK_PUEL_BUILD': '' } if g_oEnv['VBOX_ONLY_ADDITIONS'] else {},
-        lambda env: { 'VBOX_WITH_QTGUI': '' } if g_oEnv['config_libs_disable_qt'] else {},
+        # Disable FE/Qt if qt6 is disabled.
+        lambda env: { 'VBOX_WITH_QTGUI': '' } if g_oEnv['config_libs_disable_qt6'] else {},
         # Disable components if we want to build headless.
         lambda env: { 'VBOX_WITH_HEADLESS': '1', \
                       'VBOX_WITH_QTGUI': '', \
@@ -2161,6 +2358,20 @@ def main():
                       'VBOX_WITH_QTGUI': '', \
                       'VBOX_WITH_VBOXSDL': '', \
                       'VBOX_WITH_DEBUGGER_GUI': '' } if g_oEnv['config_disable_com'] else {},
+        #
+        # Windows
+        #
+        lambda env: { 'VBOX_PATH_WIN_DDK_ROOT': g_oEnv['config_win_ddk_path'] } if g_oEnv['config_win_ddk_path'] else {},
+        lambda env: { 'VBOX_PATH_WIN_SDK_ROOT': g_oEnv['config_win_sdk_path'] } if g_oEnv['config_win_sdk_path'] else {},
+        lambda env: { 'VBOX_PATH_WIN_SDK10_ROOT': g_oEnv['config_win_sdk10_path'] } if g_oEnv['config_win_sdk10_path'] else {},
+        # Note: Pre-defined environment variable by vcpkg. Do not change.
+        lambda env: { 'VCPKG_ROOT': g_oEnv['config_win_vcpkg_root'] } if g_oEnv['config_win_vcpkg_root'] else {},
+
+        #
+        # macOS
+        #
+        # Sets the macOS SDK path.
+        lambda env: { 'VBOX_PATH_MACOSX_SDK_ROOT': g_oEnv['config_macos_sdk_path'] } if g_oEnv['config_macos_sdk_path'] else {},
     ];
     g_oEnv.transform(envTransforms);
 
@@ -2258,6 +2469,7 @@ def main():
 
                 print();
                 print( 'Then run the build with:');
+                print();
                 print( '  kmk');
                 print();
 
@@ -2269,13 +2481,11 @@ def main():
             print();
 
         if g_oEnv['VBOX_ONLY_ADDITIONS']:
-            print();
             print('Tree configured to build only the Guest Additions');
             print();
 
         if g_oEnv['VBOX_WITH_HARDENING'] \
         or g_oEnv['VBOX_WITHOUT_HARDENING'] == '':
-            print();
             print('  +++ WARNING +++ WARNING +++ WARNING +++ WARNING +++ WARNING +++ WARNING +++');
             print('  Hardening is enabled which means that the VBox binaries will not run from');
             print('  the binary directory. The binaries have to be installed suid root and some');
