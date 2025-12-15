@@ -1,4 +1,4 @@
-/* $Id: UIRecordingSettingsEditor.cpp 112067 2025-12-09 13:13:28Z sergey.dubov@oracle.com $ */
+/* $Id: UIRecordingSettingsEditor.cpp 112115 2025-12-15 14:08:53Z serkan.bayraktar@oracle.com $ */
 /** @file
  * VBox Qt GUI - UIRecordingSettingsEditor class implementation.
  */
@@ -29,7 +29,6 @@
 #include <QCheckBox>
 #include <QComboBox>
 #include <QGridLayout>
-#include <QLabel>
 #include <QVBoxLayout>
 
 /* GUI includes: */
@@ -61,7 +60,6 @@ UIRecordingSettingsEditor::UIRecordingSettingsEditor(QWidget *pParent /* = 0 */)
     , m_pEditorFrameRate(0)
     , m_pEditorBitrate(0)
     , m_pEditorAudioProfile(0)
-    , m_pLabelSizeHint(0)
     , m_pEditorScreenSelector(0)
 {
     prepare();
@@ -207,7 +205,6 @@ void UIRecordingSettingsEditor::sltRetranslateUI()
     m_pCheckboxFeature->setText(tr("&Enable Recording"));
     m_pCheckboxFeature->setToolTip(tr("VirtualBox will record the virtual machine session as a video file"));
 
-    updateRecordingFileSizeHint();
     updateMinimumLayoutHint();
 }
 
@@ -232,7 +229,6 @@ void UIRecordingSettingsEditor::sltHandleVideoQualityChange()
                                                   m_pEditorFrameRate->frameRate(),
                                                   m_pEditorBitrate->quality()));
     m_pEditorBitrate->blockSignals(false);
-    updateRecordingFileSizeHint();
 }
 
 void UIRecordingSettingsEditor::sltHandleVideoBitrateChange(int iBitrate)
@@ -244,7 +240,6 @@ void UIRecordingSettingsEditor::sltHandleVideoBitrateChange(int iBitrate)
                                                   m_pEditorFrameRate->frameRate(),
                                                   iBitrate));
     m_pEditorBitrate->blockSignals(false);
-    updateRecordingFileSizeHint();
 }
 
 void UIRecordingSettingsEditor::prepare()
@@ -333,10 +328,6 @@ void UIRecordingSettingsEditor::prepareWidgets()
                     addEditor(m_pEditorAudioProfile);
                     m_pLayoutSettings->addWidget(m_pEditorAudioProfile, ++iLayoutSettingsRow, 0, 1, 2);
                 }
-                /* Prepare recording size hint label: */
-                m_pLabelSizeHint = new QLabel(pWidgetSettings);
-                if (m_pLabelSizeHint)
-                    m_pLayoutSettings->addWidget(m_pLabelSizeHint, ++iLayoutSettingsRow, 1);
                 /* Prepare screen selector editor: */
                 m_pEditorScreenSelector = new UIRecordingScreenSelectorEditor(this);
                 if (m_pEditorScreenSelector)
@@ -384,14 +375,7 @@ void UIRecordingSettingsEditor::updateWidgetAvailability()
     m_pEditorFrameRate->setEnabled(fFeatureEnabled && m_fOptionsAvailable && fRecordVideo);
     m_pEditorBitrate->setEnabled(fFeatureEnabled && m_fOptionsAvailable && fRecordVideo);
     m_pEditorAudioProfile->setEnabled(fFeatureEnabled && m_fOptionsAvailable && fRecordAudio);
-    m_pLabelSizeHint->setEnabled(fFeatureEnabled && m_fOptionsAvailable && fRecordVideo);
     m_pEditorScreenSelector->setEnabled(fFeatureEnabled && m_fOptionsAvailable && fRecordVideo);
-}
-
-void UIRecordingSettingsEditor::updateRecordingFileSizeHint()
-{
-    m_pLabelSizeHint->setText(tr("<i>About %1MB per 5 minute video</i>")
-                                 .arg(m_pEditorBitrate->bitrate() * 300 / 8 / 1024));
 }
 
 void UIRecordingSettingsEditor::updateMinimumLayoutHint()
