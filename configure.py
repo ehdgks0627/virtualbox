@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """
 Configuration script for building VirtualBox.
+
+Requires >= Python 3.4.
 """
 
 # -*- coding: utf-8 -*-
-# $Id: configure.py 112111 2025-12-12 17:44:03Z andreas.loeffler@oracle.com $
+# $Id: configure.py 112112 2025-12-15 09:41:37Z andreas.loeffler@oracle.com $
 # pylint: disable=bare-except
 # pylint: disable=consider-using-f-string
 # pylint: disable=global-statement
@@ -185,16 +187,27 @@ def printVerbose(uVerbosity, sMessage, fLogOnly = False):
         print(f"--- {sMessage}");
 
 
-def strip_library_suffix(sLib):
+def libraryFileStripSuffix(sLib):
     """
     Strips common static/dynamic library suffixes (UNIX, macOS, Windows) from a filename.
     """
-    sName = os.path.basename(sLib);
     # Handle .so.X[.Y...] versioned shared libraries.
-    sName = re.sub(r'\.so(\.\d+)*$', '', sName);
+    sLib = re.sub(r'\.so(\.\d+)*$', '', sLib);
     # Handle .dylib (macOS), .dll/.lib (Windows), .a (static).
-    sName = re.sub(r'\.(dylib|dll|lib|a)$', '', sName, flags = re.IGNORECASE);
-    return sName;
+    sLib = re.sub(r'\.(dylib|dll|lib|a)$', '', sLib, flags = re.IGNORECASE);
+    return sLib;
+
+def libraryFileGetLinkerArg(sLib, fStripPath = False):
+    """
+    Returns the library file ready to be used as a linker argument.
+    """
+    sLibName = os.path.basename(sLib);
+    if g_enmHostTarget != BuildTarget.WINDOWS: # On Windows we can use the lib name as-is.
+        if      sLibName.startswith('lib') \
+        and not fStripPath:
+            sLibName = sLibName[3:]; # Strip 'lib' prefix.
+        sLibName = libraryFileStripSuffix(sLibName);
+    return sLibName if not fStripPath else os.path.join(os.path.dirname(sLib), sLibName);
 
 def getLinuxGnuTypeFromPlatform():
     """
@@ -623,7 +636,7 @@ class LibraryCheck:
         #
         elif g_oEnv['KBUILD_TARGET'] == BuildTarget.DARWIN:
             asPaths.extend([ '/opt/homebrew/include',
-                             os.path.join(g_oEnv['config_macos_sdk_path'], 'usr', 'include', 'c++', 'v1') ]);
+                             os.path.join(g_oEnv['VBOX_PATH_MACOSX_SDK'], 'usr', 'include', 'c++', 'v1') ]);
 
         #
         # Linux / MacOS / Solaris
@@ -1014,7 +1027,7 @@ class ToolCheck:
         g_oEnv.set('VBOX_GSOAP_INSTALLED', '1' if sPath else None);
         g_oEnv.set('VBOX_PATH_GSOAP_IMPORT', sPathImport if sPathImport else None);
         g_oEnv.set('VBOX_PATH_GSOAP_BIN', os.path.join(sPath, 'bin'));
-        g_oEnv.set('VBOX_GSOAP_CXX_LIBS', strip_library_suffix(asLibs[0]) if asLibs else None);
+        g_oEnv.set('VBOX_GSOAP_CXX_LIBS', libraryFileGetLinkerArg(asLibs[0]) if asLibs else None);
         g_oEnv.set('VBOX_GSOAP_INCS', os.path.join(sPath, 'include'));
         # Note: VBOX_GSOAP_CXX_SOURCES gets resolved in checkCallback_GSOAPSources().
 
@@ -1027,6 +1040,10 @@ class ToolCheck:
         This is needed for linking to functions which are needed when building
         the webservices.
         """
+        if g_oEnv['VBOX_WITH_GSOAP'] == '':
+            printVerbose(1, 'Skipping, as GSOAP is disabled');
+            return True; # Skip check if we don't build with GSOAP enabled.
+
         sPath       = self.sCustomPath; # Acts as the 'found' beacon.
         sSourceFile = None;
 
@@ -1034,6 +1051,7 @@ class ToolCheck:
             sSourceFile = os.path.join(sPath, 'stdsoap2.cpp');
         if sSourceFile and os.path.isfile(sSourceFile):
             g_oEnv.set('VBOX_GSOAP_CXX_SOURCES', sSourceFile);
+            self.sCmdPath = sSourceFile; # To show the source path in the summary table.
         else:
             if not g_oEnv['VBOX_WITH_WEBSERVICES'] \
             or     g_oEnv['VBOX_WITH_WEBSERVICES'] == '1':
@@ -1120,31 +1138,42 @@ class ToolCheck:
         Checks for the macOS SDK.
         """
 
-        sPath = g_oEnv['config_macos_sdk_path'];
-        sVer  = None;
-        if not sPath:
+        sPath = None;
+        if self.sCustomPath:
+            sPath = self.sCustomPath;
+        else:
             asPath = [ '/Library/Developer/CommandLineTools/SDKs' ];
-            oPattern = re.compile(r'MacOSX(\d+)\.(\d+)\.sdk');
             asSDK = [];
+            oPattern = re.compile(r'MacOSX(\d+)\.(\d+)\.sdk');
             for sCurPath in asPath:
-                for d in os.listdir(sCurPath):
-                    if oPattern.match(d):
-                        asSDK.append(d);
-                if asSDK:
-                    sPath = max(asSDK, key=lambda d: tuple(map(int, oPattern.match(d).groups())));
-                    reMatch = oPattern.match(sPath);
-
-                    sPath = os.path.join(sCurPath, sPath);
-                    assert reMatch;
-                    sVer  = reMatch.group(1) + '.' + reMatch.group(2);
+                if not sCurPath:
+                    continue;
+                try:
+                    for d in os.listdir(sCurPath):
+                        if oPattern.match(d):
+                            asSDK.append(d);
+                    if asSDK:
+                        # Pick the oldest SDK offered by Xcode, to get maximum compatibility.
+                        sPath = min(asSDK, key=lambda d: tuple(map(int, oPattern.match(d).groups())));
+                        sPath = os.path.join(sCurPath, sPath);
+                except FileNotFoundError as ex:
+                    printError(f'{self.sName}: {ex}');
 
         if  sPath \
         and os.path.isdir(sPath):
             self.sCmdPath = sPath;
-            self.sVer = sVer;
-            g_oEnv.set('config_macos_sdk_path', self.sCmdPath);
+            # Check the .plist file if this is a valid SDK directory.
+            import plistlib; # Since Python 3.4.
+            with open(os.path.join(self.sCmdPath, 'SDKSettings.plist'), 'rb') as fh:
+                plistData = plistlib.load(fh);
+            if plistData:
+                self.sVer = plistData.get('Version');
+            if self.sVer:
+                g_oEnv.set('VBOX_PATH_MACOSX_SDK', self.sCmdPath);
+                return True;
 
-        return True if self.sCmdPath is not None else False;
+        printError(f'{self.sName}: MacOS SDK not found or invalid directory specified');
+        return False;
 
     def checkCallback_VisualCPP(self):
         """
@@ -1718,7 +1747,7 @@ int main()
         for sPathCur in asPathsToCheck:
             if os.path.isdir(sPathCur):
                 sPathClang = os.path.join(sPathCur, 'usr/bin/clang');
-                printVerbose(1, ('Checking for CommandLineTools at:', sPathCur));
+                printVerbose(1, f"{self.sName}: Checking for CommandLineTools at '{sPathCur}'");
                 if os.path.isfile(sPathClang):
                     printVerbose(1, f"{self.sName}: Found CommandLineTools at '{sPathCur}'");
                     fRc = True;
@@ -1727,6 +1756,7 @@ int main()
         if fRc:
             self.sCmdPath, self.sVer = checkWhich('xcodebuild');
             if self.sCmdPath: # Note: Does not emit a version.
+                g_oEnv.set('VBOX_WITH_EVEN_NEWER_XCODE', '1');
                 return True;
 
         printError('CommandLineTools not found.');
