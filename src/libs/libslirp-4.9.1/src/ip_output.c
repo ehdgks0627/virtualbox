@@ -69,7 +69,7 @@ int ip_output(struct socket *so, struct mbuf *m0)
     ip->ip_v = IPVERSION;
     ip->ip_off &= IP_DF;
 #ifdef VBOX
-    ip->ip_id = htons((uint16_t)RTRandU32());
+    ip->ip_id = htons((uint16_t)RTRandU32Ex(0, 65535));
 #else
     ip->ip_id = htons(slirp->ip_id++);
 #endif
