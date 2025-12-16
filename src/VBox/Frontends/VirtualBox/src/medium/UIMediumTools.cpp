@@ -1,4 +1,4 @@
-/* $Id: UIMediumTools.cpp 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $ */
+/* $Id: UIMediumTools.cpp 112128 2025-12-16 12:59:14Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - UIMediumTools class implementation.
  */
@@ -402,6 +402,9 @@ void UIMediumTools::prepareStorageMenu(QMenu *pMenu,
     /* Prepare choose-existing-host-drive actions: */
     foreach (const CMedium &comMedium, comMedia)
     {
+        /* Make sure host-drive is enumerated: */
+        if (!gpMediumEnumerator->mediumIDs().contains(comMedium.GetId()))
+            gpMediumEnumerator->enumerateMedia(CMediumVector() << comMedium);
         /* Make sure host-drive usage is unique: */
         bool fIsHostDriveUsed = false;
         foreach (const CMediumAttachment &comOtherAttachment, comAttachments)
