@@ -6,7 +6,7 @@ Requires >= Python 3.4.
 """
 
 # -*- coding: utf-8 -*-
-# $Id: configure.py 112146 2025-12-17 11:57:08Z andreas.loeffler@oracle.com $
+# $Id: configure.py 112147 2025-12-17 12:15:40Z andreas.loeffler@oracle.com $
 # pylint: disable=bare-except
 # pylint: disable=consider-using-f-string
 # pylint: disable=global-statement
@@ -39,7 +39,7 @@ along with this program; if not, see <https://www.gnu.org/licenses>.
 SPDX-License-Identifier: GPL-3.0-only
 """
 
-__revision__ = "$Revision: 112146 $"
+__revision__ = "$Revision: 112147 $"
 
 import argparse
 import ctypes
@@ -733,8 +733,8 @@ class LibraryCheck(CheckBase):
         """
         Applies argparse options for disabling and custom paths.
         """
-        self.fDisabled = getattr(args, f"config_libs_disable_{self.sName.replace('-', '_')}", False);
-        self.sCustomPath = getattr(args, f"config_libs_path_{self.sName.replace('-', '_')}", None);
+        self.fDisabled = getattr(args, f'config_libs_disable_{self.sName.replace("-", "_")}', False);
+        self.sCustomPath = getattr(args, f'config_libs_path_{self.sName.replace("-", "_")}', None);
 
     def getIncSearchPaths(self):
         """
@@ -2599,13 +2599,15 @@ def main():
     oParser.add_argument('--disable-com', '--disable-com', help='Disable building components which require COM', action='store_true', dest='config_disable_com');
     oParser.add_argument('--with-win-midl-path', '--with-midl', help='Where midl.exe is to be found', dest='config_win_midl_path');
     oParser.add_argument('--with-win-vcpkg-root', help='Where the VCPKG root directory to be found', dest='config_win_vcpkg_root');
-    # Windows: The following arguments are deprecated and undocumented -- kept for backwards compatibility.
+    # The following arguments are deprecated and undocumented -- kept for backwards compatibility.
+    oParser.add_argument('--enable-webservice', help=argparse.SUPPRESS, default=None, dest='VBOX_WITH_WEBSERVICES=1');
     oParser.add_argument('--with-ddk', help=argparse.SUPPRESS, dest='config_tools_path_win_ddk');
-    oParser.add_argument('--with-qt', help=argparse.SUPPRESS, dest='config_tools_path_qt6');
+    oParser.add_argument('--with-qt', '--with-qt-dir', help=argparse.SUPPRESS, dest='config_tools_path_qt6');
     oParser.add_argument('--with-sdk10', help=argparse.SUPPRESS, dest='config_tools_path_win_sdk10');
     oParser.add_argument('--with-libsdl', help=argparse.SUPPRESS, dest='config_libs_path_sdl');
     oParser.add_argument('--with-vc', help=argparse.SUPPRESS, dest='config_tools_path_win_visualcpp');
     oParser.add_argument('--with-vc-common', help=argparse.SUPPRESS, dest='config_tools_path_win_visualcpp_common');
+    oParser.add_argument('--with-ow-dir', help=argparse.SUPPRESS, dest='config_tools_path_openwatcom');
     oParser.add_argument('--with-yasm', help=argparse.SUPPRESS, dest='config_tools_path_yasm');
     # MacOS-specific arguments.
     oParser.add_argument('--with-macos-sdk-path', help='Where the macOS SDK is to be found', dest='config_macos_sdk_path');
@@ -2670,8 +2672,8 @@ def main():
 
     # Filter libs and tools based on --only-XXX flags.
     # Replace '-' with '_' so that we can use variables directly w/o getattr lateron.
-    aoOnlyLibs = [lib for lib in g_aoLibs if getattr(oArgs, f'config_libs_only_{lib.sName.replace('-', '_')}', False)];
-    aoOnlyTools = [tool for tool in g_aoTools if getattr(oArgs, f'config_tools_only_{tool.sName.replace('-', '_')}', False)];
+    aoOnlyLibs = [lib for lib in g_aoLibs if getattr(oArgs, f'config_libs_only_{lib.sName.replace("-", "_")}', False)];
+    aoOnlyTools = [tool for tool in g_aoTools if getattr(oArgs, f'config_tools_only_{tool.sName.replace("-", "_")}', False)];
     aoLibsToCheck = aoOnlyLibs if aoOnlyLibs else g_aoLibs;
     aoToolsToCheck = aoOnlyTools if aoOnlyTools else g_aoTools;
     # Filter libs and tools based on build target.
