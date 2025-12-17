@@ -6,7 +6,7 @@ Requires >= Python 3.4.
 """
 
 # -*- coding: utf-8 -*-
-# $Id: configure.py 112148 2025-12-17 12:44:19Z andreas.loeffler@oracle.com $
+# $Id: configure.py 112149 2025-12-17 14:00:45Z andreas.loeffler@oracle.com $
 # pylint: disable=bare-except
 # pylint: disable=consider-using-f-string
 # pylint: disable=global-statement
@@ -39,7 +39,7 @@ along with this program; if not, see <https://www.gnu.org/licenses>.
 SPDX-License-Identifier: GPL-3.0-only
 """
 
-__revision__ = "$Revision: 112148 $"
+__revision__ = "$Revision: 112149 $"
 
 import argparse
 import ctypes
@@ -94,17 +94,22 @@ class BuildArch:
     AMD64 = "amd64";
     ARM64 = "arm64";
 
-# Defines the host architecture.
-g_sHostArch = platform.machine().lower();
-# Map host arch to build arch.
-g_enmHostArch = {
+# Map to translate the Python architecture to kBuild architecture.
+g_mapPythonArch2BuildArch = {
     "i386": BuildArch.X86,
     "i686": BuildArch.X86,
     "x86_64": BuildArch.AMD64,
     "amd64": BuildArch.AMD64,
     "aarch64": BuildArch.ARM64,
     "arm64": BuildArch.ARM64
-}.get(g_sHostArch, BuildArch.UNKNOWN);
+};
+
+# Defines the host architecture.
+g_sHostArch = platform.machine().lower();
+# Maps host arch to build arch.
+g_enmHostArch = g_mapPythonArch2BuildArch.get(g_sHostArch, BuildArch.UNKNOWN);
+# Maps Python (interpreter) arch to build arch.
+g_enmPythonArch = g_mapPythonArch2BuildArch.get(sysconfig.get_platform().split('-')[-1]);
 
 class BuildTarget:
     """
@@ -1887,9 +1892,8 @@ class ToolCheck(CheckBase):
         if g_enmHostTarget == BuildTarget.DARWIN:
             return True;
 
-        sPythonArch = sysconfig.get_platform().split('-')[1];
-        if sPythonArch != g_oEnv['KBUILD_TARGET_ARCH']:
-            self.printWarn(f"Mismatch between detected platform/architecture '{sPythonArch}' and kBuild Python target/architecture '{g_oEnv['KBUILD_TARGET_ARCH']}'");
+        if g_enmPythonArch != g_oEnv['KBUILD_TARGET_ARCH']:
+            self.printWarn(f"Mismatch between detected platform/architecture '{g_enmPythonArch}' and kBuild Python target/architecture '{g_oEnv['KBUILD_TARGET_ARCH']}'");
             self.printWarn( 'Make sure that the correct Python version is installed for the target architecture.');
             # Continue anyway.
 
