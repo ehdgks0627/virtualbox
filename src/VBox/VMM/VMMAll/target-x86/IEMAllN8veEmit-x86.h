@@ -1,4 +1,4 @@
-/* $Id: IEMAllN8veEmit-x86.h 111870 2025-11-25 15:04:16Z knut.osmundsen@oracle.com $ */
+/* $Id: IEMAllN8veEmit-x86.h 112175 2025-12-19 06:19:27Z bela.lubkin@oracle.com $ */
 /** @file
  * IEM - Native Recompiler, x86 Target - Code Emitters.
  */
@@ -3218,6 +3218,7 @@ iemNativeEmitMxcsrUpdate(PIEMRECOMPILERSTATE pReNative, uint32_t off, uint8_t co
      */
     /** @todo On ARM we can combine the load+and into one and instruction. */
     /** @todo r=aeichner Can this be done more optimal? */
+    /** @todo This mishandles OE, UE, PE in some cases, see r171850 in IEMAllAImplC-x86.cpp */
     uint8_t const idxRegTmp2 = iemNativeRegAllocTmp(pReNative, &off);
     off = iemNativeEmitLoadGprFromGpr32(pReNative, off, idxRegTmp, idxRegMxCsrXcptFlags);
     off = iemNativeEmitAndGpr32ByImm(pReNative, off, idxRegTmp, X86_MXCSR_OE | X86_MXCSR_UE);
