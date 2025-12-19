@@ -1,4 +1,4 @@
-/* $Id: test.cpp 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $ */
+/* $Id: test.cpp 112172 2025-12-19 06:09:35Z bela.lubkin@oracle.com $ */
 /** @file
  * IPRT - Testcase Framework.
  */
@@ -1324,7 +1324,7 @@ RTR3DECL(int) RTTestSub(RTTEST hTest, const char *pszSubTest)
 
     int cch = 0;
     if (pTest->enmMaxLevel >= RTTESTLVL_DEBUG)
-        cch = RTTestPrintfNl(hTest, RTTESTLVL_DEBUG, "debug: Starting sub-test '%s'\n", pszSubTest);
+        cch = RTTestPrintfNl(hTest, RTTESTLVL_DEBUG, "debug: Starting sub-test %d '%s'\n", pTest->Sub.cTests, pszSubTest);
 
     if (!pTest->fXmlTopTestDone)
     {
