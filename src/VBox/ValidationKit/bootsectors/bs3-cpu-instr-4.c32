@@ -1,4 +1,4 @@
-/* $Id: bs3-cpu-instr-4.c32 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $ */
+/* $Id: bs3-cpu-instr-4.c32 112173 2025-12-19 06:09:53Z bela.lubkin@oracle.com $ */
 /** @file
  * BS3Kit - bs3-cpu-instr-4 & bs3-cpu-instr-5 - SSE, AVX FPU instructions, C code template.
  */
@@ -3290,6 +3290,9 @@ static uint8_t bs3CpuInstr4_WorkerTestType1(uint8_t bMode, unsigned cTests, BS3C
 # define TODO_MXCSR_ORDER            /* (test harness issue, not IEM) */
 # undef  BS3_MXCSR_PE_FUZZY          /* most or all mentions of BS3_MXCSR_PE_FUZZY represent cases where */
 # define BS3_MXCSR_PE_FUZZY 0        /*    IEM behavior disagrees with hardware; they need investigation */
+# define TODO_RCP_IEM                /* approximate reciprocal instructions: IEM results are too precise */
+# define TODO_RSQRT_IEM              /* approximate reciprocal square root instructions: IEM results are too precise */
+# define TODO_DPP_IEM                /* dot product instructions: IEM raises wrong exceptions and returns wrong NaN patterns */
 #endif /* TODO_EXPOSE_IEM_ERRATA */
 
 /** @todo Additionally, tons of things fail in IEM built without 'IEM_WITHOUT_ASSEMBLY=1';
@@ -24896,16 +24899,22 @@ BS3_DECL(void) Main_pe32()
         { "[v]minsd",       bs3CpuInstr4_v_minsd,     0 },
 # endif /* BS3_CPU_INSTR_4 */
 # if defined(BS3_CPU_INSTR_5)
+#ifdef TODO_RCP_IEM
         { "[v]rcpps",       bs3CpuInstr4_v_rcpps,     0 },
         { "[v]rcpss",       bs3CpuInstr4_v_rcpss,     0 },
+#endif /* TODO_RCP_IEM */
         { "[v]sqrtps",      bs3CpuInstr4_v_sqrtps,    0 },
         { "[v]sqrtpd",      bs3CpuInstr4_v_sqrtpd,    0 },
         { "[v]sqrtss",      bs3CpuInstr4_v_sqrtss,    0 },
         { "[v]sqrtsd",      bs3CpuInstr4_v_sqrtsd,    0 },
+#ifdef TODO_RSQRT_IEM
         { "[v]rsqrtps",     bs3CpuInstr4_v_rsqrtps,   0 },
         { "[v]rsqrtss",     bs3CpuInstr4_v_rsqrtss,   0 },
+#endif /* TODO_RSQRT_IEM */
+#ifdef TODO_DPP_IEM
         { "[v]dpps",        bs3CpuInstr4_v_dpps,      0 },
         { "[v]dppd",        bs3CpuInstr4_v_dppd,      0 },
+#endif /* TODO_DPP_IEM */
         { "[v]roundps",     bs3CpuInstr4_v_roundps,   0 },
         { "[v]roundpd",     bs3CpuInstr4_v_roundpd,   0 },
         { "[v]roundss",     bs3CpuInstr4_v_roundss,   0 },
