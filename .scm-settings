@@ -1,4 +1,4 @@
-# $Id: .scm-settings 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $
+# $Id: .scm-settings 112184 2025-12-20 22:42:49Z knut.osmundsen@oracle.com $
 ## @file
 # Top level source code massager settings.
 #
@@ -80,8 +80,6 @@
 --filter-out-files "*/COPYING.GPLv2"
 --filter-out-files "*/COPYING.UBDL"
 --filter-out-files "*.desktop"
---filter-out-files "*/.swagger-codegen-ignore"
---filter-out-files "*/.swagger-codegen/VERSION"
 
 
 #
