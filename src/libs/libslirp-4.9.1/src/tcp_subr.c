@@ -424,6 +424,10 @@ int tcp_fconnect(struct socket *so, unsigned short af)
 
         /* We don't care what port we get */
         ret = connect(s, (struct sockaddr *)&addr, sockaddr_size(&addr));
+#ifdef VBOX
+        if (ret < 0)
+            Log2(("connect error: %d\n", errno));
+#endif
 
         /*
          * If it's not in progress, it failed, so we just return 0,
