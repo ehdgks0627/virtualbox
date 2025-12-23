@@ -6,7 +6,7 @@ Requires >= Python 3.4.
 """
 
 # -*- coding: utf-8 -*-
-# $Id: configure.py 112206 2025-12-23 16:18:14Z andreas.loeffler@oracle.com $
+# $Id: configure.py 112207 2025-12-23 16:26:50Z andreas.loeffler@oracle.com $
 # pylint: disable=bare-except
 # pylint: disable=consider-using-f-string
 # pylint: disable=global-statement
@@ -39,7 +39,7 @@ along with this program; if not, see <https://www.gnu.org/licenses>.
 SPDX-License-Identifier: GPL-3.0-only
 """
 
-__revision__ = "$Revision: 112206 $"
+__revision__ = "$Revision: 112207 $"
 
 import argparse
 import ctypes
@@ -562,7 +562,7 @@ def compileAndExecute(sName, enmBuildTarget, enmBuildArch, asIncPaths, asLibPath
                     sStdOut = oProc.stdout.decode('utf-8', 'replace').strip();
                     fRet = True;
                 else:
-                    sStdErr = oProc.stderr.decode("utf-8", errors="ignore");
+                    sStdErr = oProc.stderr.decode("utf-8", errors="ignore") if oProc.stderr else None;
                     if fLog:
                         printError(f"Execution of test binary for {sName} failed with return code {oProc.returncode}:");
                         if enmBuildTarget == BuildTarget.WINDOWS:
