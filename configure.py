@@ -6,7 +6,7 @@ Requires >= Python 3.4.
 """
 
 # -*- coding: utf-8 -*-
-# $Id: configure.py 112197 2025-12-23 11:03:35Z andreas.loeffler@oracle.com $
+# $Id: configure.py 112198 2025-12-23 11:22:55Z andreas.loeffler@oracle.com $
 # pylint: disable=bare-except
 # pylint: disable=consider-using-f-string
 # pylint: disable=global-statement
@@ -39,7 +39,7 @@ along with this program; if not, see <https://www.gnu.org/licenses>.
 SPDX-License-Identifier: GPL-3.0-only
 """
 
-__revision__ = "$Revision: 112197 $"
+__revision__ = "$Revision: 112198 $"
 
 import argparse
 import ctypes
@@ -359,6 +359,9 @@ def checkWhich(sCmdName, sToolDesc = None, sCustomPath = None, asVersionSwitches
 
     Returns a tuple of (command path, version string) or (None, None) if not found.
     """
+
+    if not sCmdName:
+        return None, None;
 
     sExeSuff = getExeSuff();
     if not sCmdName.endswith(sExeSuff):
@@ -2943,7 +2946,7 @@ def main():
     # Note: '--odir' is kept for backwards compatibility.
     oParser.add_argument('--output-dir', '--odir', help='Specifies the output directory for all output files', default=g_sScriptPath, dest='config_out_dir');
     # Note: '--out-base-dir' is kept for backwards compatibility.
-    oParser.add_argument('--output-build-dir', '--out-base-dir', help='Specifies the build output directory', default=None, dest='config_build_dir');
+    oParser.add_argument('--output-build-dir', '--out-base-dir', help='Specifies the build output directory', default=os.path.join(g_sScriptPath, 'out'), dest='config_build_dir');
     oParser.add_argument('--ose', help='Builds the OSE version', action='store_true', default=None, dest='VBOX_OSE=1');
     oParser.add_argument('--compat', help='Runs in compatibility mode. Only use for development', action='store_true', default=False, dest='config_compat');
     oParser.add_argument('--debug', help='Runs in debug mode. Only use for development', action='store_true', default=False, dest='config_debug');
@@ -2996,10 +2999,6 @@ def main():
     print();
     print(f'Running on {platform.system()} {platform.release()} ({platform.machine()})');
     print(f'Using Python {sys.version} (platform: {sysconfig.get_platform()})');
-    print();
-    print(f'Host OS / arch     : { g_sHostTarget}.{g_sHostArch}');
-    print(f'Building for target: { g_oEnv["KBUILD_TARGET"] }.{ g_oEnv["KBUILD_TARGET_ARCH"] }');
-    print(f'Build type         : { g_oEnv["KBUILD_TYPE"] }');
     print();
 
     if g_fDebug:
@@ -3087,7 +3086,13 @@ def main():
             g_oEnv.set('AUTOCFG', oArgs.config_file_autoconfig);
 
     # Apply updates from command line arguments.
+    # This can override the defaults set above.
     g_oEnv.updateFromArgs(oArgs);
+
+    print(f'Host OS / arch     : { g_sHostTarget}.{g_sHostArch}');
+    print(f'Building for target: { g_oEnv["KBUILD_TARGET"] }.{ g_oEnv["KBUILD_TARGET_ARCH"] }');
+    print(f'Build type         : { g_oEnv["KBUILD_TYPE"] }');
+    print();
 
     # Filter libs and tools based on --only-XXX flags.
     # Replace '-' with '_' so that we can use variables directly w/o getattr lateron.
@@ -3211,6 +3216,9 @@ def main():
     aOsToolsToCheck = aOsTools.get( g_oEnv[ 'KBUILD_TARGET' ], [] );
     oOsToolsTable = SimpleTable([ 'Tool', 'Status', 'Version', 'Path' ]);
     for sBinary in aOsToolsToCheck:
+        if not sBinary:
+            continue;
+        printVerbose(1, f'Checking for OS tool: {sBinary}');
         sCmdPath, sVer = checkWhich(sBinary, sBinary);
         oOsToolsTable.addRow(( sBinary,
                                'ok' if sCmdPath else 'failed',
