@@ -6,7 +6,7 @@ Requires >= Python 3.4.
 """
 
 # -*- coding: utf-8 -*-
-# $Id: configure.py 112198 2025-12-23 11:22:55Z andreas.loeffler@oracle.com $
+# $Id: configure.py 112199 2025-12-23 11:41:19Z andreas.loeffler@oracle.com $
 # pylint: disable=bare-except
 # pylint: disable=consider-using-f-string
 # pylint: disable=global-statement
@@ -39,7 +39,7 @@ along with this program; if not, see <https://www.gnu.org/licenses>.
 SPDX-License-Identifier: GPL-3.0-only
 """
 
-__revision__ = "$Revision: 112198 $"
+__revision__ = "$Revision: 112199 $"
 
 import argparse
 import ctypes
@@ -3215,10 +3215,10 @@ def main():
     };
     aOsToolsToCheck = aOsTools.get( g_oEnv[ 'KBUILD_TARGET' ], [] );
     oOsToolsTable = SimpleTable([ 'Tool', 'Status', 'Version', 'Path' ]);
-    for sBinary in aOsToolsToCheck:
+    for sTarget , sBinary in aOsToolsToCheck.items():
         if not sBinary:
             continue;
-        printVerbose(1, f'Checking for OS tool: {sBinary}');
+        printVerbose(1, f'Checking for {sTarget} OS tool: {sBinary}');
         sCmdPath, sVer = checkWhich(sBinary, sBinary);
         oOsToolsTable.addRow(( sBinary,
                                'ok' if sCmdPath else 'failed',
