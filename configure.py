@@ -6,7 +6,7 @@ Requires >= Python 3.4.
 """
 
 # -*- coding: utf-8 -*-
-# $Id: configure.py 112208 2025-12-23 20:18:38Z andreas.loeffler@oracle.com $
+# $Id: configure.py 112209 2025-12-23 20:21:33Z andreas.loeffler@oracle.com $
 # pylint: disable=bare-except
 # pylint: disable=consider-using-f-string
 # pylint: disable=global-statement
@@ -39,7 +39,7 @@ along with this program; if not, see <https://www.gnu.org/licenses>.
 SPDX-License-Identifier: GPL-3.0-only
 """
 
-__revision__ = "$Revision: 112208 $"
+__revision__ = "$Revision: 112209 $"
 
 import argparse
 import ctypes
@@ -58,6 +58,11 @@ import subprocess
 import sysconfig # Since Python 3.2.
 import sys
 import tempfile
+
+# Check for minimum Python version first.
+g_uMinPythonVerTuple = (3, 4);
+if sys.version_info < g_uMinPythonVerTuple:
+    sys.exit(f"Python {g_uMinPythonVerTuple[0]}.{g_uMinPythonVerTuple[1]} or newer is required, found {sys.version_info.major}.{sys.version_info.minor}")
 
 # Handle to log file (if any).
 g_fhLog       = None;
