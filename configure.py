@@ -6,7 +6,7 @@ Requires >= Python 3.4.
 """
 
 # -*- coding: utf-8 -*-
-# $Id: configure.py 112204 2025-12-23 12:12:05Z andreas.loeffler@oracle.com $
+# $Id: configure.py 112205 2025-12-23 12:34:28Z andreas.loeffler@oracle.com $
 # pylint: disable=bare-except
 # pylint: disable=consider-using-f-string
 # pylint: disable=global-statement
@@ -39,7 +39,7 @@ along with this program; if not, see <https://www.gnu.org/licenses>.
 SPDX-License-Identifier: GPL-3.0-only
 """
 
-__revision__ = "$Revision: 112204 $"
+__revision__ = "$Revision: 112205 $"
 
 import argparse
 import ctypes
@@ -891,7 +891,9 @@ class LibraryCheck(CheckBase):
 
     def getRootPath(self):
         """
-        Returns the root path of the library.
+        Returns the in-tree path of the library (if any).
+
+        Will return None if not found.
         """
         sRootPath = self.sCustomPath; # A custom path has precedence.
         if not sRootPath : # Search for in-tree libs.
@@ -899,6 +901,11 @@ class LibraryCheck(CheckBase):
             asPath = glob.glob(os.path.join(sPath, self.sName + '*'));
             for sCurDir in asPath:
                 sRootPath = os.path.join(sPath, sCurDir);
+                printVerbose(1, f'In-tree path found for library {self.sName}: {sRootPath}');
+        if not sRootPath:
+            printVerbose(1, f'No root path found for library {self.sName}');
+        else:
+            printVerbose(1, f'Root path for library {self.sName} is: {sRootPath}');
         return sRootPath;
 
     def isPathInTree(self, sPath):
@@ -955,8 +962,8 @@ class LibraryCheck(CheckBase):
         asPaths = [];
 
         sPath = self.getRootPath();
-        self.printVerbose(1, f"Root path is '{sPath}'");
-        asPaths.extend( self.findFiles(sPath, self.asIncFiles, fStripFilename = True) );
+        if sPath:
+            asPaths.extend( self.findFiles(sPath, self.asIncFiles, fStripFilename = True) );
 
         #
         # Windows
@@ -1024,11 +1031,12 @@ class LibraryCheck(CheckBase):
         asPaths = [];
 
         sPath = self.getRootPath();
-        asPaths.extend([ sPath ]);
-        asPaths.extend([ os.path.join(sPath, 'lib') ]);
+        if sPath:
+            asPaths.extend([ sPath ]);
+            asPaths.extend([ os.path.join(sPath, 'lib') ]);
 
-        # Set the in-tree flag. Those libs can't be used directly, as we don't ship the binaries.
-        self.fInTree = self.isPathInTree(sPath);
+            # Set the in-tree flag. Those libs can't be used directly, as we don't ship the binaries.
+            self.fInTree = self.isPathInTree(sPath);
 
         #
         # Windows
@@ -1159,14 +1167,12 @@ class LibraryCheck(CheckBase):
         self.print('Performing check ...');
 
         # Check if no custom path was specified and we have the lib in-tree.
-        if not self.sCustomPath:
-            sPath = self.getRootPath();
-            if sPath:
-                self.print(f"Found library in-tree at '{sPath}'");
-                self.fHave       = True;
-                self.fInTree     = True;
-                self.sCustomPath = sPath;
-                self.sVer        = self.getVersionFromString(os.path.basename(sPath), fAsString = True);
+        sPath = self.getRootPath();
+        if sPath:
+            self.fHave       = True;
+            self.fInTree     = True;
+            self.sCustomPath = sPath;
+            self.sVer        = self.getVersionFromString(os.path.basename(sPath), fAsString = True);
 
         self.print('Testing library ...');
         fRc = True;
