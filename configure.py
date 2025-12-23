@@ -6,7 +6,7 @@ Requires >= Python 3.4.
 """
 
 # -*- coding: utf-8 -*-
-# $Id: configure.py 112202 2025-12-23 12:04:01Z andreas.loeffler@oracle.com $
+# $Id: configure.py 112203 2025-12-23 12:07:21Z andreas.loeffler@oracle.com $
 # pylint: disable=bare-except
 # pylint: disable=consider-using-f-string
 # pylint: disable=global-statement
@@ -39,7 +39,7 @@ along with this program; if not, see <https://www.gnu.org/licenses>.
 SPDX-License-Identifier: GPL-3.0-only
 """
 
-__revision__ = "$Revision: 112202 $"
+__revision__ = "$Revision: 112203 $"
 
 import argparse
 import ctypes
@@ -272,7 +272,7 @@ def getExeSuff(enmBuildTarget = g_enmHostTarget):
     Defaults to the host target.
     """
     if enmBuildTarget != BuildTarget.WINDOWS:
-        return;
+        return '';
     return ".exe";
 
 def getLibSuff(fStatic = True, enmBuildTarget = g_enmHostTarget):
