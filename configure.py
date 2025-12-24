@@ -6,7 +6,7 @@ Requires >= Python 3.4.
 """
 
 # -*- coding: utf-8 -*-
-# $Id: configure.py 112226 2025-12-24 13:06:14Z andreas.loeffler@oracle.com $
+# $Id: configure.py 112227 2025-12-24 13:18:47Z andreas.loeffler@oracle.com $
 # pylint: disable=bare-except
 # pylint: disable=consider-using-f-string
 # pylint: disable=global-statement
@@ -39,7 +39,7 @@ along with this program; if not, see <https://www.gnu.org/licenses>.
 SPDX-License-Identifier: GPL-3.0-only
 """
 
-__revision__ = "$Revision: 112226 $"
+__revision__ = "$Revision: 112227 $"
 
 import argparse
 import ctypes
@@ -3156,7 +3156,7 @@ def main():
         oArgs.config_tools_disable_openwatcom = True;
         oArgs.config_tools_disable_python_modules = True;
         oArgs.config_tools_disable_yasm = True;
-        
+
     if not oArgs.config_file_log:
         g_sFileLog = os.path.join(oArgs.config_out_dir, 'configure.log');
     else:
