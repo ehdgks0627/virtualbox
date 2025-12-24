@@ -6,7 +6,7 @@ Requires >= Python 3.4.
 """
 
 # -*- coding: utf-8 -*-
-# $Id: configure.py 112222 2025-12-24 11:27:36Z andreas.loeffler@oracle.com $
+# $Id: configure.py 112223 2025-12-24 11:33:52Z andreas.loeffler@oracle.com $
 # pylint: disable=bare-except
 # pylint: disable=consider-using-f-string
 # pylint: disable=global-statement
@@ -39,7 +39,7 @@ along with this program; if not, see <https://www.gnu.org/licenses>.
 SPDX-License-Identifier: GPL-3.0-only
 """
 
-__revision__ = "$Revision: 112222 $"
+__revision__ = "$Revision: 112223 $"
 
 import argparse
 import ctypes
@@ -2834,7 +2834,7 @@ g_aoLibs = [
                  '#include <zlib.h>\nint main() { printf("%s", ZLIB_VERSION); return 0; }\n'),
     LibraryCheck("lwip", [ "lwip/init.h" ], [ "liblwip" ], [ BuildTarget.ANY ],
                  '#include <lwip/init.h>\nint main() { printf("%d.%d.%d", LWIP_VERSION_MAJOR, LWIP_VERSION_MINOR, LWIP_VERSION_REVISION); return 0; }\n'),
-    LibraryCheck("opengl", [ "GL/gl.h" ], [ "libGL" ], [ BuildTarget.LINUX, BuildTarget.DARWIN, BuildTarget.SOLARIS ],
+    LibraryCheck("libgl", [ "GL/gl.h" ], [ "libGL" ], [ BuildTarget.LINUX, BuildTarget.DARWIN, BuildTarget.SOLARIS ],
                  '#include <GL/gl.h>\n#include <stdio.h>\nint main() { const GLubyte *s = glGetString(GL_VERSION); printf("%s", s ? (const char *)s : "<found>"); return 0; }\n'),
     LibraryCheck("openssl", [ "openssl/crypto.h" ], [ "libcrypto" ], [ BuildTarget.WINDOWS ],
                  '#include <openssl/crypto.h>\n#include <stdio.h>\nint main() { OpenSSL_version(OPENSSL_VERSION); return 0; }\n',
