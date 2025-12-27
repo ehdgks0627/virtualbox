@@ -1,4 +1,4 @@
-/* $Id: stream.cpp 112238 2025-12-27 12:03:55Z knut.osmundsen@oracle.com $ */
+/* $Id: stream.cpp 112239 2025-12-27 13:52:06Z knut.osmundsen@oracle.com $ */
 /** @file
  * IPRT - I/O Stream.
  */
@@ -2564,6 +2564,10 @@ static void rtStrmWrappedFlushLine(RTSTRMWRAPPEDSTATE *pState, bool fPartial)
         while (offSplit > 0 && !rtStrmWrapIsBlankOrSep(pState, pState->szLine[offSplit - 1]))
             offSplit--;
 
+        /* If splitting on a '|', put it on the next line. */
+        if (offSplit > 0 && pState->szLine[offSplit - 1] == '|')
+            offSplit--;
+
         /* Skip spaces. */
         while (offSplit > 0 && RT_C_IS_BLANK(pState->szLine[offSplit - 1]))
             offSplit--;
@@ -2577,7 +2581,7 @@ static void rtStrmWrappedFlushLine(RTSTRMWRAPPEDSTATE *pState, bool fPartial)
             offNextLine = offSplit;
         }
 
-        while (offNextLine < cchLine && rtStrmWrapIsBlankOrSep(pState, pState->szLine[offNextLine]))
+        while (offNextLine < cchLine && RT_C_IS_BLANK(pState->szLine[offNextLine]))
             offNextLine++;
 
         /*
