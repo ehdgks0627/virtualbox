@@ -1,4 +1,4 @@
-/* $Id: scm.h 112240 2025-12-28 14:45:18Z knut.osmundsen@oracle.com $ */
+/* $Id: scm.h 112241 2025-12-28 14:51:59Z knut.osmundsen@oracle.com $ */
 /** @file
  * IPRT Testcase / Tool - Source Code Massager.
  */
@@ -326,7 +326,10 @@ typedef SCMCFGENTRY const *PCSCMCFGENTRY;
 
 
 /** License update options. */
-typedef enum SCMLICENSE : uint8_t
+typedef enum SCMLICENSE
+#if RT_CPLUSPLUS_PREREQ(201100)
+    : uint8_t
+#endif
 {
     kScmLicense_LeaveAlone = 0,     /**< Leave it alone. */
     kScmLicense_OseGpl,             /**< VBox OSE GPL if public. */
@@ -339,7 +342,10 @@ typedef enum SCMLICENSE : uint8_t
 } SCMLICENSE;
 
 /** Expected svn:sync-process value. */
-typedef enum SCMSVNSYNCPROCESS : uint8_t
+typedef enum SCMSVNSYNCPROCESS
+#if RT_CPLUSPLUS_PREREQ(201100)
+    : uint8_t
+#endif
 {
     kScmSvnSyncProcess_Undefined,       /**< No particular svn:sync-process value. */
     kScmSvnSyncProcess_All,             /**< 'svn:sync-process=export' for all. */
