@@ -1,4 +1,4 @@
-/* $Id: HostDnsServiceResolvConf.cpp 112243 2025-12-28 23:13:34Z knut.osmundsen@oracle.com $ */
+/* $Id: HostDnsServiceResolvConf.cpp 112244 2025-12-28 23:54:35Z knut.osmundsen@oracle.com $ */
 /** @file
  * Base class for Host DNS & Co services.
  */
@@ -213,6 +213,8 @@ static char *getToken(char *psz, char **ppszSavePtr)
         if (s)
             *s = '\0';
 
+        RTStrPurgeEncoding(buf); /* Just purge it here so we don't get any encoding non-sense in the release log. */
+
         char *tok = getToken(buf, &s);
         if (tok == NULL)
             continue;
@@ -236,17 +238,15 @@ static char *getToken(char *psz, char **ppszSavePtr)
                     LogRel(("HostDnsServiceResolvConf: line %u: nameserver line without value\n", iLine));
                 else
                 {
-                    RTNETADDR NetAddr = { { {0, 0} }, RTNETADDRTYPE_INVALID, RTNETADDR_PORT_NA };
-
                     /* Check if entry is IPv4 nameserver, save if true */
                     char *pszNext = NULL;
-                    vrc = RTNetStrToIPv4AddrEx(tok, &NetAddr.uAddr.IPv4, &pszNext);
+                    RTNETADDRIPV4 IPv4Addr = { 0 };
+                    vrc = RTNetStrToIPv4AddrEx(tok, &IPv4Addr, &pszNext);
                     if (RT_SUCCESS(vrc))
                     {
                         if (*pszNext == '\0')
                         {
-                            LogRel(("HostDnsServiceResolvConf: line %u: IPv4 nameserver %RTnaddr\n", iLine, &NetAddr));
-                            RTStrPurgeEncoding(pszAddr);
+                            LogRel(("HostDnsServiceResolvConf: line %u: IPv4 nameserver %RTnaipv4\n", iLine, IPv4Addr));
                             dnsInfo.servers.push_back(pszAddr);
 
                             if ((tok = getToken(NULL, &s)) != NULL)
@@ -258,7 +258,8 @@ static char *getToken(char *psz, char **ppszSavePtr)
                     else
                     {
                         /* Check if entry is IPv6 nameserver, save if true */
-                        vrc = RTNetStrToIPv6AddrEx(tok, &NetAddr.uAddr.IPv6, &pszNext);
+                        RTNETADDRIPV6 IPv6Addr = { { 0, 0 } };
+                        vrc = RTNetStrToIPv6AddrEx(tok, &IPv6Addr, &pszNext);
                         if (RT_SUCCESS(vrc))
                         {
                             if (*pszNext == '%') /** @todo XXX: TODO: IPv6 zones */
@@ -271,8 +272,7 @@ static char *getToken(char *psz, char **ppszSavePtr)
 
                             if (*pszNext == '\0')
                             {
-                                RTStrPurgeEncoding(pszAddr);
-                                LogRel(("HostDnsServiceResolvConf: line %u: IPv6 nameserver %RTnaddr\n", iLine, &NetAddr));
+                                LogRel(("HostDnsServiceResolvConf: line %u: IPv6 nameserver %RTnaipv6\n", iLine, &IPv6Addr));
                                 dnsInfo.serversV6.push_back(pszAddr);
 
                                 if ((tok = getToken(NULL, &s)) != NULL)
@@ -303,7 +303,6 @@ static char *getToken(char *psz, char **ppszSavePtr)
                     LogRel(("HostDnsServiceResolvConf: line %u: domain name too long\n", iLine));
                 else
                 {
-                    RTStrPurgeEncoding(tok);
                     vrc = dnsInfo.domain.assignNoThrow(tok);
                     if (RT_FAILURE(vrc))
                         return vrc;
@@ -321,7 +320,6 @@ static char *getToken(char *psz, char **ppszSavePtr)
                     LogRel(("HostDnsServiceResolvConf: line %u: too many search domains, ignoring %s\n", iLine, tok));
                 else
                 {
-                    RTStrPurgeEncoding(tok);
                     dnsInfo.searchList.push_back(tok);
                     LogRel(("HostDnsServiceResolvConf: line %u: search domain %s", iLine, tok));
                 }

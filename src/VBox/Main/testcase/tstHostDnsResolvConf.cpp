@@ -1,4 +1,4 @@
-/* $Id: tstHostDnsResolvConf.cpp 112242 2025-12-28 15:50:23Z knut.osmundsen@oracle.com $ */
+/* $Id: tstHostDnsResolvConf.cpp 112244 2025-12-28 23:54:35Z knut.osmundsen@oracle.com $ */
 /** @file
  * HostDnsServiceResolvConf parsing tests.
  *
@@ -37,25 +37,23 @@
 #define LOG_GROUP LOG_GROUP_MAIN
 #include <VBox/log.h>
 
-#if defined(RT_OS_LINUX) || defined(RT_OS_FREEBSD) || defined(RT_OS_SOLARIS)
-#include "../src-server/HostDnsService.h"
-
 #include <iprt/file.h>
 #include <iprt/err.h>
+#include <iprt/path.h>
 #include <iprt/string.h>
 #include <iprt/test.h>
 
-#include <fcntl.h>
-#include <unistd.h>
-#include <string.h>
+#if defined(RT_OS_LINUX) || defined(RT_OS_FREEBSD) || defined(RT_OS_SOLARIS)
+# include "../src-server/HostDnsService.h"
 
 
 /* Test stub to satisfy link for HostDnsService.cpp when building tstHostDnsResolvConf.
  * In full build, VirtualBox::i_onHostNameResolutionConfigurationChange() notifies
- * guest of changes via API. Not required for unit tests.
+ * guest of changes via API. Not required for unit tests as it only tests i_rpcParse()
+ * and the notificiation is emitted higher up the call stack.
  */
-
-class VirtualBox {
+class VirtualBox
+{
 public:
     void i_onHostNameResolutionConfigurationChange();
 };
@@ -73,7 +71,7 @@ class HostDnsServiceResolvConfTest : public HostDnsServiceResolvConf
 {
 public:
     HostDnsServiceResolvConfTest() : HostDnsServiceResolvConf(false) {}
-    int parse(const char *pszFilename, HostDnsInformation &rInfo)
+    static int parse(const char *pszFilename, HostDnsInformation &rInfo)
     {
         return i_rcpParse(pszFilename, rInfo);
     }
@@ -85,14 +83,17 @@ public:
 *********************************************************************************************************************************/
 static int createTempFileWith(const char *pszContent, com::Utf8Str &rPath)
 {
-    char   szTmpl[] = "/tmp/tstHostDnsResolvConf-XXXXXX";
-    RTFILE hFile    = NIL_RTFILE;
-
-    /* Create a unique temporary file; szTmpl is updated with the chosen path. */
-    int rc = RTFileCreateUnique(&hFile, szTmpl, RTFILE_O_CREATE | RTFILE_O_READWRITE | RTFILE_O_DENY_NONE);
+    /* Create a unique temporary file; rPath is updated with the chosen path,
+       but only valid after the jolt() call below. */
+    RTFILE hFile = NIL_RTFILE;
+    rPath.reserve(RTPATH_MAX);
+    int rc = RTFileOpenTemp(&hFile, rPath.mutableRaw(), rPath.capacity() - 1,
+                            RTFILE_O_CREATE | RTFILE_O_READWRITE | RTFILE_O_DENY_NONE);
     if (RT_FAILURE(rc))
         return VERR_ACCESS_DENIED;
+    rPath.jolt();
 
+    /* Write the content to it. */
     const size_t cb  = strlen(pszContent);
     size_t       cbW = 0;
 
@@ -102,14 +103,10 @@ static int createTempFileWith(const char *pszContent, com::Utf8Str &rPath)
     int rc2 = RTFileClose(hFile);
     AssertRC(rc2);
 
-    if (RT_FAILURE(rc) || cbW != cb)
-    {
-        unlink(szTmpl);
-        return VERR_WRITE_ERROR;
-    }
-
-    rPath = szTmpl;
-    return VINF_SUCCESS;
+    if (RT_SUCCESS(rc) && RT_SUCCESS(rc2) && cbW == cb)
+        return VINF_SUCCESS;
+    RTFileDelete(rPath.c_str());
+    return VERR_WRITE_ERROR;
 }
 
 
@@ -120,18 +117,16 @@ static void testNullFilename(RTTEST hTest)
 {
     /** @todo r=bird: Not useful, as impossible as c_str() never returns NULL.   */
     RTTestSub(hTest, "NULL filename");
-    HostDnsServiceResolvConfTest o;
     HostDnsInformation Info;
-    int rc = o.parse(NULL, Info);
+    int rc = HostDnsServiceResolvConfTest::parse(NULL, Info);
     RTTESTI_CHECK_MSG(rc == VERR_INVALID_PARAMETER, ("rc=%Rrc\n", rc));
 }
 
 static void testNonexistentFile(RTTEST hTest)
 {
     RTTestSub(hTest, "Nonexistent file");
-    HostDnsServiceResolvConfTest o;
     HostDnsInformation Info;
-    int rc = o.parse("/nonexistent/path/definitely-not-here", Info);
+    int rc = HostDnsServiceResolvConfTest::parse("/nonexistent/path/definitely-not-here", Info);
     RTTESTI_CHECK_MSG(RT_FAILURE(rc), ("rc=%Rrc (expected failure)\n", rc));
 }
 
@@ -143,13 +138,12 @@ static void testNameserverIPv4(RTTEST hTest)
     RTTESTI_CHECK_RC_OK(rc);
     if (RT_SUCCESS(rc))
     {
-        HostDnsServiceResolvConfTest o;
         HostDnsInformation Info;
-        rc = o.parse(Path.c_str(), Info);
+        rc = HostDnsServiceResolvConfTest::parse(Path.c_str(), Info);
         RTTESTI_CHECK_RC_OK(rc);
         RTTESTI_CHECK(Info.servers.size() == 1);
         RTTESTI_CHECK(RTStrCmp(Info.servers.front().c_str(), "1.2.3.4") == 0);
-        unlink(Path.c_str());
+        RTFileDelete(Path.c_str());
     }
 }
 
@@ -161,13 +155,12 @@ static void testNameserverGarbageTrailing(RTTEST hTest)
     RTTESTI_CHECK_RC_OK(rc);
     if (RT_SUCCESS(rc))
     {
-        HostDnsServiceResolvConfTest o;
         HostDnsInformation Info;
-        rc = o.parse(Path.c_str(), Info);
+        rc = HostDnsServiceResolvConfTest::parse(Path.c_str(), Info);
         RTTESTI_CHECK_RC_OK(rc);
         /* Invalid due to trailing garbage - should be ignored. */
         RTTESTI_CHECK(Info.servers.size() == 0);
-        unlink(Path.c_str());
+        RTFileDelete(Path.c_str());
     }
 }
 
@@ -183,13 +176,12 @@ static void testNameserverIPv6AndComments(RTTEST hTest)
     RTTESTI_CHECK_RC_OK(rc);
     if (RT_SUCCESS(rc))
     {
-        HostDnsServiceResolvConfTest o;
         HostDnsInformation Info;
-        rc = o.parse(Path.c_str(), Info);
+        rc = HostDnsServiceResolvConfTest::parse(Path.c_str(), Info);
         RTTESTI_CHECK_RC_OK(rc);
         RTTESTI_CHECK(Info.serversV6.size() == 1 && Info.servers.size() == 0);
         RTTESTI_CHECK(RTStrCmp(Info.serversV6.front().c_str(), "2001:db8::1") == 0);
-        unlink(Path.c_str());
+        RTFileDelete(Path.c_str());
     }
 }
 
@@ -206,12 +198,11 @@ static void testNameserverLimit(RTTEST hTest)
     RTTESTI_CHECK_RC_OK(rc);
     if (RT_SUCCESS(rc))
     {
-        HostDnsServiceResolvConfTest o;
         HostDnsInformation Info;
-        rc = o.parse(Path.c_str(), Info);
+        rc = HostDnsServiceResolvConfTest::parse(Path.c_str(), Info);
         RTTESTI_CHECK_RC_OK(rc);
         RTTESTI_CHECK_MSG(Info.servers.size() == 3, ("servers.size()=%zu\n", Info.servers.size()));
-        unlink(Path.c_str());
+        RTFileDelete(Path.c_str());
     }
 }
 
@@ -223,18 +214,20 @@ static void testDomainBasic(RTTEST hTest)
     RTTESTI_CHECK_RC_OK(rc);
     if (RT_SUCCESS(rc))
     {
-        HostDnsServiceResolvConfTest o;
         HostDnsInformation Info;
-        rc = o.parse(Path.c_str(), Info);
+        rc = HostDnsServiceResolvConfTest::parse(Path.c_str(), Info);
         RTTESTI_CHECK_RC_OK(rc);
         RTTESTI_CHECK_MSG(Info.domain.equals("example.com"), ("domain=\"%s\"\n", Info.domain.c_str()));
-        unlink(Path.c_str());
+        RTFileDelete(Path.c_str());
     }
 }
 
 /* Note: search list tests are intentionally omitted here because the current
  * implementation uses an uninitialized index variable for the limit check,
  * which makes behaviour undefined across platforms/configs. */
+
+#endif /* defined(RT_OS_LINUX) || defined(RT_OS_FREEBSD) || defined(RT_OS_SOLARIS) */
+
 
 /*********************************************************************************************************************************
 *   main                                                                                                                         *
@@ -247,6 +240,16 @@ int main()
     {
         RTTestBanner(hTest);
 
+#if defined(RT_OS_LINUX) || defined(RT_OS_FREEBSD) || defined(RT_OS_SOLARIS)
+# if 1
+        static const char *s_apszGroups[] = VBOX_LOGGROUP_NAMES;
+        PRTLOGGER          pRelLogger = NULL;
+        int rc = RTLogCreate(&pRelLogger, 0 /*fFlags*/, "all.e", "tstHostDnsResolvConf_",
+                             RT_ELEMENTS(s_apszGroups), s_apszGroups, RTLOGDEST_STDERR, "");
+        if (RT_SUCCESS(rc))
+            RTLogRelSetDefaultInstance(pRelLogger);
+# endif
+
         testNullFilename(hTest);
         testNonexistentFile(hTest);
         testNameserverIPv4(hTest);
@@ -256,24 +259,11 @@ int main()
         testDomainBasic(hTest);
 
         rcExit = RTTestSummaryAndDestroy(hTest);
+
+        RTLogDestroy(RTLogRelSetDefaultInstance(NULL));
+#else
+        rcExit = RTTestSkipAndDestroy(hTest, "Not supported on this host OS");
+#endif
     }
     return rcExit;
 }
-
-#else  /* !(defined(RT_OS_LINUX) || defined(RT_OS_FREEBSD) || defined(RT_OS_SOLARIS)) */
-# include <iprt/test.h>
-
-int main()
-{
-    RTTEST      hTest;
-    RTEXITCODE  rcExit = RTTestInitAndCreate("tstHostDnsResolvConf", &hTest);
-    if (rcExit == RTEXITCODE_SUCCESS)
-    {
-        RTTestBanner(hTest);
-        RTTestSkipped(hTest, "Not supported on this host OS");
-        rcExit = RTTestSummaryAndDestroy(hTest);
-    }
-    return rcExit;
-}
-
-#endif /* !(defined(RT_OS_LINUX) || defined(RT_OS_FREEBSD) || defined(RT_OS_SOLARIS)) */
