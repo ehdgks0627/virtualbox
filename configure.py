@@ -6,7 +6,7 @@ Requires >= Python 3.4.
 """
 
 # -*- coding: utf-8 -*-
-# $Id: configure.py 112273 2026-01-05 16:40:14Z andreas.loeffler@oracle.com $
+# $Id: configure.py 112274 2026-01-05 16:51:50Z andreas.loeffler@oracle.com $
 # pylint: disable=bare-except
 # pylint: disable=consider-using-f-string
 # pylint: disable=global-statement
@@ -40,7 +40,7 @@ along with this program; if not, see <https://www.gnu.org/licenses>.
 SPDX-License-Identifier: GPL-3.0-only
 """
 
-__revision__ = "$Revision: 112273 $"
+__revision__ = "$Revision: 112274 $"
 
 import argparse
 import ctypes
@@ -2477,12 +2477,13 @@ int main()
 
         self.printVerbose(1, 'Checking modules ...');
 
-        for asCurMod in asModulesToCheck:
+        for sCurMod in asModulesToCheck:
             try:
-                importlib.import_module(asCurMod);
+                self.printVerbose(1, "Checking module '{asCurMod}'");
+                importlib.import_module(sCurMod);
             except ImportError:
-                self.printError(f"Python module '{asCurMod}' is not installed");
-                self.printError(f"Hint: Try running 'pip install {asCurMod}'", fDontCount=True);
+                self.printWarn(f"Python module '{sCurMod}' is not installed");
+                self.print    (f"Hint: Try running 'pip install {sCurMod}'");
                 return False;
         return True;
 
