@@ -6,7 +6,7 @@ Requires >= Python 3.4.
 """
 
 # -*- coding: utf-8 -*-
-# $Id: configure.py 112270 2026-01-05 12:22:07Z andreas.loeffler@oracle.com $
+# $Id: configure.py 112271 2026-01-05 13:23:19Z andreas.loeffler@oracle.com $
 # pylint: disable=bare-except
 # pylint: disable=consider-using-f-string
 # pylint: disable=global-statement
@@ -40,7 +40,7 @@ along with this program; if not, see <https://www.gnu.org/licenses>.
 SPDX-License-Identifier: GPL-3.0-only
 """
 
-__revision__ = "$Revision: 112270 $"
+__revision__ = "$Revision: 112271 $"
 
 import argparse
 import ctypes
@@ -879,6 +879,9 @@ class CheckBase:
               and other attributes.
             - a boolean: True if all specific files were found, else False.
         """
+        assert sBaseDir;
+        assert asFilePaths;
+
         dictFound = {}
         sBaseDir = os.path.abspath(sBaseDir);
         printVerbose(2, f"Finding files in '{sBaseDir}': {asFilePaths}");
@@ -1638,7 +1641,8 @@ class ToolCheck(CheckBase):
                 self.sCmdPath, self.sVer = checkWhich(sCmdCur, self.sName, self.sRootPath);
                 self.fHave = self.sCmdPath; # Note: Version is optional.
             # Still not found? Try harder by finding the binaries.
-            if not self.fHave:
+            if  not self.fHave \
+            and     self.sRootPath:
                 asCmd = self.findFiles(self.sRootPath, self.asCmd);
                 for sCmdCur in asCmd:
                     self.sCmdPath, self.sVer = checkWhich(sCmdCur, self.sName, os.path.dirname(sCmdCur));
