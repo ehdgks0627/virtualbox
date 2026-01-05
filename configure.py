@@ -6,7 +6,7 @@ Requires >= Python 3.4.
 """
 
 # -*- coding: utf-8 -*-
-# $Id: configure.py 112274 2026-01-05 16:51:50Z andreas.loeffler@oracle.com $
+# $Id: configure.py 112276 2026-01-05 17:09:25Z andreas.loeffler@oracle.com $
 # pylint: disable=bare-except
 # pylint: disable=consider-using-f-string
 # pylint: disable=global-statement
@@ -40,7 +40,7 @@ along with this program; if not, see <https://www.gnu.org/licenses>.
 SPDX-License-Identifier: GPL-3.0-only
 """
 
-__revision__ = "$Revision: 112274 $"
+__revision__ = "$Revision: 112276 $"
 
 import argparse
 import ctypes
@@ -800,11 +800,11 @@ class CheckBase:
         """
         printError(f'{self.sName}: {sMessage}', fDontCount = fDontCount);
 
-    def printWarn(self, sMessage):
+    def printWarn(self, sMessage, fDontCount = False):
         """
         Prints warning about the check.
         """
-        printWarn(f'{self.sName}: {sMessage}');
+        printWarn(f'{self.sName}: {sMessage}', fDontCount = fDontCount);
 
     def printVerbose(self, uVerbosity, sMessage):
         """
@@ -1374,8 +1374,10 @@ class LibraryCheck(CheckBase):
                     self.fHave, _, _ = self.compileAndExecute(g_oEnv['KBUILD_TARGET'], g_oEnv['KBUILD_TARGET_ARCH']);
         if not fRc:
             if self.asDefinesToDisableIfNotFound: # Implies being optional.
-                self.printWarn('Library check failed and is optional, disabling');
+                self.printWarn('Library check failed and is optional');
+                self.printWarn('Disabling the following features:', fDontCount = True);
                 for sDef in self.asDefinesToDisableIfNotFound:
+                    self.printWarn('    - {sDef}', fDontCount = True);
                     g_oEnv.set(sDef, '');
                 return True;
             else:
@@ -2960,7 +2962,8 @@ g_aoLibs = [
     LibraryCheck("libdevmapper", [ "libdevmapper.h" ], [ "libdevmapper" ], aeTargets = [ BuildTarget.LINUX, BuildTarget.SOLARIS ],
                  sCode = '#include <libdevmapper.h>\nint main() { char v[64]; dm_get_library_version(v, sizeof(v)); printf("%s", v); return 0; }\n'),
     LibraryCheck("libgsoapssl++", [ "stdsoap2.h" ], [ "libgsoapssl++" ], aeTargets = [ BuildTarget.LINUX, BuildTarget.SOLARIS ],
-                 sCode = '#include <stdsoap2.h>\nint main() { printf("%ld", GSOAP_VERSION); return 0; }\n'),
+                 sCode = '#include <stdsoap2.h>\nint main() { printf("%ld", GSOAP_VERSION); return 0; }\n',
+                 asDefinesToDisableIfNotFound = [ 'VBOX_WITH_WEBSERVICES' ]),
     LibraryCheck("libjpeg-turbo", [ "turbojpeg.h" ], [ "libturbojpeg" ], aeTargets = [ BuildTarget.ANY ],
                  sCode = '#include <turbojpeg.h>\nint main() { tjInitCompress(); printf("<found>"); return 0; }\n'),
     LibraryCheck("liblzf", [ "lzf.h" ], [ "liblzf" ], aeTargets = [ BuildTarget.ANY ],
