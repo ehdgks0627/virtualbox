@@ -6,7 +6,7 @@ Requires >= Python 3.4.
 """
 
 # -*- coding: utf-8 -*-
-# $Id: configure.py 112272 2026-01-05 13:52:43Z andreas.loeffler@oracle.com $
+# $Id: configure.py 112273 2026-01-05 16:40:14Z andreas.loeffler@oracle.com $
 # pylint: disable=bare-except
 # pylint: disable=consider-using-f-string
 # pylint: disable=global-statement
@@ -40,7 +40,7 @@ along with this program; if not, see <https://www.gnu.org/licenses>.
 SPDX-License-Identifier: GPL-3.0-only
 """
 
-__revision__ = "$Revision: 112272 $"
+__revision__ = "$Revision: 112273 $"
 
 import argparse
 import ctypes
@@ -3169,7 +3169,7 @@ rem Generated on """ +  sTimestamp + """
 rem\n""");
 
     # AUTOCFG defines the path to AutoConfig.kmk and can be specified via '--output-file-autoconfig'.
-    w.write('AUTOCFG', enmBuildTarget);
+    w.write('AUTOCFG');
 
     w.write_all(asPrefixInclude = [ 'KBUILD_' ]);
 
@@ -3487,8 +3487,7 @@ def main():
         if not isDir(sAutoConfigDir):
             printWarn(f"Directory for AutoConfig.kmk '{sAutoConfigDir}' does not exist -- using output directory as base");
             oArgs.config_file_autoconfig = os.path.join(oArgs.config_out_dir, 'AutoConfig.kmk');
-        else:
-            g_oEnv.set('AUTOCFG', oArgs.config_file_autoconfig);
+    g_oEnv.set('AUTOCFG', oArgs.config_file_autoconfig);
 
     # Apply updates from command line arguments.
     # This can override the defaults set above.
