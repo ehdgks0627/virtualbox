@@ -1,4 +1,4 @@
-# $Id: .scm-settings 112267 2026-01-05 03:44:55Z knut.osmundsen@oracle.com $
+# $Id: .scm-settings 112269 2026-01-05 03:49:16Z knut.osmundsen@oracle.com $
 ## @file
 # Source code massager settings for the manual.
 #
@@ -34,3 +34,6 @@
 *.ditamap: --treat-as xml --no-update-license --no-update-copyright-year --no-strip-trailing-blanks
 *.ditaval: --treat-as xml --no-update-license --no-update-copyright-year --no-strip-trailing-blanks
 *.svg:     --treat-as plaintext
+
+# Someone forgot the final newline for this file:
+/dita/htmlhelp.ditaval: --no-force-trailing-line --no-force-final-eol
