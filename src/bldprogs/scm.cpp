@@ -1,4 +1,4 @@
-/* $Id: scm.cpp 112240 2025-12-28 14:45:18Z knut.osmundsen@oracle.com $ */
+/* $Id: scm.cpp 112257 2026-01-05 02:18:01Z knut.osmundsen@oracle.com $ */
 /** @file
  * IPRT Testcase / Tool - Source Code Massager.
  */
@@ -128,6 +128,8 @@ typedef enum SCMOPT
     SCMOPT_DONT_SET_SVN_EOL,
     SCMOPT_SET_SVN_EXECUTABLE,
     SCMOPT_DONT_SET_SVN_EXECUTABLE,
+    SCMOPT_SET_SVN_MIME_TYPE_ON_BINARIES,
+    SCMOPT_DONT_SET_SVN_MIME_TYPE_ON_BINARIES,
     SCMOPT_SET_SVN_KEYWORDS,
     SCMOPT_DONT_SET_SVN_KEYWORDS,
     SCMOPT_SKIP_SVN_SYNC_PROCESS,
@@ -137,6 +139,7 @@ typedef enum SCMOPT
     SCMOPT_DONT_SKIP_UNICODE_CHECKS,
     SCMOPT_TAB_SIZE,
     SCMOPT_WIDTH,
+    SCMOPT_3RD_PARTY,
     SCMOPT_FILTER_OUT_DIRS,
     SCMOPT_FILTER_FILES,
     SCMOPT_FILTER_OUT_FILES,
@@ -227,6 +230,7 @@ static SCMSETTINGSBASE const g_Defaults =
     /* .fOnlySvnDirs = */                           false,
     /* .fSetSvnEol = */                             false,
     /* .fSetSvnExecutable = */                      false,
+    /* .fSetMimeTypeOnBinaries = */                 false,
     /* .fSetSvnKeywords = */                        false,
     /* .fSkipSvnSyncProcess = */                    false,
     /* .enmSyncProcess = */                         kScmSvnSyncProcess_Undefined,
@@ -236,7 +240,7 @@ static SCMSETTINGSBASE const g_Defaults =
     /* .fFreeTreatAs = */                           false,
     /* .pTreatAs = */                               NULL,
     /* .pszFilterFiles = */                         (char *)"",
-    /* .pszFilterOutFiles = */                      (char *)"*.exe|*.com|20*-*-*.log",
+    /* .pszFilterOutFiles = */                      (char *)"20*-*-*.log",
     /* .pszFilterOutDirs = */                       (char *)".svn|.hg|.git|CVS",
 };
 
@@ -298,6 +302,8 @@ static RTGETOPTDEF  g_aScmOpts[] =
     { "--dont-set-svn-eol",                 SCMOPT_DONT_SET_SVN_EOL,                RTGETOPT_REQ_NOTHING },
     { "--set-svn-executable",               SCMOPT_SET_SVN_EXECUTABLE,              RTGETOPT_REQ_NOTHING },
     { "--dont-set-svn-executable",          SCMOPT_DONT_SET_SVN_EXECUTABLE,         RTGETOPT_REQ_NOTHING },
+    { "--set-svn-mime-type-on-binaries",    SCMOPT_SET_SVN_MIME_TYPE_ON_BINARIES,   RTGETOPT_REQ_NOTHING },
+    { "--dont-set-svn-mime-type-on-binaries", SCMOPT_DONT_SET_SVN_MIME_TYPE_ON_BINARIES, RTGETOPT_REQ_NOTHING },
     { "--set-svn-keywords",                 SCMOPT_SET_SVN_KEYWORDS,                RTGETOPT_REQ_NOTHING },
     { "--dont-set-svn-keywords",            SCMOPT_DONT_SET_SVN_KEYWORDS,           RTGETOPT_REQ_NOTHING },
     { "--skip-svn-sync-process",            SCMOPT_SKIP_SVN_SYNC_PROCESS,           RTGETOPT_REQ_NOTHING },
@@ -307,6 +313,7 @@ static RTGETOPTDEF  g_aScmOpts[] =
     { "--dont-skip-unicode-checks",         SCMOPT_DONT_SKIP_UNICODE_CHECKS,        RTGETOPT_REQ_NOTHING },
     { "--tab-size",                         SCMOPT_TAB_SIZE,                        RTGETOPT_REQ_UINT8   },
     { "--width",                            SCMOPT_WIDTH,                           RTGETOPT_REQ_UINT8   },
+    { "--3rd-party",                        SCMOPT_3RD_PARTY,                       RTGETOPT_REQ_NOTHING },
 
     /* input selection */
     { "--only-svn-dirs",                    SCMOPT_ONLY_SVN_DIRS,                   RTGETOPT_REQ_NOTHING },
@@ -575,6 +582,18 @@ static PCSCMREWRITERCFG const g_apRewritersFor_BasicScripts[] =
     &g_Copyright_TickComment,
 };
 
+static PCSCMREWRITERCFG const g_apRewritersFor_PowerShell[] =
+{
+    &g_ForceNativeEol,
+    &g_ExpandTabs,
+    &g_StripTrailingBlanks,
+    &g_AdjustTrailingLines,
+    &g_SvnKeywords,
+    &g_SvnSyncProcess,
+    &g_UnicodeChecks,
+    &g_Copyright_HashComment, /** @todo multiline comments */
+};
+
 static PCSCMREWRITERCFG const g_apRewritersFor_SedScripts[] =
 {
     &g_ForceLF,
@@ -696,6 +715,19 @@ static PCSCMREWRITERCFG const g_apRewritersFor_Xml[] =
     &g_Copyright_XmlComment,
 };
 
+static PCSCMREWRITERCFG const g_apRewritersFor_Html[] =
+{
+    &g_ForceNativeEol,
+    &g_ExpandTabs,
+    &g_StripTrailingBlanks,
+    &g_AdjustTrailingLines,
+    &g_SvnNoExecutable,
+    &g_SvnKeywords,
+    &g_SvnSyncProcess,
+    &g_UnicodeChecks,
+    &g_Copyright_XmlComment,
+};
+
 static PCSCMREWRITERCFG const g_apRewritersFor_Wix[] =
 {
     &g_ForceNativeEol,
@@ -786,6 +818,16 @@ static PCSCMREWRITERCFG const g_apRewritersFor_GnuAsm[] =
     &g_Copyright_CstyleComment,
 };
 
+static PCSCMREWRITERCFG const g_apRewritersFor_RpmSpec[] =
+{
+    &g_ForceLF,
+    &g_ExpandTabs,
+    &g_StripTrailingBlanks,
+    &g_SvnSyncProcess,
+    &g_UnicodeChecks,
+    &g_Copyright_HashComment,
+};
+
 static PCSCMREWRITERCFG const g_apRewritersFor_TextFiles[] =
 {
     &g_ForceNativeEol,
@@ -805,6 +847,28 @@ static PCSCMREWRITERCFG const g_apRewritersFor_PlainTextFiles[] =
     &g_SvnNoExecutable,
     &g_SvnSyncProcess,
     &g_UnicodeChecks,
+};
+
+static PCSCMREWRITERCFG const g_apRewritersFor_HashText[] =
+{
+    &g_ForceNativeEol,
+    &g_StripTrailingBlanks,
+    &g_SvnKeywords,
+    &g_SvnNoExecutable,
+    &g_SvnSyncProcess,
+    &g_UnicodeChecks,
+    &g_Copyright_HashComment,
+};
+
+static PCSCMREWRITERCFG const g_apRewritersFor_Markdown[] =
+{
+    &g_ForceNativeEol,
+    &g_StripTrailingBlanks,
+    &g_SvnKeywords,
+    &g_SvnNoExecutable,
+    &g_SvnSyncProcess,
+    &g_UnicodeChecks,
+    /** @todo check for plain copyright + license in markdown files. */
 };
 
 static PCSCMREWRITERCFG const g_apRewritersFor_BinaryFiles[] =
@@ -845,6 +909,7 @@ static SCMCFGENTRY const g_aConfigs[] =
     SCM_CFG_ENTRY("shell",      g_apRewritersFor_ShellScripts,     false, "*.sh|configure" ),
     SCM_CFG_ENTRY("batch",      g_apRewritersFor_BatchFiles,       false, "*.bat|*.cmd|*.btm" ),
     SCM_CFG_ENTRY("vbs",        g_apRewritersFor_BasicScripts,     false, "*.vbs|*.vb" ),
+    SCM_CFG_ENTRY("powershell", g_apRewritersFor_PowerShell,       false, "*.ps1" ),
     SCM_CFG_ENTRY("sed",        g_apRewritersFor_SedScripts,       false, "*.sed" ),
     SCM_CFG_ENTRY("python",     g_apRewritersFor_Python,           false, "*.py" ),
     SCM_CFG_ENTRY("perl",       g_apRewritersFor_Perl,             false, "*.pl|*.pm" ),
@@ -856,8 +921,9 @@ static SCMCFGENTRY const g_aConfigs[] =
                                                                           "*.xcf|*.gif|"
                                                     /* other binaries: */ "*.jar|*.dll|*.exe|*.ttf|*.woff|*.woff2" ),
     SCM_CFG_ENTRY("xslt",       g_apRewritersFor_Xslt,             false, "*.xsl" ),
-    SCM_CFG_ENTRY("xml",        g_apRewritersFor_Xml,              false, "*.xml|*.dist|*.dita|*.qhcp" ),
+    SCM_CFG_ENTRY("xml",        g_apRewritersFor_Xml,              false, "*.xml|*.dist|*.dita|*.qhcp|*.dtd" ),
     SCM_CFG_ENTRY("wix",        g_apRewritersFor_Wix,              false, "*.wxi|*.wxs|*.wxl" ),
+    SCM_CFG_ENTRY("html",       g_apRewritersFor_Html,             false, "*.htm|*.html|*.xhtml" ),
     SCM_CFG_ENTRY("qt-pro",     g_apRewritersFor_QtProject,        false, "*.pro" ),
     SCM_CFG_ENTRY("qt-rc",      g_apRewritersFor_QtResourceFiles,  false, "*.qrc" ),
     SCM_CFG_ENTRY("qt-ts",      g_apRewritersFor_QtTranslations,   false, "*.ts" ),
@@ -865,11 +931,14 @@ static SCMCFGENTRY const g_aConfigs[] =
     SCM_CFG_ENTRY("sif",        g_apRewritersFor_SifFiles,         false, "*.sif" ),
     SCM_CFG_ENTRY("sql",        g_apRewritersFor_SqlFiles,         false, "*.pgsql|*.sql" ),
     SCM_CFG_ENTRY("gas",        g_apRewritersFor_GnuAsm,           false, "*.S" ),
+    SCM_CFG_ENTRY("rpmspec",    g_apRewritersFor_RpmSpec,          false, "*.spec" ),
     SCM_CFG_ENTRY("binary",     g_apRewritersFor_BinaryFiles,      true,  "*.bin|*.pdf|*.zip|*.bz2|*.gz" ),
     /* These should be be last: */
     SCM_CFG_ENTRY("make",       g_apRewritersFor_OtherMakefiles,   false, "Makefile|makefile|GNUmakefile|SMakefile|Makefile.am|Makefile.in|*.cmake|*.gmk" ),
-    SCM_CFG_ENTRY("text",       g_apRewritersFor_TextFiles,        false, "*.txt|README*|readme*|ReadMe*|NOTE*|TODO*" ),
-    SCM_CFG_ENTRY("plaintext",  g_apRewritersFor_PlainTextFiles,   false, "LICENSE|ChangeLog|FAQ|AUTHORS|INSTALL|NEWS" ),
+    SCM_CFG_ENTRY("text",       g_apRewritersFor_TextFiles,        false, "*.txt|*.TXT|README*|readme*|ReadMe*|NOTE*|TODO*" ),
+    SCM_CFG_ENTRY("plaintext",  g_apRewritersFor_PlainTextFiles,   false, "LICENSE|ChangeLog|FAQ|AUTHORS|INSTALL|NEWS|configure.ac|CHANGES|Changes" ),
+    SCM_CFG_ENTRY("hashtext",   g_apRewritersFor_HashText,         false, ".editorconfig" ),
+    SCM_CFG_ENTRY("md",         g_apRewritersFor_Markdown,         false, "*.md" ),
     SCM_CFG_ENTRY("file-list",  g_apRewritersFor_FileLists,        false, "files_*" ),
 };
 
@@ -1327,6 +1396,13 @@ static int scmSettingsBaseHandleOpt(PSCMSETTINGSBASE pSettings, int rc, PRTGETOP
             pSettings->fSetSvnExecutable = false;
             return VINF_SUCCESS;
 
+        case SCMOPT_SET_SVN_MIME_TYPE_ON_BINARIES:
+            pSettings->fSetMimeTypeOnBinaries = true;
+            return VINF_SUCCESS;
+        case SCMOPT_DONT_SET_SVN_MIME_TYPE_ON_BINARIES:
+            pSettings->fSetMimeTypeOnBinaries = false;
+            return VINF_SUCCESS;
+
         case SCMOPT_SET_SVN_KEYWORDS:
             pSettings->fSetSvnKeywords = true;
             return VINF_SUCCESS;
@@ -1382,6 +1458,20 @@ static int scmSettingsBaseHandleOpt(PSCMSETTINGSBASE pSettings, int rc, PRTGETOP
                 return VERR_OUT_OF_RANGE;
             }
             pSettings->cchWidth = pValueUnion->u8;
+            return VINF_SUCCESS;
+
+        case SCMOPT_3RD_PARTY:
+            pSettings->fExternalCopyright = true;
+            pSettings->enmUpdateLicense = kScmLicense_LeaveAlone;
+            pSettings->fFixHeaderGuards = false;
+            pSettings->fStripTrailingBlanks = false;
+            pSettings->fSetSvnKeywords = false;
+            pSettings->fSetSvnEol = false;
+            pSettings->fConvertEol = false;
+            pSettings->fFixTodos = false;
+            pSettings->fConvertTabs = false;
+            pSettings->fForceFinalEol = false;
+            pSettings->fStripTrailingLines = false;
             return VINF_SUCCESS;
 
         case SCMOPT_FILTER_OUT_DIRS:
@@ -1665,9 +1755,11 @@ static void scmSettingsDestroy(PSCMSETTINGS pSettings)
         for (size_t i = 0; i < pSettings->cPairs; i++)
         {
             RTStrFree(pSettings->paPairs[i].pszPattern);
+            RTStrFree(pSettings->paPairs[i].pszXcptPattern);
             RTStrFree(pSettings->paPairs[i].pszOptions);
             RTStrFree(pSettings->paPairs[i].pszRelativeTo);
             pSettings->paPairs[i].pszPattern = NULL;
+            pSettings->paPairs[i].pszXcptPattern = NULL;
             pSettings->paPairs[i].pszOptions = NULL;
             pSettings->paPairs[i].pszRelativeTo = NULL;
         }
@@ -1675,6 +1767,66 @@ static void scmSettingsDestroy(PSCMSETTINGS pSettings)
         pSettings->paPairs = NULL;
         RTMemFree(pSettings);
     }
+}
+
+/** Helper for scmSettingsAddPair. */
+static int scmSettingsBaseExpandPatternPaths(const char *pchDir, size_t cchDir, size_t cchPattern,
+                                             char **ppszPattern, bool *pfMultiPattern)
+{
+    size_t cPattern = 1;
+    size_t cRelativePaths = 0;
+    const char *pszSrc = *ppszPattern;
+    for (;;)
+    {
+        if (*pszSrc == '/')
+            cRelativePaths++;
+        pszSrc = strchr(pszSrc, '|');
+        if (!pszSrc)
+            break;
+        pszSrc++;
+        cPattern++;
+    }
+    *pfMultiPattern = cPattern > 1;
+    if (cRelativePaths > 0)
+    {
+        char *pszNewPattern = RTStrAlloc(cchPattern + cRelativePaths * (cchDir - 1) + 1);
+        if (pszNewPattern)
+        {
+            char *pszDst = pszNewPattern;
+            pszSrc = *ppszPattern;
+            for (;;)
+            {
+                if (*pszSrc == '/')
+                {
+                    memcpy(pszDst, pchDir, cchDir);
+                    pszDst += cchDir;
+                    pszSrc += 1;
+                }
+
+                /* Look for the next relative path. */
+                const char *pszSrcNext = strchr(pszSrc, '|');
+                while (pszSrcNext && pszSrcNext[1] != '/')
+                    pszSrcNext = strchr(pszSrcNext + 1, '|');
+                if (!pszSrcNext)
+                    break;
+
+                /* Copy stuff between current and the next path. */
+                pszSrcNext++;
+                memcpy(pszDst, pszSrc, pszSrcNext - pszSrc);
+                pszDst += pszSrcNext - pszSrc;
+                pszSrc = pszSrcNext;
+            }
+
+            /* Copy the final portion and replace the pattern. */
+            strcpy(pszDst, pszSrc);
+
+            RTStrFree(*ppszPattern);
+            *ppszPattern = pszNewPattern;
+        }
+        else
+            return VERR_NO_MEMORY;
+    }
+    return VINF_SUCCESS;
 }
 
 /**
@@ -1701,12 +1853,31 @@ static int scmSettingsAddPair(PSCMSETTINGS pSettings, const char *pchLine, size_
     size_t cchPattern = offColon;
     size_t cchOptions = cchLine - cchPattern - 1;
 
-    /* strip spaces everywhere */
+    /* strip spaces around the pattern */
     while (cchPattern > 0 && RT_C_IS_SPACE(pchLine[cchPattern - 1]))
         cchPattern--;
     while (cchPattern > 0 && RT_C_IS_SPACE(*pchLine))
         cchPattern--, pchLine++;
 
+    /* Look for the exception pattern. */
+    size_t offXcptPattern = cchPattern;
+    size_t cchXcptPattern = 0;
+    const char *pchBang = (const char *)memchr(pchLine, '!', cchPattern);
+    while (pchBang)
+    {
+        static const char s_szXcpt[] = "!xcpt!";
+        size_t const offBang = (size_t)(pchBang - pchLine);
+        if (strncmp(pchBang + 1, &s_szXcpt[1], sizeof(s_szXcpt) - 2) == 0)
+        {
+            offXcptPattern = offBang + sizeof(s_szXcpt) - 1;
+            cchXcptPattern = cchPattern - offXcptPattern;
+            cchPattern     = offBang;
+            break;
+        }
+        pchBang = (const char *)memchr(pchBang + 1, '!', cchPattern - offBang - 1);
+    }
+
+    /* strip spaces around options */
     const char *pchOptions = &pchLine[offColon + 1];
     while (cchOptions > 0 && RT_C_IS_SPACE(pchOptions[cchOptions - 1]))
         cchOptions--;
@@ -1729,11 +1900,13 @@ static int scmSettingsAddPair(PSCMSETTINGS pSettings, const char *pchLine, size_
         pSettings->paPairs = (PSCMPATRNOPTPAIR)pvNew;
     }
 
-    pSettings->paPairs[iPair].pszPattern    = RTStrDupN(pchLine, cchPattern);
-    pSettings->paPairs[iPair].pszOptions    = RTStrDupN(pchOptions, cchOptions);
-    pSettings->paPairs[iPair].pszRelativeTo = RTStrDupN(pchDir, cchDir);
+    pSettings->paPairs[iPair].pszPattern     = RTStrDupN(pchLine, cchPattern);
+    pSettings->paPairs[iPair].pszXcptPattern = RTStrDupN(&pchLine[offXcptPattern], cchXcptPattern);
+    pSettings->paPairs[iPair].pszOptions     = RTStrDupN(pchOptions, cchOptions);
+    pSettings->paPairs[iPair].pszRelativeTo  = RTStrDupN(pchDir, cchDir);
     int rc;
     if (   pSettings->paPairs[iPair].pszPattern
+        && pSettings->paPairs[iPair].pszXcptPattern
         && pSettings->paPairs[iPair].pszOptions
         && pSettings->paPairs[iPair].pszRelativeTo)
         rc = scmSettingsBaseVerifyString(pSettings->paPairs[iPair].pszOptions);
@@ -1745,59 +1918,11 @@ static int scmSettingsAddPair(PSCMSETTINGS pSettings, const char *pchLine, size_
      */
     if (RT_SUCCESS(rc))
     {
-        size_t cPattern = 1;
-        size_t cRelativePaths = 0;
-        const char *pszSrc = pSettings->paPairs[iPair].pszPattern;
-        for (;;)
-        {
-            if (*pszSrc == '/')
-                cRelativePaths++;
-            pszSrc = strchr(pszSrc, '|');
-            if (!pszSrc)
-                break;
-            pszSrc++;
-            cPattern++;
-        }
-        pSettings->paPairs[iPair].fMultiPattern = cPattern > 1;
-        if (cRelativePaths > 0)
-        {
-            char *pszNewPattern = RTStrAlloc(cchPattern + cRelativePaths * (cchDir - 1) + 1);
-            if (pszNewPattern)
-            {
-                char *pszDst = pszNewPattern;
-                pszSrc = pSettings->paPairs[iPair].pszPattern;
-                for (;;)
-                {
-                    if (*pszSrc == '/')
-                    {
-                        memcpy(pszDst, pchDir, cchDir);
-                        pszDst += cchDir;
-                        pszSrc += 1;
-                    }
-
-                    /* Look for the next relative path. */
-                    const char *pszSrcNext = strchr(pszSrc, '|');
-                    while (pszSrcNext && pszSrcNext[1] != '/')
-                        pszSrcNext = strchr(pszSrcNext, '|');
-                    if (!pszSrcNext)
-                        break;
-
-                    /* Copy stuff between current and the next path. */
-                    pszSrcNext++;
-                    memcpy(pszDst, pszSrc, pszSrcNext - pszSrc);
-                    pszDst += pszSrcNext - pszSrc;
-                    pszSrc = pszSrcNext;
-                }
-
-                /* Copy the final portion and replace the pattern. */
-                strcpy(pszDst, pszSrc);
-
-                RTStrFree(pSettings->paPairs[iPair].pszPattern);
-                pSettings->paPairs[iPair].pszPattern = pszNewPattern;
-            }
-            else
-                rc = VERR_NO_MEMORY;
-        }
+        rc = scmSettingsBaseExpandPatternPaths(pchDir, cchDir, cchPattern, &pSettings->paPairs[iPair].pszPattern,
+                                               &pSettings->paPairs[iPair].fMultiPattern);
+        if (RT_SUCCESS(rc))
+            rc = scmSettingsBaseExpandPatternPaths(pchDir, cchDir, cchXcptPattern, &pSettings->paPairs[iPair].pszXcptPattern,
+                                                   &pSettings->paPairs[iPair].fMultiXcptPattern);
     }
     if (RT_SUCCESS(rc))
         /*
@@ -1807,6 +1932,7 @@ static int scmSettingsAddPair(PSCMSETTINGS pSettings, const char *pchLine, size_
     else
     {
         RTStrFree(pSettings->paPairs[iPair].pszPattern);
+        RTStrFree(pSettings->paPairs[iPair].pszXcptPattern);
         RTStrFree(pSettings->paPairs[iPair].pszOptions);
         RTStrFree(pSettings->paPairs[iPair].pszRelativeTo);
     }
@@ -2203,12 +2329,24 @@ static int scmSettingsStackMakeFileBase(PCSCMSETTINGS pSettingsStack, const char
                           || RTStrSimplePatternMultiMatch(pCur->paPairs[i].pszPattern, RTSTR_MAX,
                                                           pszFilename,  RTSTR_MAX, NULL))
                     {
-                        ScmVerbose(NULL, 5, "scmSettingsStackMakeFileBase: Matched '%s' : '%s'\n",
-                                   pCur->paPairs[i].pszPattern, pCur->paPairs[i].pszOptions);
-                        rc = scmSettingsBaseParseString(pBase, pCur->paPairs[i].pszOptions,
-                                                        pCur->paPairs[i].pszRelativeTo, strlen(pCur->paPairs[i].pszRelativeTo));
-                        if (RT_FAILURE(rc))
-                            break;
+                        if (   pCur->paPairs[i].pszXcptPattern[0] == '\0'
+                            || (!pCur->paPairs[i].fMultiXcptPattern
+                                ?    !RTStrSimplePatternNMatch(pCur->paPairs[i].pszXcptPattern, RTSTR_MAX,
+                                                               pszBasename,  cchBasename)
+                                  && !RTStrSimplePatternMatch(pCur->paPairs[i].pszXcptPattern, pszFilename)
+                                :    !RTStrSimplePatternMultiMatch(pCur->paPairs[i].pszXcptPattern, RTSTR_MAX,
+                                                                   pszBasename,  cchBasename, NULL)
+                                  && !RTStrSimplePatternMultiMatch(pCur->paPairs[i].pszXcptPattern, RTSTR_MAX,
+                                                                   pszFilename,  RTSTR_MAX, NULL)))
+                        {
+                            ScmVerbose(NULL, 5, "scmSettingsStackMakeFileBase: Matched '%s' : '%s'\n",
+                                       pCur->paPairs[i].pszPattern, pCur->paPairs[i].pszOptions);
+                            rc = scmSettingsBaseParseString(pBase, pCur->paPairs[i].pszOptions,
+                                                            pCur->paPairs[i].pszRelativeTo,
+                                                            strlen(pCur->paPairs[i].pszRelativeTo));
+                            if (RT_FAILURE(rc))
+                                break;
+                        }
                     }
                 if (RT_FAILURE(rc))
                     break;
@@ -3104,8 +3242,16 @@ static int scmHelp(PCRTGETOPTDEF paOpts, size_t cOpts)
                 hlpPrntf("      svn:sync-process value rules: all, none, subdir-either-or, whatever.  Default: whatever\n");
                 break;
 
+            case SCMOPT_3RD_PARTY:
+                hlpPrntf("      Same as: --external-copyright --no-update-license --no-fix-header-guards "
+                         "--no-strip-trailing-blanks  --dont-set-svn-keywords --dont-set-svn-eol --no-convert-eol "
+                         "--no-fix-todos --no-convert-tabs --no-force-final-eol --strip-no-trailing-lines\n");
+                break;
+
             case SCMOPT_SET_SVN_EOL:            hlpPrntf("      Default: %RTbool\n", g_Defaults.fSetSvnEol); break;
             case SCMOPT_SET_SVN_EXECUTABLE:     hlpPrntf("      Default: %RTbool\n", g_Defaults.fSetSvnExecutable); break;
+            case SCMOPT_SET_SVN_MIME_TYPE_ON_BINARIES:
+                                                hlpPrntf("      Default: %RTbool\n", g_Defaults.fSetMimeTypeOnBinaries); break;
             case SCMOPT_SET_SVN_KEYWORDS:       hlpPrntf("      Default: %RTbool\n", g_Defaults.fSetSvnKeywords); break;
             case SCMOPT_SKIP_SVN_SYNC_PROCESS:  hlpPrntf("      Default: %RTbool\n", g_Defaults.fSkipSvnSyncProcess); break;
             case SCMOPT_SKIP_UNICODE_CHECKS:    hlpPrntf("      Default: %RTbool\n", g_Defaults.fSkipUnicodeChecks); break;
@@ -3239,7 +3385,7 @@ int main(int argc, char **argv)
             case 'V':
             {
                 /* The following is assuming that svn does it's job here. */
-                static const char s_szRev[] = "$Revision: 112240 $";
+                static const char s_szRev[] = "$Revision: 112257 $";
                 const char *psz = RTStrStripL(strchr(s_szRev, ' '));
                 RTPrintf("r%.*s\n", strchr(psz, ' ') - psz, psz);
                 return 0;

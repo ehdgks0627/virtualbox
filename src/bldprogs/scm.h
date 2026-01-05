@@ -1,4 +1,4 @@
-/* $Id: scm.h 112241 2025-12-28 14:51:59Z knut.osmundsen@oracle.com $ */
+/* $Id: scm.h 112257 2026-01-05 02:18:01Z knut.osmundsen@oracle.com $ */
 /** @file
  * IPRT Testcase / Tool - Source Code Massager.
  */
@@ -417,6 +417,8 @@ typedef struct SCMSETTINGSBASE
     bool            fSetSvnEol;
     /** Set svn:executable according to type (unusually this means deleting it). */
     bool            fSetSvnExecutable;
+    /** Whether to set svn:mime-type on binaries. */
+    bool            fSetMimeTypeOnBinaries;
     /** Set svn:keyword if completely or partially missing. */
     bool            fSetSvnKeywords;
     /** Skip checking svn:sync-process. */
@@ -453,9 +455,11 @@ typedef SCMSETTINGSBASE *PSCMSETTINGSBASE;
 typedef struct SCMPATRNOPTPAIR
 {
     char *pszPattern;
+    char *pszXcptPattern;
     char *pszOptions;
     char *pszRelativeTo;
     bool  fMultiPattern;
+    bool  fMultiXcptPattern;
 } SCMPATRNOPTPAIR;
 /** Pointer to a pattern + option pair. */
 typedef SCMPATRNOPTPAIR *PSCMPATRNOPTPAIR;

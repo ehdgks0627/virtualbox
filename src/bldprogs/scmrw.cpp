@@ -1,4 +1,4 @@
-/* $Id: scmrw.cpp 112240 2025-12-28 14:45:18Z knut.osmundsen@oracle.com $ */
+/* $Id: scmrw.cpp 112257 2026-01-05 02:18:01Z knut.osmundsen@oracle.com $ */
 /** @file
  * IPRT Testcase / Tool - Source Code Massager.
  */
@@ -1059,16 +1059,19 @@ SCMREWRITERRES rewrite_SvnBinary(PSCMRWSTATE pState, PSCMSTREAM pIn, PSCMSTREAM 
     }
 
     /* Make sure there is a svn:mime-type set. */
-    int rc = ScmSvnQueryProperty(pState, "svn:mime-type", NULL);
-    if (rc == VERR_NOT_FOUND)
+    if (pSettings->fSetMimeTypeOnBinaries)
     {
-        ScmVerbose(pState, 2, " * settings svn:mime-type\n");
-        rc = ScmSvnSetProperty(pState, "svn:mime-type", "application/octet-stream");
-        if (RT_FAILURE(rc))
-            ScmError(pState, rc, "ScmSvnSetProperty: %Rrc\n", rc);
+        int rc = ScmSvnQueryProperty(pState, "svn:mime-type", NULL);
+        if (rc == VERR_NOT_FOUND)
+        {
+            ScmVerbose(pState, 2, " * settings svn:mime-type\n");
+            rc = ScmSvnSetProperty(pState, "svn:mime-type", "application/octet-stream");
+            if (RT_FAILURE(rc))
+                ScmError(pState, rc, "ScmSvnSetProperty: %Rrc\n", rc);
+        }
+        else if (RT_FAILURE(rc))
+            ScmError(pState, rc, "ScmSvnQueryProperty: %Rrc\n", rc);
     }
-    else if (RT_FAILURE(rc))
-        ScmError(pState, rc, "ScmSvnQueryProperty: %Rrc\n", rc);
 
     return kScmUnmodified;
 }
