@@ -1,4 +1,4 @@
-/* $Id: scm.cpp 112280 2026-01-06 01:46:44Z knut.osmundsen@oracle.com $ */
+/* $Id: scm.cpp 112293 2026-01-06 18:16:06Z knut.osmundsen@oracle.com $ */
 /** @file
  * IPRT Testcase / Tool - Source Code Massager.
  */
@@ -1993,11 +1993,6 @@ static int scmSettingsLoadFile(PSCMSETTINGS pSettings, const char *pszFilename)
             if (cchLine < 1 || *pchLine == '#')
                 continue;
 
-            /* Ignore trailing comments. */
-            char *pchHash = (char *)memchr(pchLine, '#', cchLine);
-            if (pchHash)
-                cchLine = (size_t)(pchHash - pchLine);
-
             /* Deal with escaped newlines. */
             size_t  iFirstLine  = ~(size_t)0;
             char   *pszFreeLine = NULL;
@@ -2056,6 +2051,11 @@ static int scmSettingsLoadFile(PSCMSETTINGS pSettings, const char *pszFilename)
                 pchLine = pszFreeLine;
                 cchLine = cchTotal;
             }
+
+            /* Ignore trailing comments. */
+            char *pchHash = (char *)memchr(pchLine, '#', cchLine);
+            if (pchHash)
+                cchLine = (size_t)(pchHash - pchLine);
 
             /* What kind of line is it? */
             const char *pchColon = (const char *)memchr(pchLine, ':', cchLine);
@@ -3404,7 +3404,7 @@ int main(int argc, char **argv)
             case 'V':
             {
                 /* The following is assuming that svn does it's job here. */
-                static const char s_szRev[] = "$Revision: 112280 $";
+                static const char s_szRev[] = "$Revision: 112293 $";
                 const char *psz = RTStrStripL(strchr(s_szRev, ' '));
                 RTPrintf("r%.*s\n", strchr(psz, ' ') - psz, psz);
                 return 0;
