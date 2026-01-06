@@ -1,4 +1,4 @@
-# $Id: .scm-settings 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $
+# $Id: .scm-settings 112286 2026-01-06 13:36:03Z knut.osmundsen@oracle.com $
 ## @file
 # Source code massager settings for the docs.
 #
@@ -43,4 +43,22 @@
 /*.tpx:                         --treat-as xml --external-copyright --no-convert-eol
 /*.graphml:                     --treat-as xml --external-copyright --no-convert-eol
 
-/*.iuml:                 --treat-as plaintext --add-action copyright-tick-style
+/*.iuml:                        --treat-as plaintext --add-action copyright-tick-style
+
+/*.*: --svn-sync-process-export all
+
+/graphml*:  --svn-sync-process-export none
+/GUI*:      --svn-sync-process-export none
+/iuml*:     --svn-sync-process-export none
+/tg*:       --svn-sync-process-export none
+/vp*:       --svn-sync-process-export none
+/xmi*:      --svn-sync-process-export none
+/License.*: --svn-sync-process-export none
+
+## @todo export: probably not.
+/VBox-7.1-thoughts-on-ARM.txt:      --svn-sync-process-export none
+
+## @todo export: yes?
+/CFG.txt:                           --svn-sync-process-export none
+/TMTIMER-Statechart-Diagram.gif:    --svn-sync-process-export none
+

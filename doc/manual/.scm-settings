@@ -1,4 +1,4 @@
-# $Id: .scm-settings 112266 2026-01-05 03:44:44Z knut.osmundsen@oracle.com $
+# $Id: .scm-settings 112286 2026-01-06 13:36:03Z knut.osmundsen@oracle.com $
 ## @file
 # Source code massager settings for the manual.
 #
@@ -31,7 +31,7 @@
 /testcase/*.xml:         --external-copyright
 
 #--filter-out-dirs  /texfiles/.
-/texfiles/*:            --3rd-party
+/texfiles/*:            --3rd-party --svn-sync-process-export none
 /texfiles/*.sty:        --treat-as plaintext
 /texfiles/*.dat:        --treat-as plaintext --skip-unicode-checks
 
