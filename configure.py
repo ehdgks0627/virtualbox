@@ -6,7 +6,7 @@ Requires >= Python 3.4.
 """
 
 # -*- coding: utf-8 -*-
-# $Id: configure.py 112295 2026-01-06 18:38:31Z andreas.loeffler@oracle.com $
+# $Id: configure.py 112296 2026-01-06 19:15:37Z andreas.loeffler@oracle.com $
 # pylint: disable=bare-except
 # pylint: disable=consider-using-f-string
 # pylint: disable=global-statement
@@ -61,7 +61,7 @@ SPDX-License-Identifier: GPL-3.0-only
 # External Python modules or other dependencies are not allowed!
 #
 
-__revision__ = "$Revision: 112295 $"
+__revision__ = "$Revision: 112296 $"
 
 import argparse
 import ctypes
@@ -1900,6 +1900,28 @@ class ToolCheck(CheckBase):
 
         return fRc;
 
+    def checkCallback_makeself(self):
+        """
+        Checks for makeself[.sh].
+        """
+
+        # Distributions such as Ubuntu ship makeself packages without a .sh suffix,
+        # our build tools use the original naming though (makeself.sh). Prefer the build tools if found.
+        asMakeselfNames = [ 'makeself.sh', 'makeself' ];
+        if self.sRootPath:
+            asMakeselfFound, _ = self.findFiles(self.sRootPath, asMakeselfNames, fAbsolute = True);
+            if asMakeselfFound:
+                asPath = self.findFilesGetUniquePaths(asMakeselfFound);
+                if asPath:
+                    self.sCmdPath, self.sVer = checkWhich(asPath[0]);
+        else:
+            for sName in asMakeselfNames:
+                self.sCmdPath, self.sVer = checkWhich(sName);
+                if self.sCmdPath:
+                    break;
+
+        return True if self.sCmdPath else False;
+
     def checkCallback_MacOSSDK(self):
         """
         Checks for the macOS SDK.
@@ -3099,7 +3121,7 @@ g_aoTools = [
     ToolCheck("gsoapsources", asCmd = [ ], fnCallback = ToolCheck.checkCallback_GSOAPSources ),
     ToolCheck("openjdk", asCmd = [ ], fnCallback = ToolCheck.checkCallback_OpenJDK,
               asDefinesToDisableIfNotFound = [ 'VBOX_WITH_WEBSERVICES' ]),
-    ToolCheck("makeself", asCmd = [ "makeself" ], aeTargets = [ BuildTarget.LINUX ]),
+    ToolCheck("makeself", asCmd = [ ], fnCallback = ToolCheck.checkCallback_makeself, aeTargets = [ BuildTarget.LINUX ]),
     ToolCheck("nasm", asCmd = [ "nasm" ], fnCallback = ToolCheck.checkCallback_NASM),
     ToolCheck("openwatcom", asCmd = [ "wcl", "wcl386", "wlink" ], fnCallback = ToolCheck.checkCallback_OpenWatcom,
               asDefinesToDisableIfNotFound = [ 'VBOX_WITH_OPEN_WATCOM' ]),
