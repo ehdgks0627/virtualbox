@@ -1,4 +1,4 @@
-/* $Id: UnattendedImpl.cpp 111493 2025-10-27 12:26:11Z alexander.eichner@oracle.com $ */
+/* $Id: UnattendedImpl.cpp 112329 2026-01-07 11:37:41Z serkan.bayraktar@oracle.com $ */
 /** @file
  * Unattended class implementation
  */
@@ -201,6 +201,132 @@ typedef struct OS2SYSLEVELENTRY
 AssertCompileSize(OS2SYSLEVELENTRY, 0x80);
 
 
+/**
+ * Used by hlpVfsRecursiveFileSearch & hlpVfsRecursiveFileSearchInt to
+ * reduce the number of parameters passes during recursion.
+ */
+typedef struct HLPVFSRECURSIVE
+{
+    size_t        cchFilename;
+    const char   *pszFilename;
+    char         *pszFoundPath;
+    size_t        cbFoundPath;
+    RTDIRENTRYEX  DirEntry;
+} HLPVFSRECURSIVE;
+
+
+/**
+ * Returns VERR_FILE_NOT_FOUND if file not found, VINF_SUCCESS if found.
+ */
+static int hlpVfsRecursiveFileSearchInt(HLPVFSRECURSIVE *pThis, RTVFSDIR hVfsDir, size_t offFoundPath, int cNestingsLeft)
+{
+    int vrcStashed = VERR_FILE_NOT_FOUND;
+    for (;;)
+    {
+        size_t cbDir = sizeof(pThis->DirEntry);
+        int vrc = RTVfsDirReadEx(hVfsDir, &pThis->DirEntry, &cbDir, RTFSOBJATTRADD_NOTHING);
+        if (RT_FAILURE(vrc))
+        {
+            if (vrc == VERR_NO_MORE_FILES)
+                vrc = vrcStashed;
+            else
+                LogRel(("Unattended: hlpVfsRecursiveFileSearchInDir: RTVfsDirReadEx fails in '%s': %Rrc\n",
+                        pThis->pszFoundPath, vrc));
+            return vrc;
+        }
+        switch (pThis->DirEntry.Info.Attr.fMode & RTFS_TYPE_MASK)
+        {
+            case RTFS_TYPE_FILE:
+                if (   pThis->DirEntry.cbName == pThis->cchFilename
+                    && RTStrCmp(pThis->DirEntry.szName, pThis->pszFilename) == 0)
+                {
+                    vrc = RTStrCopy(&pThis->pszFoundPath[offFoundPath], pThis->cbFoundPath - offFoundPath, pThis->DirEntry.szName);
+                    AssertLogRelMsgReturn(RT_SUCCESS(vrc),
+                                          ("Appending '%s' to '%s': %Rrc\n", pThis->DirEntry.szName, pThis->pszFoundPath), vrc);
+                    return VINF_SUCCESS;
+                }
+                break;
+
+            case RTFS_TYPE_DIRECTORY:
+                if (RTDirEntryExIsStdDotLink(&pThis->DirEntry))
+                    continue;
+
+                /* Recurse into the sub-directory if we've got enough buffer space for it, otherwise just skip it. */
+                if (   offFoundPath + pThis->DirEntry.cbName + 1 < pThis->cbFoundPath
+                    && cNestingsLeft > 0)
+                {
+                    memcpy(&pThis->pszFoundPath[offFoundPath], pThis->DirEntry.szName, pThis->DirEntry.cbName);
+                    pThis->pszFoundPath[offFoundPath + pThis->DirEntry.cbName]     = RTPATH_SLASH;
+                    pThis->pszFoundPath[offFoundPath + pThis->DirEntry.cbName + 1] = '\0';
+
+                    RTVFSDIR hVfsSubDir = NIL_RTVFSDIR;
+                    vrc = RTVfsDirOpenDir(hVfsDir, pThis->DirEntry.szName, 0 /* fFlags */, &hVfsSubDir);
+                    if (RT_SUCCESS(vrc))
+                    {
+                        vrc = hlpVfsRecursiveFileSearchInt(pThis, hVfsSubDir, offFoundPath + pThis->DirEntry.cbName + 1,
+                                                           cNestingsLeft - 1);
+                        RTVfsDirRelease(hVfsSubDir);
+                        if (RT_SUCCESS_NP(vrc))
+                            return VINF_SUCCESS;
+                        if (vrc != VERR_FILE_NOT_FOUND)
+                        {
+                            LogRel(("Unattended: hlpVfsRecursiveFileSearchInDir: Stashing error %Rrc scanning '%s'\n",
+                                    vrc, pThis->pszFoundPath));
+                            vrcStashed = vrc;
+                        }
+                    }
+                    else
+                        LogRel(("Unattended: hlpVfsRecursiveFileSearchInDir: Failed open the directory %s: %Rrc\n",
+                                pThis->pszFoundPath, vrc));
+                    pThis->pszFoundPath[offFoundPath] = '\0';
+                }
+                else
+                    LogRel(("Unattended: hlpVfsRecursiveFileSearchInDir: %s for scanning '%s%s' - skipping.\n",
+                            cNestingsLeft > 0 ? "Insufficient buffer" : "Too many recursions",
+                            pThis->pszFoundPath, pThis->DirEntry.szName));
+                break;
+        }
+    }
+}
+
+/**
+ * Searching @a pszDir and all its whole tree for the (regular) file @a pszFilename.
+ *
+ * @returns VINF_SUCCESS and name in @a pszFoundPath on success,
+ *          VERR_FILE_NOT_FOUND dif not found and
+ * @param   hVfsIso         The file system to search in.
+ * @param   pszDir          The path to the directory to start searching in.
+ * @param   pszFilename     The name of the file to locate.
+ * @param   pszFoundPath    Where to return the path to the file.  This is only
+ *                          valid when @c VINF_SUCCESS is returned.
+ * @param   cbFoundPath     The size of the buffer @a pszFoundPath points to.
+ */
+static int hlpVfsRecursiveFileSearch(RTVFS hVfsIso, const char *pszDir, const char *pszFilename,
+                                     char *pszFoundPath, size_t cbFoundPath)
+{
+    int vrc = RTStrCopy(pszFoundPath, cbFoundPath, pszDir);
+    AssertLogRelRCReturn(vrc, vrc);
+    size_t const cchDir = RTPathEnsureTrailingSeparator(pszFoundPath, cbFoundPath);
+    AssertLogRelReturn(cchDir > 0, VERR_BUFFER_OVERFLOW);
+
+    RTVFSDIR hVfsDir = NIL_RTVFSDIR;
+    vrc = RTVfsDirOpen(hVfsIso, pszDir, 0 /*fFlags */, &hVfsDir);
+    if (RT_SUCCESS(vrc))
+    {
+        HLPVFSRECURSIVE This;
+        This.cchFilename  = strlen(pszFilename);
+        This.pszFilename  = pszFilename;
+        This.pszFoundPath = pszFoundPath;
+        This.cbFoundPath  = cbFoundPath;
+        vrc = hlpVfsRecursiveFileSearchInt(&This, hVfsDir, cchDir, 32);
+
+        RTVfsDirRelease(hVfsDir);
+    }
+    else
+        LogRel(("Unattended: %s directory not found or could not be opened: %Rrc\n", pszDir, vrc));
+    return vrc;
+}
+
 
 /**
  * Concatenate image name and version strings and return.
@@ -243,6 +369,7 @@ const Utf8Str &WIMImage::formatName(Utf8Str &r_strName) const
     r_strName.append(")");
     return r_strName;
 }
+
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1939,7 +2066,7 @@ HRESULT Unattended::i_innerDetectIsoOSLinux(RTVFS hVfsIso, DETECTBUFFER *pBuf)
     }
 
     /*
-     * All of the debian based distro versions I checked have a single line ./disk/info
+     * All of the older! debian based distro versions I checked have a single line .disk/info
      * file.  Only info I could find related to .disk folder is:
      *      https://lists.debian.org/debian-cd/2004/01/msg00069.html
      *
@@ -2002,7 +2129,7 @@ HRESULT Unattended::i_innerDetectIsoOSLinux(RTVFS hVfsIso, DETECTBUFFER *pBuf)
                 LogRel(("Unattended: .disk/info: Unknown: arch='%s'\n", pszArch));
         }
 
-        if (pszDiskName)
+        if (pszDiskName && mEnmOsType != VBOXOSTYPE_Unknown)
         {
             const char *pszVersion = NULL;
             if (detectLinuxDistroNameII(pszDiskName, &mEnmOsType, &pszVersion))
@@ -2027,6 +2154,85 @@ HRESULT Unattended::i_innerDetectIsoOSLinux(RTVFS hVfsIso, DETECTBUFFER *pBuf)
         else
             return S_FALSE;
     }
+
+    /*
+     * Debian 12 and 13 do not include architecture information in .disk/info file. Thus we check first
+     * dists/???/Release file which seems to be available in all Debian variants/versions I have checked.
+     * We have to search for Release file under dists folder to find its exact location.
+     * The content of the file is similar to the following:
+     * Origin: Debian
+     * Label: Debian
+     * Suite: oldstable
+     * Version: 12.12
+     * Codename: bookworm
+     * Changelogs: https://metadata.ftp-master.debian.org/changelogs/@CHANGEPATH@_changelog
+     * Date: Sat, 06 Sep 2025 11:02:45 UTC
+     * Acquire-By-Hash: yes
+     * No-Support-for-Architecture-all: Packages
+     * Architectures: amd64
+     * Components: main contrib
+     * Description: Debian 12.12 Released 06 September 2025
+     * MD5Sum:
+     * ......
+     * We need to recursively search under dists folder as Release file sits on seemingly randomly
+     * named subfolders.
+     */
+    char szFoundFilePath[RTPATH_MAX];
+    vrc = hlpVfsRecursiveFileSearch(hVfsIso, "dists", "Release", szFoundFilePath, sizeof(szFoundFilePath));
+    if (RT_SUCCESS(vrc))
+    {
+        vrc = RTVfsFileOpen(hVfsIso, szFoundFilePath, RTFILE_O_READ | RTFILE_O_DENY_NONE | RTFILE_O_OPEN, &hVfsFile);
+        if (RT_SUCCESS(vrc))
+        {
+            size_t cchIgn;
+            vrc = RTVfsFileRead(hVfsFile, pBuf->sz, sizeof(*pBuf) - 1, &cchIgn);
+            pBuf->sz[RT_SUCCESS(vrc) ? cchIgn : 0] = '\0';
+            RTVfsFileRelease(hVfsFile);
+
+            /* Interesting stuff is in first 10-12 lines of the file. The rest is MD5 sums. */
+            const char *apszLines[12];
+            char       *psz         = pBuf->sz;
+            unsigned    idxArchLine = ~0U;
+            for (unsigned i = 0; i < RT_ELEMENTS(apszLines); i++)
+            {
+                apszLines[i] = psz;
+                if (*psz != '\0')
+                {
+                    char *pszLine = psz;
+                    psz = (char *)strchr(psz, '\n');
+                    if (!psz)
+                         psz = strchr(pszLine, '\0');
+                    else
+                        *psz++ = '\0';
+                    apszLines[i] = RTStrStrip(pszLine);
+
+                    if (RTStrIStartsWith(pszLine, "label"))
+                    {
+                        const char *pszVersion = NULL;
+                        detectLinuxDistroNameII(apszLines[i], &mEnmOsType, &pszVersion);
+                    }
+                    else if (RTStrIStartsWith(pszLine, "architecture"))
+                        idxArchLine = i;
+                }
+            }
+
+            if (mEnmOsType == VBOXOSTYPE_Unknown)
+                LogRel(("Unattended: dists/**/Release: Unknown: OS type\n"));
+            else if (idxArchLine >= RT_ELEMENTS(apszLines))
+                LogRel(("Unattended: dists/**/Release: Unknown: No architecture lines in file\n"));
+            else
+            {
+                if (!detectLinuxArchII(apszLines[idxArchLine], &mEnmOsType, mEnmOsType))
+                    LogRel(("Unattended: dists/**/Release: Unknown: arch='%s'\n", apszLines[idxArchLine]));
+                else
+                    return S_FALSE;
+            }
+        }
+        else
+            LogRel(("Unattended: dists/**/Release: Failed to open Release file '%s': %Rrc\n", szFoundFilePath, vrc));
+    }
+    else
+        LogRel(("Unattended: dists/**/Release: Failed to find Release file\n"));
 
     /*
      * Fedora live iso should be recognizable from the primary volume ID (the
