@@ -1,4 +1,4 @@
-# $Id: .scm-settings 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $
+# $Id: .scm-settings 112356 2026-01-07 21:37:42Z knut.osmundsen@oracle.com $
 ## @file
 # Source code massager settings for the storage library.
 #
@@ -24,6 +24,11 @@
 #
 # SPDX-License-Identifier: GPL-3.0-only
 #
+
+## @todo export: remove VDPluginCrypt.rc?
+# All is exported VDPluginCrypt.rc, which seems to be a left-over.
+--svn-sync-process-export all
+/VDPluginCrypt.rc: --svn-sync-process-export none
 
 /testcase/*.vd:  --treat-as .c
 
