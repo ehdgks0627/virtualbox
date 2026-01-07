@@ -1,4 +1,4 @@
-# $Id: .scm-settings 112184 2025-12-20 22:42:49Z knut.osmundsen@oracle.com $
+# $Id: .scm-settings 112361 2026-01-07 23:49:26Z knut.osmundsen@oracle.com $
 ## @file
 # Top level source code massager settings.
 #
@@ -41,7 +41,9 @@
 --only-svn-files
 --set-svn-eol
 --set-svn-executable
+--set-svn-mime-type-on-binaries
 --set-svn-keywords
+--svn-sync-process-export all   # The default is to export everything.
 
 #
 # Directories to ignore.
@@ -66,20 +68,20 @@
 # files specified directly on the command line.
 #
 --filter-out-files "/vslick.h"
---filter-out-files "/.dir-locals.el"
---filter-out-files "*/.gitignore"
---filter-out-files "*/PkgInfo"
---filter-out-files "*/*-PkgInfo"
---filter-out-files "*.crt"
---filter-out-files "*.plist"
---filter-out-files "*.provisionprofile"
---filter-out-files "*/Doxyfile*"
---filter-out-files "*/COPYING"
---filter-out-files "*/COPYING.LIB"
---filter-out-files "*/COPYING.CDDL"
---filter-out-files "*/COPYING.GPLv2"
---filter-out-files "*/COPYING.UBDL"
---filter-out-files "*.desktop"
+#--filter-out-files "/.dir-locals.el"
+#--filter-out-files "*/.gitignore"
+#--filter-out-files "*/PkgInfo"
+#--filter-out-files "*/*-PkgInfo"
+#--filter-out-files "*.crt"
+#--filter-out-files "*.plist"
+#--filter-out-files "*.provisionprofile"
+#--filter-out-files "*/Doxyfile*"
+#--filter-out-files "*/COPYING"
+#--filter-out-files "*/COPYING.LIB"
+#--filter-out-files "*/COPYING.CDDL"
+#--filter-out-files "*/COPYING.GPLv2"
+#--filter-out-files "*/COPYING.UBDL"
+#--filter-out-files "*.desktop"
 
 
 #
@@ -88,4 +90,34 @@
 --guard-prefix VBOX_INCLUDED_SRC_
 --guard-relative-to-dir {parent}
 --fix-header-guard-endif
+
+#
+# Git files.
+#
+.gitignore|.gitmodules|.gitattributes: --treat-as hashtext --external-copyright
+
+#
+# Darwin .plist files are xml and should (normally) be excluded from copyright checks.
+# Also, use LF since the files are (normally) only for use on darwin.
+#
+*.plist: --treat-as xml --external-copyright --no-update-copyright-year --del-action force-native-eol --add-action force-lf
+
+#
+# Doxygen config files, no copyright or license here.
+#
+Doxyfile*: --treat-as hashtext --external-copyright --no-update-copyright-year
+
+#
+# SVG is xml, but apparently spec'ed to LF.
+#
+*.svg: --treat-as xml --external-copyright --del-action force-native-eol --add-action force-lf --dont-set-svn-keywords
+
+#
+# Special root files.
+#
+/.dir-locals.el|/.gitmodules:           --treat-as plaintext
+/.dir-locals.el:                        --treat-as plaintext
+/COPYING|/COPYING.CDDL|/COPYING.LIB:    --treat-as plaintext
+## @todo export: Why isn't COPYING.LIB exported? Do we still need it in root?
+/COPYING.LIB: --svn-sync-process-export none
 
