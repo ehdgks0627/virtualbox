@@ -6,7 +6,7 @@ Requires >= Python 3.4.
 """
 
 # -*- coding: utf-8 -*-
-# $Id: configure.py 112328 2026-01-07 09:54:18Z andreas.loeffler@oracle.com $
+# $Id: configure.py 112336 2026-01-07 15:50:48Z andreas.loeffler@oracle.com $
 # pylint: disable=bare-except
 # pylint: disable=consider-using-f-string
 # pylint: disable=global-statement
@@ -61,7 +61,7 @@ SPDX-License-Identifier: GPL-3.0-only
 # External Python modules or other dependencies are not allowed!
 #
 
-__revision__ = "$Revision: 112328 $"
+__revision__ = "$Revision: 112336 $"
 
 import argparse
 import ctypes
@@ -203,6 +203,57 @@ g_mapWinSDK10Arch2Dir = {
     BuildArch.ARM64: ('arm64', 'Hostx64')
 };
 
+class PkgMgr:
+    """
+    Enumeration for package managers.
+    """
+    PKGCFG = "pkg-config";
+    BREW   = "brew";
+    VCPKG  = "vcpkg";
+
+class PkgMgrVarPKGCFG:
+    """
+    Enumeration for pkg-config variables.
+    """
+    BINDIR     = "--variable=bindir";
+    CFLAGS     = "--cflags";
+    INCDIR     = "--cflags-only-I";
+    EXECPREFIX = "--variable=exec_prefix";
+    LIBS       = "--libs";
+    LIBDIR     = "--variable=libdir";
+    LIBEXEC    = "--variable=libexecdir";
+    PREFIX     = "--variable=prefix";
+
+class PkgMgrVarBREW:
+    """
+    Enumeration for brew variables.
+    """
+    PREFIX     = "--prefix";
+
+
+class PkgMgrVarVCPKG:
+    """
+    Enumeration for vcpkg variables.
+    """
+    PREFIX     = "--x-install-root";
+
+class PkgMgrVar:
+    """"
+    Class which holds the implemented variables for package managers.
+
+    Note: Not all package manager implement all variables.
+    """
+    BINDIR     = { PkgMgr.PKGCFG: PkgMgrVarPKGCFG.BINDIR };
+    CFLAGS     = { PkgMgr.PKGCFG: PkgMgrVarPKGCFG.CFLAGS };
+    INCDIR     = { PkgMgr.PKGCFG: PkgMgrVarPKGCFG.INCDIR };
+    EXECPREFIX = { PkgMgr.PKGCFG: PkgMgrVarPKGCFG.EXECPREFIX };
+    LIBS       = { PkgMgr.PKGCFG: PkgMgrVarPKGCFG.LIBS };
+    LIBDIR     = { PkgMgr.PKGCFG: PkgMgrVarPKGCFG.LIBDIR };
+    LIBEXEC    = { PkgMgr.PKGCFG: PkgMgrVarPKGCFG.LIBEXEC };
+    PREFIX     = { PkgMgr.PKGCFG: PkgMgrVarPKGCFG.PREFIX,
+                   PkgMgr.BREW  : PkgMgrVarBREW.PREFIX,
+                   PkgMgr.VCPKG : PkgMgrVarVCPKG.PREFIX };
+
 # Dictionary of path lists to prepend to something.
 # See command line arguments '--prepend-<something>-path'.
 # Note: The keys must match <something>, e.g. 'programfiles' (for parsing).
@@ -239,16 +290,14 @@ def printVerbose(uVerbosity, sMessage, fLogOnly = False):
     """
     _ = fLogOnly;
     if g_cVerbosity >= uVerbosity:
-        print(f"--- {sMessage}");
+        print(f"=== {sMessage}");
 
-def printLog(sMessage, sPrefix = '==='):
+def printLog(sMessage, sPrefix = '---'):
     """
-    Prints a log message to stdout.
+    Prints a log message to the log.
     """
     if g_fhLog:
         g_fhLog.write(f'{sPrefix} {sMessage}\n');
-    if g_fDebug:
-        print(f"{sPrefix} {sMessage}");
 
 def printLogHeader():
     """
@@ -620,10 +669,10 @@ def compileAndExecute(sName, enmBuildTarget, enmBuildArch, asIncPaths, asLibPath
         asCmd.extend(asLinkerArgs);
 
     if g_fDebug:
-        import json # pylint: disable=unused-import
         printLog( 'Process environment:');
-        oProcEnv.printLog([ 'PATH', 'INCLUDE', 'LIB' ]);
-        printLog(f'Process command line: {asCmd}');
+        oProcEnv.printLog('    ', [ 'PATH', 'INCLUDE', 'LIB' ]);
+        printLog( 'Process command line:');
+        printLog(f'    {asCmd}');
 
     try:
         # Add the compiler's path to PATH.
@@ -755,15 +804,19 @@ def getPackageLibs(sPackageName):
         printVerbose(1, f'Package "{sPackageName}" invalid or not found');
     return False, None;
 
-def getPackagePath(sPackageName):
+def getPackageVar(sPackageName, enmPkgMgrVar : PkgMgrVar):
     """
-    Returns the package path for a given package.
+    Returns the package variable for a given package.
+
+    Returns a tuple (Success status, Output [string, list]).
     """
     try:
+        if not enmPkgMgrVar:
+            return True, '';
         if g_enmHostTarget in [ BuildTarget.LINUX, BuildTarget.SOLARIS, BuildTarget.DARWIN ]:
             # Use pkg-config on Linux and Solaris.
             # On Darwin we ask pkg-config first, then try brew down below.
-            sCmd = f"pkg-config --variable=exec_prefix {shlex.quote(sPackageName)}"
+            sCmd = f"pkg-config {enmPkgMgrVar[PkgMgr.PKGCFG]} {shlex.quote(sPackageName)}"
         elif g_enmHostTarget == BuildTarget.WINDOWS:
             # Detect VCPKG.
             # See: https://learn.microsoft.com/en-us/vcpkg/ + https://vcpkg.io
@@ -781,20 +834,29 @@ def getPackagePath(sPackageName):
         if sCmd:
             oProc = subprocess.run(sCmd, shell = True, check = False, stdout = subprocess.PIPE, stderr = subprocess.PIPE, text =True);
             if oProc.returncode == 0 and oProc.stdout.strip():
-                sPath = oProc.stdout.strip();
-                return True, sPath;
+                sRet = oProc.stdout.strip();
+                # Output parsing.
+                if enmPkgMgrVar == PkgMgrVar.INCDIR:
+                    sRet = [f[2:] for f in sRet.split()];
+                return True, sRet;
 
         # If pkg-config fails on Darwin, try asking brew instead.
         if BuildTarget.DARWIN:
-            sCmd = f'brew --prefix {sPackageName}';
+            sCmd = f'brew {enmPkgMgrVar[PkgMgr.BREW]} {sPackageName}';
             oProc = subprocess.run(sCmd, shell = True, check = False, stdout = subprocess.PIPE, stderr = subprocess.PIPE, text =True);
             if oProc.returncode == 0 and oProc.stdout.strip():
-                sPath = oProc.stdout.strip();
-                return True, sPath;
+                sRet = oProc.stdout.strip();
+                return True, sRet;
 
     except subprocess.CalledProcessError as ex:
         printVerbose(1, f'Package "{sPackageName}" invalid or not found: {ex}');
     return False, None;
+
+def getPackagePath(sPackageName):
+    """
+    Returns the package path for a given package.
+    """
+    return getPackageVar(sPackageName, PkgMgrVar.PREFIX);
 
 class CheckBase:
     """
@@ -1017,7 +1079,8 @@ class LibraryCheck(CheckBase):
         # library checking process will continue or not.
         self.fnCallback = fnCallback;
         # A string for constructing kBuild / VBox SDK defines (e.g. "MYLIB" -> SDK_MYLIB_INCS / SDK_MYLIB_LIBS).
-        self.sSdkName  = sSdkName if sSdkName else self.sName;
+        # If None, no SDK_ defines will be set.
+        self.sSdkName = sSdkName;
         # Defines which are getting disabled (e.g. "VBOX_WITH_MYFEATURE:=<empty>") if the library has not been found.
         # A non-empty list makes the library optional.
         self.asDefinesToDisableIfNotFound = asDefinesToDisableIfNotFound or [];
@@ -1039,8 +1102,8 @@ class LibraryCheck(CheckBase):
         self.asDefines = [];
         # Is a tri-state: None if not required (optional or not needed), False if required but not found, True if found.
         self.fHave = None;
-        # If the library is part of our source tree.
-        self.fInTree = False;
+        # If the library is part of our source tree and is source-only.
+        self.fInTreeSourceOnly = False;
         # Contains the (parsable) version string if detected.
         # Only valid if self.fHave is True.
         self.sVer = None;
@@ -1082,7 +1145,7 @@ class LibraryCheck(CheckBase):
         fRc, sStdOut, sStdErr = compileAndExecute(self.sName, enmBuildTarget, enmBuildArch, \
                                                   self.asIncPaths, self.asLibPaths, self.asHdrFiles, self.asLibFiles, \
                                                   sCode, asCompilerArgs = self.asCompilerArgs, asLinkerArgs = self.asLinkerArgs, asDefines = self.asDefines,
-                                                  fCompileMayFail = self.fInTree);
+                                                  fCompileMayFail = self.fInTreeSourceOnly);
         if fRc and sStdOut:
             self.sVer = sStdOut;
         return fRc, sStdOut, sStdErr;
@@ -1349,8 +1412,8 @@ class LibraryCheck(CheckBase):
         if not self.asLibFiles:
             self.printVerbose(1, 'No libraries defined, skipping');
             return True, [];
-        if self.fInTree:
-            self.printVerbose(1, 'Library in-tree, skipping');
+        if self.fInTreeSourceOnly:
+            self.printVerbose(1, 'Library in-tree and source only, skipping');
             return True, [];
 
         asSearchPath = self.asLibPaths + self.getLibSearchPaths(); # Own lib paths have precedence.
@@ -1388,6 +1451,31 @@ class LibraryCheck(CheckBase):
             self.printVerbose(1, 'All libraries found');
         return fRc, asLibPaths if fRc else None;
 
+    def checkPackage(self, sPackageName):
+        """"
+        Checks a given package.
+        """
+        if not self.sSdkName: # No SDK (our term for package in our dev tools)? Bail out.
+            return True;
+
+        printVerbose(1, f"Package Information for {sPackageName}:");
+        fRc, sBinDir = getPackageVar(sPackageName, PkgMgrVar.BINDIR);
+        printVerbose(1, f"    BINDIR: {sBinDir if fRc else "<None>"}");
+        fRc, sLibDir = getPackageVar(sPackageName, PkgMgrVar.LIBDIR);
+        printVerbose(1, f"    LIBDIR: {sLibDir if fRc else "<None>"}");
+        fRc, sCFlags = getPackageVar(sPackageName, PkgMgrVar.CFLAGS);
+        printVerbose(1, f"    CFLAGS: {sCFlags if fRc else "<None>"}");
+
+        #if self.sRootPath:
+        #    g_oEnv.set(f'PATH_SDK_{self.sSdkName}', self.sRootPath);
+        #    sPathLibExec = os.path.join(sPathBase, 'libexec');
+#
+        #if self.asIncPaths:
+        #    g_oEnv.set(f'PATH_SDK_{self.sSdkName}_LIB', self.asLibPaths[0]);
+        #if self.asLibPaths:
+        #    g_oEnv.set(f'PATH_SDK_{self.sSdkName}_INC', self.asIncPaths[0]);
+        return True;
+
     def performCheck(self):
         """
         Run library detection.
@@ -1401,7 +1489,7 @@ class LibraryCheck(CheckBase):
         self.print('Performing library check ...');
 
         # Check if no custom path was specified and we have the lib in-tree.
-        sPath, self.fInTree = self.getRootPath();
+        sPath, self.fInTreeSourceOnly = self.getRootPath();
         if sPath:
             self.fHave     = True;
             self.sRootPath = sPath;
@@ -1415,7 +1503,7 @@ class LibraryCheck(CheckBase):
             if fRc:
                 fRc, self.asLibPaths = self.checkLib();
                 if      fRc \
-                and not self.fInTree:
+                and not self.fInTreeSourceOnly:
                     self.fHave, _, _ = self.compileAndExecute(g_oEnv['KBUILD_TARGET'], g_oEnv['KBUILD_TARGET_ARCH']);
         if not fRc:
             if self.asDefinesToDisableIfNotFound: # Implies being optional.
@@ -1436,7 +1524,7 @@ class LibraryCheck(CheckBase):
         if self.fDisabled:
             return "DISABLED";
         elif self.fHave:
-            return "in-tree" if self.fInTree else "ok";
+            return "in-tree" if self.fInTreeSourceOnly else "ok";
         elif self.fHave is None:
             return "?";
         else:
@@ -1498,110 +1586,111 @@ class LibraryCheck(CheckBase):
         Tweaks needed for using Qt 6.x.
         """
 
-        sPathBase      = None;
-        sPathFramework = None;
+        sPathBase = None;
+        sPathInc = None;
+        sPathLib = None;
+        sPathBin = None;
+        sPathLibExec = None;
 
         # Check if we have our own pre-compiled Qt in tools first.
         sPathBase = self.getToolPath();
         if sPathBase:
-            self.asIncPaths.insert(0, os.path.join(sPathBase, 'include'));
-            self.asLibPaths.insert(0, os.path.join(sPathBase, 'lib'));
             self.asLibFiles = [ 'libQt6CoreVBox' ];
-            # Explicitly set the RPATH, so that our test program can find the dynamic libs.
-            self.asCompilerArgs.extend([ f'-Wl,-rpath,{sPathBase}/lib' ]);
-
             g_oEnv.set('VBOX_WITH_ORACLE_QT', '1');
-            return True;
 
-        # Qt 6.x requires a recent compiler (>= C++17).
-        # For MSVC this means at least 14.1 (VS 2017).
-        if g_oEnv['KBUILD_TARGET'] == BuildTarget.WINDOWS:
-            sCompilerVer = g_oEnv['config_cpp_compiler_ver'];
-            if self.compareStringVersions(sCompilerVer, "14.1") < 1:
-                self.printError(f'MSVC compiler version too old ({sCompilerVer}), requires at least 15.7 (2017 Update 7)');
-                return False;
+        else:
 
-        if g_enmHostTarget == BuildTarget.LINUX:
-            ## @todo Improve this.
-            self.asIncPaths.extend([ os.path.join('/usr', 'include', getLinuxGnuTypeFromPlatform(), 'qt6') ]);
-            self.asLibFiles = [ 'libQt6Core' ];
-            return True;
+            #
+            # Windows
+            #
+            # Qt 6.x requires a recent compiler (>= C++17).
+            # For MSVC this means at least 14.1 (VS 2017).
+            #
+            if g_oEnv['KBUILD_TARGET'] == BuildTarget.WINDOWS:
+                sCompilerVer = g_oEnv['config_cpp_compiler_ver'];
+                if self.compareStringVersions(sCompilerVer, "14.1") < 1:
+                    self.printError(f'MSVC compiler version too old ({sCompilerVer}), requires at least 15.7 (2017 Update 7)');
+                    return False;
+            #
+            # Linux + Solaris
+            #
+            elif g_enmHostTarget == BuildTarget.LINUX:
+                self.asLibFiles = [ 'libQt6Core' ];
 
-        #
-        # macOS
-        #
-        elif g_enmHostTarget == BuildTarget.DARWIN:
-            # On macOS we have to ask brew for the Qt installation path.
+            #
+            # Solaris
+            #
+            elif g_enmHostTarget == BuildTarget.SOLARIS:
+                self.asLibFiles = [ 'libQt6Core' ];
 
-            # Search for the library file.
-            # Note: Ordered by precedence. Do not change!
-            asPath = [ sPathBase,
-                       getPackagePath('qt@6')[1],
-                       '/System/Library',
-                       '/Library' ];
-            sPathFramework = None;
-            for sPathBase in asPath:
-                if not sPathBase: # No custom path? Skip.
-                    continue;
-                asLibFile = [ 'Frameworks/QtCore.framework/QtCore',
-                              'clang_64/lib/QtCore.framework/QtCore',
-                              'lib/QtCore.framework/QtCore' ];
-                for sLibFile in asLibFile:
-                    sPath = os.path.join(sPathBase, sLibFile);
-                    if isFile(sPath):
-                        sPathFramework = os.path.dirname(sPath);
-                        self.printVerbose(1, f"Using framework at '{sPathFramework}'");
+            #
+            # macOS
+            #
+            elif g_enmHostTarget == BuildTarget.DARWIN:
+                # On macOS we have to ask brew for the Qt installation path.
 
+                # Search for the library file.
+                # Note: Ordered by precedence. Do not change!
+                asPath = [ sPathBase,
+                        getPackagePath('qt@6')[1],
+                        '/System/Library',
+                        '/Library' ];
+                sPathFramework = None;
+                for sPathBase in asPath:
+                    if not sPathBase: # No custom path? Skip.
+                        continue;
+                    asLibFile = [ 'Frameworks/QtCore.framework/QtCore',
+                                'clang_64/lib/QtCore.framework/QtCore',
+                                'lib/QtCore.framework/QtCore' ];
+                    for sLibFile in asLibFile:
+                        sPath = os.path.join(sPathBase, sLibFile);
+                        if isFile(sPath):
+                            sPathFramework = os.path.dirname(sPath);
+                            self.printVerbose(1, f"Using framework at '{sPathFramework}'");
+
+                            break;
+                    if sPathFramework:
                         break;
+
                 if sPathFramework:
-                    break;
+                    # We need to clear the library defined the the LibraryCheck definition
+                    # -- macOS uses the framework concept instead.
+                    self.asLibFiles = [];
+                    self.asLibPaths.insert(0, sPathFramework);
+                    # Include the framework headers.
+                    self.asIncPaths.insert(0, f'{sPathBase}/lib/QtCore.framework/Headers');
+                    # More stuff needed in order to get it linked.
+                    self.asLinkerArgs.extend([ '-std=c++17', '-framework', 'QtCore', '-F', f'{sPathBase}/lib', '-g', '-O', '-Wall' ]);
 
-            if sPathFramework:
-                # We need to clear the library defined the the LibraryCheck definition
-                # -- macOS uses the framework concept instead.
-                self.asLibFiles = [];
-                self.asLibPaths.extend([ sPathFramework ]);
-                # Explicitly set the RPATH, so that our test program can find the dynamic libs.
-                self.asCompilerArgs.extend([ f'-Wl,-rpath,{sPathBase}/lib' ]);
-                # Include the framework headers.
-                self.asIncPaths.extend([ f'{sPathBase}/lib/QtCore.framework/Headers' ]);
-                # More stuff needed in order to get it linked.
-                self.asLinkerArgs.extend([ '-std=c++17', '-framework', 'QtCore', '-F', f'{sPathBase}/lib', '-g', '-O', '-Wall' ]);
-
+        sPkgName = 'Qt6Core'; ## @todo Make the code generic once we have similar SDKs.
         if sPathBase:
             g_oEnv.set('PATH_SDK_QT6', sPathBase);
-            sPathInc = os.path.join(sPathBase, 'include');
-            if isDir(sPathInc):
-                g_oEnv.set('PATH_SDK_QT6_INC', sPathInc);
-                self.asIncPaths.extend([ sPathInc ]);
-            sPathLib = os.path.join(sPathBase, 'lib');
-            if isDir(sPathLib):
-                g_oEnv.set('PATH_SDK_QT6_LIB', sPathLib);
-                self.asLibPaths.extend([ sPathLib ]);
-            sPathBin = os.path.join(sPathBase, 'bin');
-            if isDir(sPathBin):
-                g_oEnv.set('PATH_TOOL_QT6_BIN', sPathBin);
-                g_oEnv.prependPath('PATH', sPathBin);
+            sPathBin     = os.path.join(sPathBase, 'bin');
+            sPathInc     = os.path.join(sPathBase, 'include');
+            sPathLib     = os.path.join(sPathBase, 'lib');
+            sPathLibExec = os.path.join(sPathBase, 'libexec');
 
-            if isFile(os.path.join(sPathBase, 'libexec', 'moc')):
-                g_oEnv.set('PATH_TOOL_QT6_LIBEXEC', os.path.join(sPathBase, 'libexec'));
+            # Explicitly set the RPATH, so that our test program can find the dynamic libs.
+            self.asCompilerArgs.extend([ f'-Wl,-rpath,{sPathBase}/lib' ]);
+        else: # Ask the system.
+            _, sPathBin = getPackageVar(sPkgName, PkgMgrVar.BINDIR);
+            _, sPathInc = getPackageVar(sPkgName, PkgMgrVar.INCDIR);
+            if isinstance(sPathInc, list):
+                sPathInc = sPathInc[0]; # Only use the first include path.
+            _, sPathLib = getPackageVar(sPkgName, PkgMgrVar.LIBDIR);
 
-            if      sPathLib \
-            and not sPathFramework: # Not needed on macOS.
-                # qt6 library namings can differ, depending on the version and the
-                # VBox infix we use when having our own built libraries.
-                sSuffix = None;
-                # On Darwin our static libs don't have an ending.
-                if g_oEnv['KBUILD_TARGET'] == BuildTarget.DARWIN:
-                    sSuffix = '';
-                asLibs = self.findLibFiles(sPathLib,
-                                           [ 'Qt6Core', 'Qt6CoreVBox', 'QtCore', 'QtCoreVBox'],
-                                           sSuffix = sSuffix, fStatic = True);
+        if isDir(sPathBin):
+            g_oEnv.set(f'PATH_SDK_{self.sSdkName}_BIN', sPathBin);
+        if isDir(sPathInc):
+            self.asIncPaths.insert(0, sPathInc);
+            g_oEnv.set(f'PATH_SDK_{self.sSdkName}_INC', sPathInc);
+        if isDir(sPathLib):
+            self.asLibPaths.insert(0, sPathLib);
+            g_oEnv.set(f'PATH_SDK_{self.sSdkName}_LIB', sPathLib);
+        if isDir(sPathLibExec):
+            g_oEnv.set(f'PATH_SDK_{self.sSdkName}_LIBEXEC', sPathLibExec);
 
-                self.asLibFiles = [ os.path.basename(p) for p in asLibs ];
-                self.asLibPaths = [ os.path.dirname(p) for p in asLibs ];
-
-        return True if sPathBase else False;
+        return True;
 
     def __repr__(self):
         return f"{self.getStatusString()}";
@@ -2572,7 +2661,7 @@ int main()
 
         for sCurMod in asModulesToCheck:
             try:
-                self.printVerbose(1, "Checking module '{asCurMod}'");
+                self.printVerbose(1, f"Checking module '{sCurMod}'");
                 importlib.import_module(sCurMod);
             except ImportError:
                 self.printWarn(f"Python module '{sCurMod}' is not installed");
@@ -2734,8 +2823,8 @@ class FileWriter:
         if isinstance(content, str):
             self.asLines.append(content);
         else:
-            for line in content:
-                self.asLines.append(line);
+            for sLine in content:
+                self.asLines.append(sLine);
 
     def save(self):
         """
@@ -2743,7 +2832,8 @@ class FileWriter:
         """
         with open(self.filename, 'w', encoding = 'utf-8') as f:
             for sLine in self.asLines:
-                f.write(sLine + '\n');
+                if sLine:
+                    f.write(sLine + '\n');
 
 class EnvMgrWriter(FileWriter):
     """ Abstract class to write key=value pairs from the EnvManager class. """
@@ -2926,7 +3016,7 @@ class EnvManager:
             if isinstance(result, dict):
                 self.env.update(result);
 
-    def printLog(self, asKeys = None):
+    def printLog(self, sPrefix, asKeys = None):
         """
         Prints items to the log.
         """
@@ -2936,7 +3026,7 @@ class EnvManager:
             oProcEnvFiltered = self.env;
         cchKeyAlign = max((len(k) for k in oProcEnvFiltered), default = 0)
         for k, v in oProcEnvFiltered.items():
-            printLog(f"{k.ljust(cchKeyAlign)} : {v}");
+            printLog(f"{sPrefix}{k.ljust(cchKeyAlign)} = {v}");
 
     def __getitem__(self, sName):
         """
@@ -3108,8 +3198,8 @@ g_aoLibs = [
     #       be resolved in the check callback.
     LibraryCheck("qt", [ "QtCore/QtGlobal" ], [ ], aeTargets = [ BuildTarget.ANY ],
                  sCode = '#define IN_RING3\n#include <QtCore/QtGlobal>\nint main() { std::cout << QT_VERSION_STR << std::endl; }',
-                 fnCallback = LibraryCheck.checkCallback_qt6, sSdkName = 'QT6',
-                 asDefinesToDisableIfNotFound = [ 'VBOX_WITH_QTGUI' ]),
+                 fnCallback = LibraryCheck.checkCallback_qt6,
+                 sSdkName = 'QT', asDefinesToDisableIfNotFound = [ 'VBOX_WITH_QTGUI' ]),
     LibraryCheck("sdl2", [ "SDL2/SDL.h" ], [ "libSDL2" ], aeTargets = [ BuildTarget.LINUX, BuildTarget.SOLARIS ],
                  sCode = '#include <SDL2/SDL.h>\nint main() { printf("%d.%d.%d", SDL_MAJOR_VERSION, SDL_MINOR_VERSION, SDL_PATCHLEVEL); return 0; }\n',
                  asDefinesToDisableIfNotFound = [ 'VBOX_WITH_VBOXSDL' ]),
@@ -3191,30 +3281,15 @@ def write_autoconfig_kmk(sFilePath, enmBuildTarget, oEnv, aoLibs, aoTools):
         if      oLibCur.isInTarget() \
         and not oLibCur.fHave:
             sVarBase = oLibCur.sName.upper().replace("+", "PLUS").replace("-", "_");
-            w.write_raw(f"VBOX_WITH_{sVarBase.ljust(22)} :=\n");
+            w.write_raw(f"VBOX_WITH_{sVarBase.ljust(22)} :=");
 
     w.write_raw('\n');
 
     # SDKs
     w.write_all(asPrefixInclude = ['PATH_SDK_' ]);
 
-    for oLibCur in aoLibs:
-        if  oLibCur.isInTarget() \
-        and oLibCur.fHave \
-        and not oLibCur.fInTree: # Implies non-custom path; in-tree libs get resolved by our Makefiles.
-            if oLibCur.asIncPaths:
-                w.write(f'SDK_{oLibCur.sSdkName}_INCS', oLibCur.asIncPaths[0]);
-            if oLibCur.asLibPaths:
-                w.write(f'SDK_{oLibCur.sSdkName}_LIBS', oLibCur.asLibPaths[0]);
-
-    # Special SDK paths.
-    if g_oEnv['KBUILD_TARGET'] == BuildTarget.WINDOWS:
-        w.write('PATH_SDK_WINSDK10');
-        w.write('SDK_WINSDK10_VERSION');
-        w.write('PATH_SDK_WINDDK71');
-        w.write('SDK_WINDDK71_VERSION'); # Not official, but good to have (I guess).
-
-    w.save(); # Serialize all changes to disk.
+    # Serialize all changes to disk.
+    w.save();
 
     if g_fDebug:
         abBuf = None;
