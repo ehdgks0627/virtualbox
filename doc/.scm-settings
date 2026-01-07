@@ -1,4 +1,4 @@
-# $Id: .scm-settings 112286 2026-01-06 13:36:03Z knut.osmundsen@oracle.com $
+# $Id: .scm-settings 112362 2026-01-07 23:49:35Z knut.osmundsen@oracle.com $
 ## @file
 # Source code massager settings for the docs.
 #
@@ -24,6 +24,11 @@
 #
 # SPDX-License-Identifier: GPL-3.0-only
 #
+
+# Much is exported but not everything.
+--svn-sync-process-export all
+/rtf_to_html|/rtf_to_txt: --svn-sync-process-export none
+
 
 /*.html: --treat-as plaintext
 /*.rtf:  --treat-as binary
