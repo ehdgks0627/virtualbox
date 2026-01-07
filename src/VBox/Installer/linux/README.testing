@@ -1,4 +1,4 @@
-$Id: README.testing 58229 2015-10-14 10:38:40Z noreply@oracle.com $
+$Id: README.testing 112346 2026-01-07 19:11:12Z knut.osmundsen@oracle.com $
 This file documents things which need testing when updating the Linux host
 installers or anything which might indirectly affect them.  This should be
 updated as we discover new things which could break.
