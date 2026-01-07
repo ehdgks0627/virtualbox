@@ -1,4 +1,4 @@
-# $Id: .scm-settings 112359 2026-01-07 22:04:53Z knut.osmundsen@oracle.com $
+# $Id: .scm-settings 112360 2026-01-07 22:05:08Z knut.osmundsen@oracle.com $
 ## @file
 # Source code massager settings for the VMM.
 #
@@ -25,10 +25,10 @@
 # SPDX-License-Identifier: GPL-3.0-only
 #
 
+# All is exported.
+--svn-sync-process-export all
 
 /VMMAll/IEMAllInstPython.py: --license-ose-dual
-
---filter-out-files /testcase/dev.tar.gz
 
 /include/PGMGstDefs-x86.h: --no-fix-header-guards
 /include/PGMSlatDefs.h:    --no-fix-header-guards
