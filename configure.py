@@ -6,7 +6,7 @@ Requires >= Python 3.4.
 """
 
 # -*- coding: utf-8 -*-
-# $Id: configure.py 112341 2026-01-07 18:19:03Z andreas.loeffler@oracle.com $
+# $Id: configure.py 112342 2026-01-07 18:25:18Z andreas.loeffler@oracle.com $
 # pylint: disable=bare-except
 # pylint: disable=consider-using-f-string
 # pylint: disable=global-statement
@@ -61,7 +61,7 @@ SPDX-License-Identifier: GPL-3.0-only
 # External Python modules or other dependencies are not allowed!
 #
 
-__revision__ = "$Revision: 112341 $"
+__revision__ = "$Revision: 112342 $"
 
 import argparse
 import ctypes
@@ -3950,23 +3950,26 @@ def main():
         print(f'Configuration completed with {g_cWarnings} warning(s). See {g_sFileLog} for details.');
         print('');
         for sWarn in g_asWarnings:
-            print(sWarn, sPrefix = "    *** WARN:");
+            print(f'    *** WARN: ${sWarn}');
     if g_cErrors:
         print('');
         print(f'Configuration failed with {g_cErrors} error(s). See {g_sFileLog} for details.');
         print('');
         for sErr in g_asErrors:
-            print(sErr, sPrefix = "    *** ERROR:");
+            print(f'    *** ERROR: {sErr}');
     if  g_fContOnErr \
     and g_cErrors:
         print('');
         print('Note: Errors occurred but non-fatal mode active -- check build carefully!');
-        print('');
 
     if g_cErrors == 0:
+        print('');
         print('Enjoy!');
     else:
+        print('');
         print(f'Ended with {g_cErrors} error(s) and {g_cWarnings} warning(s)');
+
+    print('');
 
     g_fhLog.close();
     return 0 if g_cErrors == 0 else 1;
