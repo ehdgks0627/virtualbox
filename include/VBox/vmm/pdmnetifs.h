@@ -451,9 +451,9 @@ typedef struct PDMINETWORKNATDNSCONFIG
     const char * const *papszSearchDomains;
 
     /** Number of entries in the (IPv6) ppszIP6NameServers6 array. */
-    size_t              cIP6NameServers;
+    size_t              cIPv6NameServers;
     /** IPv6 Name servers (NULL terminated array) */
-    const char * const *papszIP6NameServers;
+    const char * const *papszIPv6NameServers;
 } PDMINETWORKNATDNSCONFIG;
 /** Pointer to a const DNS settings update payload.
  * @sa PGMINETWORKNATCONFIG::pfnNotifyDnsChanged */

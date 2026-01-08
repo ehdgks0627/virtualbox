@@ -224,6 +224,8 @@ struct Slirp {
     int iSoMaxConn;
     struct in_addr *aRealNameservers;
     size_t cRealNameservers;
+    struct in6_addr *aIPv6RealNameservers;
+    size_t cIPv6RealNameservers;
     bool fDisableIPv6RA;
     const struct ip4_lomap_desc *mLoopbackMap;
 #endif

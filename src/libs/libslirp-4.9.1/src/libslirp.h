@@ -230,6 +230,11 @@ typedef struct SlirpConfig {
     struct in_addr *aRealNameservers;
     /* Count of the elements in the above array */
     size_t cRealNameservers;
+
+    /* Real address(es) of nameserver(s) that will be given to guest via DHCP */
+    struct in6_addr *aIPv6RealNameservers;
+    /* Count of the elements in the above array */
+    size_t cIPv6RealNameservers;
 #endif
     /* Virtual address for the DNS server exposed to the guest */
     struct in_addr vnameserver;
@@ -459,8 +464,10 @@ char *slirp_set_vdomainname(Slirp *, char const *);
 char *slirp_get_vdomainname(Slirp *);
 int slirp_set_vdnssearch(Slirp *, const char * const *);
 void slirp_set_vnameserver(Slirp *, struct in_addr);
+void slirp_set_vnameserver6(Slirp *, struct in6_addr);
 void slirp_set_disable_dns(Slirp *, bool);
 void slirp_set_RealNameservers(Slirp *, size_t, struct in_addr *);
+void slirp_set_IPv6RealNameservers(Slirp *, size_t, struct in6_addr *);
 #endif
 
 /* Debugging support: There are two methods for enabling debugging

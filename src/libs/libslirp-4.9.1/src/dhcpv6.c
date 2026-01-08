@@ -167,10 +167,26 @@ static void dhcpv6_info_request(Slirp *slirp, struct sockaddr_in6 *srcsas,
     if (ri.want_dns) {
         *resp++ = OPTION_DNS_SERVERS >> 8; /* option-code high byte */
         *resp++ = OPTION_DNS_SERVERS; /* option-code low byte */
+#ifdef VBOX
+        *resp++ = 0; /* option-len high byte */
+        if (slirp->cIPv6RealNameservers == 0)
+        {
+            *resp++ = 16; /* option-len low byte */
+            memcpy(resp, &slirp->vnameserver_addr6, 16);
+            resp += 16;
+        }
+        else
+        {
+            *resp++ = 16 * slirp->cIPv6RealNameservers; /* option-len low byte */
+            memcpy(resp, slirp->aIPv6RealNameservers, 16 * slirp->cIPv6RealNameservers);
+            resp += 16 * slirp->cIPv6RealNameservers;
+        }
+#else
         *resp++ = 0; /* option-len high byte */
         *resp++ = 16; /* option-len low byte */
         memcpy(resp, &slirp->vnameserver_addr6, 16);
         resp += 16;
+#endif
     }
     if (ri.want_boot_url) {
         uint8_t *sa = slirp->vhost_addr6.s6_addr;

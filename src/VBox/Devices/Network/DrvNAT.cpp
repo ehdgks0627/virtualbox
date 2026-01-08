@@ -1,4 +1,4 @@
-/* $Id: DrvNAT.cpp 112213 2025-12-24 03:41:13Z jack.doherty@oracle.com $ */
+/* $Id: DrvNAT.cpp 112387 2026-01-08 23:13:21Z jack.doherty@oracle.com $ */
 /** @file
  * DrvNATlibslirp - NATlibslirp network transport driver.
  */
@@ -98,15 +98,6 @@
 
 #define IPV4_MAX_MTU 65521
 #define IPV4_MIN_MTU 68
-
-#if RT_CLANG_PREREQ(3, 4) /* Most of the defined functions are not used. */
-# pragma clang diagnostic push
-# pragma clang diagnostic ignored "-Wunused-function"
-#endif
-RTVEC_DECL(InAddrList, struct in_addr)
-#if RT_CLANG_PREREQ(3, 4)
-# pragma clang diagnostic pop
-#endif
 
 
 /*********************************************************************************************************************************
@@ -1040,6 +1031,8 @@ static DECLCALLBACK(void) drvNATNotifyDnsChanged(PPDMINETWORKNATCONFIG pInterfac
 
     LogRel(("NAT: DNS settings changed, triggering update\n"));
 
+    int rc = 0;
+
     if (pThis->fPassDomain)
     {
         if (pDnsConf->szDomainName[0] == '\0')
@@ -1053,29 +1046,38 @@ static DECLCALLBACK(void) drvNATNotifyDnsChanged(PPDMINETWORKNATCONFIG pInterfac
 
     if (pDnsConf->cNameServers > 0)
     {
-        struct InAddrList vNameservers = RTVEC_INITIALIZER;
+        struct in_addr* aIPv4Nameservers = (struct in_addr *)RTMemAllocZ(sizeof(struct in_addr) * pDnsConf->cNameServers);
+
+        /* Loop through and store in array if not on 127/8 network. */
+        size_t uStoredNameservers = 0;
         for (size_t i = 0; i < pDnsConf->cNameServers; i++)
         {
             RTNETADDRIPV4 tmpNameserver;
-            RTNetStrToIPv4Addr(pDnsConf->papszNameServers[i], &tmpNameserver);
+            rc = RTNetStrToIPv4Addr(pDnsConf->papszNameServers[i], &tmpNameserver);
+
+            if (RT_FAILURE(rc))
+            {
+                Log3Func(("Failed to convert IPv4 nameserver %s. Check for errors.\n", pDnsConf->papszNameServers[i]));
+                continue;
+            }
 
             if (!((tmpNameserver.u & RT_H2N_U32_C(IN_CLASSA_NET))
                 == RT_H2N_U32_C(INADDR_LOOPBACK & IN_CLASSA_NET)))
             {
-                struct in_addr *mNameserver = InAddrListPushBack(&vNameservers);
-                if (!mNameserver)
-                    LogRel(("Nameserver array construction failed. Out of memory.\n"));
-
-                mNameserver->s_addr = tmpNameserver.u;
-                LogRelMax(256, ("NAT DNS Update: Stored %u as nameserver #%u\n", tmpNameserver.u, i));
+                aIPv4Nameservers[uStoredNameservers].s_addr = tmpNameserver.u;
+                uStoredNameservers++;
+                LogRelMax(256, ("NAT DNS Update: Stored %RTnaipv4 as nameserver #%u\n", tmpNameserver, i));
             }
         }
 
-        size_t const cNameservers = InAddrListSize(&vNameservers);
-        if (cNameservers == 0)
+        if (aIPv4Nameservers[0].s_addr == 0)
         {
             LogRel(("Nameserver is either on 127/8 network or failed to obtain from host. "
                     "Falling back to libslirp DNS proxy.\n"));
+
+            /* Free the unused allocation before falling back. */
+            RTMemFree(aIPv4Nameservers);
+            aIPv4Nameservers = NULL;
 
             struct in_addr mProxyNameserver;
             mProxyNameserver.s_addr = slirp_get_vnetwork_addr(pThis->pSlirp).s_addr | RT_H2N_U32_C(0x00000003);
@@ -1083,14 +1085,58 @@ static DECLCALLBACK(void) drvNATNotifyDnsChanged(PPDMINETWORKNATCONFIG pInterfac
             slirp_set_vnameserver(pThis->pSlirp, mProxyNameserver);
             slirp_set_RealNameservers(pThis->pSlirp, 0, NULL);
 
-            LogRel(("fallback virtual nameserver: %u", mProxyNameserver.s_addr));
+            LogRel(("fallback virtual nameserver: %RTnaipv4", mProxyNameserver));
         }
         else
         {
-            LogRelMax(256, ("NAT DNS Update: Stored %u total nameservers\n", cNameservers));
+            LogRelMax(256, ("NAT DNS Update: Stored %u total IPv4 nameservers\n", uStoredNameservers));
+            slirp_set_RealNameservers(pThis->pSlirp, uStoredNameservers, aIPv4Nameservers);
+        }
+    }
 
-            struct in_addr *paDetachedNameservers = InAddrListDetach(&vNameservers);
-            slirp_set_RealNameservers(pThis->pSlirp, cNameservers, paDetachedNameservers);
+    if (pDnsConf->cIPv6NameServers > 0)
+    {
+        struct in6_addr* aIPv6Nameservers = (struct in6_addr *)RTMemAllocZ(sizeof(struct in6_addr) * pDnsConf->cIPv6NameServers);
+        size_t uStoredNameservers6 = 0;
+
+        /* Storing all IPv6 nameservers */
+        for (size_t i = 0; i < pDnsConf->cIPv6NameServers; i++)
+        {
+            RTNETADDRIPV6 tmpNameserver;
+            rc = RTNetStrToIPv6AddrEx(pDnsConf->papszIPv6NameServers[i], &tmpNameserver, NULL); /** @todo r=jack: IPv6 zones. */
+
+            if (RT_FAILURE(rc))
+            {
+                Log3Func(("Failed to convert IPv6 nameserver %s. Check for errors.\n", pDnsConf->papszIPv6NameServers[i]));
+                continue;
+            }
+
+            memcpy(&aIPv6Nameservers[uStoredNameservers6], &tmpNameserver, sizeof(RTNETADDRIPV6));
+            LogRelMax(256, ("NAT DNS Update: Stored %RTnaipv6 as nameserver #%u\n", &tmpNameserver, (unsigned)uStoredNameservers6));
+            uStoredNameservers6++;
+        }
+
+        if (uStoredNameservers6 == 0)
+        {
+            LogRel(("Failed to obtain nameserver from host. "
+                    "Falling back to libslirp DNS proxy for IPv6.\n"));
+
+            /* Free the unused allocation before falling back. */
+            RTMemFree(aIPv6Nameservers);
+            aIPv6Nameservers = NULL;
+
+            struct in6_addr mProxyNameserver;
+            inet_pton(AF_INET6, "fd17:625c:f037:0::3", &mProxyNameserver.s6_addr);
+
+            slirp_set_vnameserver6(pThis->pSlirp, mProxyNameserver);
+            slirp_set_IPv6RealNameservers(pThis->pSlirp, 0, NULL);
+
+            LogRel(("fallback IPv6 virtual nameserver: %RTnaipv6", &mProxyNameserver));
+        }
+        else
+        {
+            LogRelMax(256, ("NAT DNS Update: Stored %u total IPv6 nameservers\n", (unsigned)uStoredNameservers6));
+            slirp_set_IPv6RealNameservers(pThis->pSlirp, uStoredNameservers6, aIPv6Nameservers);
         }
     }
 }
