@@ -6,7 +6,7 @@ Requires >= Python 3.4.
 """
 
 # -*- coding: utf-8 -*-
-# $Id: configure.py 112384 2026-01-08 16:31:48Z andreas.loeffler@oracle.com $
+# $Id: configure.py 112385 2026-01-08 17:14:22Z andreas.loeffler@oracle.com $
 # pylint: disable=bare-except
 # pylint: disable=consider-using-f-string
 # pylint: disable=global-statement
@@ -61,7 +61,7 @@ SPDX-License-Identifier: GPL-3.0-only
 # External Python modules or other dependencies are not allowed!
 #
 
-__revision__ = "$Revision: 112384 $"
+__revision__ = "$Revision: 112385 $"
 
 import argparse
 import ctypes
@@ -593,17 +593,19 @@ def getPosixError(uCode):
     """
     Returns an error string for a given POSIX error code.
     """
+    uSig = None;
     if 0 <= uCode <= 255:
-        if uCode > 128:
+        if uCode > 128: # Signal (128 + signal number)
             uSig = uCode - 128;
-            sName = getSignalName(uSig);
-            sDesc = getSignalDesc(uSig);
-            if sDesc:
-                return f"Killed by signal {sName} ({sDesc})";
-            else:
-                return f"Killed by signal {sName}";
-        return f"Exit status {uCode}";
-    return f"Non-standard exit code {uCode} (out of range)";
+        else:
+            return f"Exit status {uCode}";
+    elif uCode < 0: # Signal
+        uSig = uCode;
+    sName = getSignalName(uSig);
+    sDesc = getSignalDesc(uSig);
+    if sDesc:
+        return f"Killed by signal {sName} ({sDesc})";
+    return f"Killed by signal {sName}";
 
 def compileAndExecute(sName, enmBuildTarget, enmBuildArch, asIncPaths, asLibPaths, asIncFiles, asLibFiles, sCode, \
                       oEnv = None, asCompilerArgs = None, asLinkerArgs = None, asDefines = None, fLog = True, fCompileMayFail = False):
@@ -717,16 +719,18 @@ def compileAndExecute(sName, enmBuildTarget, enmBuildArch, asIncPaths, asLibPath
                 else:
                     sStdErr = oProc.stderr.decode("utf-8", errors="ignore") if oProc.stderr else None;
                     if fLog:
-                        if oProc.returncode == 139: ## @todo BUGBUG Fudge! SIGSEGV
-                            pass;
-                        else:
-                            printError(f"Execution of test binary for {sName} failed with return code {oProc.returncode}:");
+                        fnLog = printError;
+                        # Some build boxes don't like running X stuff and simply SIGSEGV, so just skip those errors for now.
+                        if oProc.returncode == -11 \
+                        or oProc.returncode == 139: # 128 + Signal number
+                            fnLog = printWarn; # Just warn, don't fail.
+                        fnLog(f"Execution of test binary for {sName} failed with return code {oProc.returncode}:");
                         if enmBuildTarget == BuildTarget.WINDOWS:
-                            printError(f"Windows Error { getWinError(oProc.returncode) }", fDontCount = True);
+                            fnLog(f"Windows Error { getWinError(oProc.returncode) }", fDontCount = True);
                         else:
-                            printError(getPosixError(oProc.returncode), fDontCount = True);
+                            fnLog(getPosixError(oProc.returncode), fDontCount = True);
                         if sStdErr:
-                            printError(sStdErr, fDontCount = True);
+                            fnLog(sStdErr, fDontCount = True);
             except subprocess.SubprocessError as ex:
                 if fLog:
                     printError(f"Execution of test binary for {sName} failed: {str(ex)}");
