@@ -1,4 +1,4 @@
-/* $Id: HostDnsService.h 112243 2025-12-28 23:13:34Z knut.osmundsen@oracle.com $ */
+/* $Id: HostDnsService.h 112386 2026-01-08 23:07:58Z jack.doherty@oracle.com $ */
 /** @file
  * Host DNS listener.
  */
@@ -131,6 +131,7 @@ public:
     void notify(const HostDnsInformation &info);
 
     HRESULT GetNameServers(std::vector<com::Utf8Str> &aNameServers);
+    HRESULT GetV6NameServers(std::vector<com::Utf8Str> &aNameServers);
     HRESULT GetDomainName(com::Utf8Str *pDomainName);
     HRESULT GetSearchStrings(std::vector<com::Utf8Str> &aSearchStrings);
 

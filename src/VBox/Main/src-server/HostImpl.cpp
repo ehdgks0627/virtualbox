@@ -1,4 +1,4 @@
-/* $Id: HostImpl.cpp 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $ */
+/* $Id: HostImpl.cpp 112386 2026-01-08 23:07:58Z jack.doherty@oracle.com $ */
 /** @file
  * VirtualBox COM class implementation: Host
  */
@@ -1085,12 +1085,21 @@ HRESULT Host::getUSBDevices(std::vector<ComPtr<IHostUSBDevice> > &aUSBDevices)
 }
 
 /**
- * This method return the list of registered name servers
+ * This method return the list of IPv4 registered name servers
  */
 HRESULT Host::getNameServers(std::vector<com::Utf8Str> &aNameServers)
 {
     AutoReadLock alock(this COMMA_LOCKVAL_SRC_POS);
     return m->hostDnsMonitorProxy.GetNameServers(aNameServers);
+}
+
+/**
+ * This method return the list of IPv6 registered name servers
+ */
+HRESULT Host::getV6NameServers(std::vector<com::Utf8Str> &aNameServers)
+{
+    AutoReadLock alock(this COMMA_LOCKVAL_SRC_POS);
+    return m->hostDnsMonitorProxy.GetV6NameServers(aNameServers);
 }
 
 

@@ -1,4 +1,4 @@
-/* $Id: ConsoleImpl.cpp 111604 2025-11-10 16:25:29Z alexander.eichner@oracle.com $ */
+/* $Id: ConsoleImpl.cpp 112386 2026-01-08 23:07:58Z jack.doherty@oracle.com $ */
 /** @file
  * VBox Console COM Class implementation
  */
@@ -4603,11 +4603,13 @@ HRESULT Console::i_onNATDnsChanged()
 
         DnsConfigCleanupWrapper()
         {
-            Core.szDomainName[0]    = '\0';
-            Core.cNameServers       = 0;
-            Core.papszNameServers   = NULL;
-            Core.cSearchDomains     = 0;
-            Core.papszSearchDomains = NULL;
+            Core.szDomainName[0]        = '\0';
+            Core.cNameServers           = 0;
+            Core.papszNameServers       = NULL;
+            Core.cIPv6NameServers       = 0;
+            Core.papszIPv6NameServers   = NULL;
+            Core.cSearchDomains         = 0;
+            Core.papszSearchDomains     = NULL;
         }
 
         void freeStrArray(char **papsz)
@@ -4623,9 +4625,11 @@ HRESULT Console::i_onNATDnsChanged()
         ~DnsConfigCleanupWrapper()
         {
             freeStrArray((char **)Core.papszNameServers);
-            Core.papszNameServers   = NULL;
+            Core.papszNameServers       = NULL;
+            freeStrArray((char **)Core.papszIPv6NameServers);
+            Core.papszIPv6NameServers   = NULL;
             freeStrArray((char **)Core.papszSearchDomains);
-            Core.papszSearchDomains = NULL;
+            Core.papszSearchDomains     = NULL;
         }
     } DnsConfig;
 
@@ -4661,10 +4665,20 @@ HRESULT Console::i_onNATDnsChanged()
         DnsConfig.Core.papszNameServers = bstrSafeArrayToC(nameServers, &DnsConfig.Core.cNameServers);
         if (!DnsConfig.Core.papszNameServers)
             return E_OUTOFMEMORY;
+
+        SafeArray<BSTR> v6nameServers;
+        hrc = ptrHost->COMGETTER(V6NameServers)(ComSafeArrayAsOutParam(v6nameServers));
+        if (FAILED(hrc))
+            return S_OK;
+        DnsConfig.Core.papszIPv6NameServers = bstrSafeArrayToC(v6nameServers, &DnsConfig.Core.cIPv6NameServers);
+        if (!DnsConfig.Core.papszIPv6NameServers)
+            return E_OUTOFMEMORY;
     }
-    Log(("DNS change - %zu nameservers\n", DnsConfig.Core.cNameServers));
+    Log(("DNS change - %zu nameservers\n", DnsConfig.Core.cNameServers + DnsConfig.Core.cIPv6NameServers));
     for (size_t i = 0; i < DnsConfig.Core.cNameServers; i++)
         Log(("- papszNameServers[%zu] = \"%s\"\n", i, DnsConfig.Core.papszNameServers[i]));
+    for (size_t i = 0; i < DnsConfig.Core.cIPv6NameServers; i++)
+        Log(("- papszIPv6NameServers[%zu] = \"%s\"\n", i, DnsConfig.Core.papszIPv6NameServers[i]));
 
     /* Search domains: */
     {

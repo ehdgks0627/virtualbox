@@ -1,4 +1,4 @@
-/* $Id: HostDnsServiceDarwin.cpp 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $ */
+/* $Id: HostDnsServiceDarwin.cpp 112386 2026-01-08 23:07:58Z jack.doherty@oracle.com $ */
 /** @file
  * Darwin specific DNS information fetching.
  */
@@ -31,11 +31,14 @@
 
 #include <iprt/asm.h>
 #include <iprt/errcore.h>
+#include <iprt/net.h>
 #include <iprt/thread.h>
 #include <iprt/semaphore.h>
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SCDynamicStore.h>
+
+#include <VBox/log.h>
 
 #include <vector>
 #include "../HostDnsService.h"
@@ -212,7 +215,7 @@ int HostDnsServiceDarwin::updateInfo(void)
      * 1 : de.vvl-domain.com
      * }
      * ServerAddresses : \<array\> {
-     * 0 : 192.168.1.4
+     * 0 : 2001:4860:4860::8888
      * 1 : 192.168.1.1
      * 2 : 8.8.4.4
      *   }
@@ -238,8 +241,38 @@ int HostDnsServiceDarwin::updateInfo(void)
         {
             CFStringRef const serverAddressRef = (CFStringRef)CFArrayGetValueAtIndex(serverArrayRef, i);
             if (serverAddressRef)
-                if (queryCFStringAsUtf8Str(serverAddressRef, strTmp, _16K))
+                if (!queryCFStringAsUtf8Str(serverAddressRef, strTmp, _16K))
+                {
+                    LogRel(("HostDnsServiceDarwin: idx: %u: Failed to convert address.\n", i));
+                    continue;
+                }
+
+                RTNETADDRIPV4 mIPv4Addr = { 0 };
+                int vrc = RTNetStrToIPv4AddrEx(strTmp.c_str(), &mIPv4Addr, NULL); /* Trusting macOS is providing not garbage addresses */
+                if (RT_SUCCESS(vrc))
+                {
+                    LogRel(("HostDnsServiceDarwin: idx %u: IPv4 nameserver %RTnaipv4\n", i, mIPv4Addr));
                     info.servers.push_back(strTmp);
+                    continue;
+                }
+
+                char *pszNext = NULL;
+                RTNETADDRIPV6 mIPv6Addr = { { 0, 0 } };
+                vrc = RTNetStrToIPv6AddrEx(strTmp.c_str(), &mIPv6Addr, &pszNext);
+                if (RT_SUCCESS(vrc))
+                {
+                    if (*pszNext == '%') /** @todo XXX: TODO: IPv6 zones */
+                    {
+                        size_t zlen = RTStrOffCharOrTerm(pszNext, '.');
+                        LogRel(("HostDnsServiceDarwin: line %u: FIXME: ignoring IPv6 zone %*.*s\n",
+                                i, zlen, zlen, pszNext));
+                    }
+
+                    LogRel(("HostDnsServiceDarwin: line %u: IPv6 nameserver %RTnaipv6\n", i, &mIPv6Addr));
+                    info.serversV6.push_back(strTmp);
+                }
+                else
+                    LogRel(("HostDnsServiceDarwin: line %u: bad nameserver address %s\n", i, strTmp.c_str()));
         }
     }
 

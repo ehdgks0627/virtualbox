@@ -1,4 +1,4 @@
-/* $Id: HostImpl.h 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $ */
+/* $Id: HostImpl.h 112386 2026-01-08 23:07:58Z jack.doherty@oracle.com $ */
 /** @file
  * Implementation of IHost.
  */
@@ -117,6 +117,7 @@ private:
     HRESULT getUSBDeviceFilters(std::vector<ComPtr<IHostUSBDeviceFilter> > &aUSBDeviceFilters);
     HRESULT getNetworkInterfaces(std::vector<ComPtr<IHostNetworkInterface> > &aNetworkInterfaces);
     HRESULT getNameServers(std::vector<com::Utf8Str> &aNameServers);
+    HRESULT getV6NameServers(std::vector<com::Utf8Str> &aNameServers);
     HRESULT getDomainName(com::Utf8Str &aDomainName);
     HRESULT getSearchStrings(std::vector<com::Utf8Str> &aSearchStrings);
     HRESULT getProcessorCount(ULONG *aProcessorCount);

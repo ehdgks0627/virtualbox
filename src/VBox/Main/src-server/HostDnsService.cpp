@@ -1,4 +1,4 @@
-/* $Id: HostDnsService.cpp 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $ */
+/* $Id: HostDnsService.cpp 112386 2026-01-08 23:07:58Z jack.doherty@oracle.com $ */
 /** @file
  * Base class for Host DNS & Co services.
  */
@@ -368,6 +368,19 @@ HRESULT HostDnsMonitorProxy::GetNameServers(std::vector<com::Utf8Str> &aNameServ
     dumpHostDnsStrVector("name server", m->info.servers);
 
     aNameServers = m->info.servers;
+
+    return S_OK;
+}
+
+HRESULT HostDnsMonitorProxy::GetV6NameServers(std::vector<com::Utf8Str> &aNameServers)
+{
+    AutoReadLock alock(this COMMA_LOCKVAL_SRC_POS);
+    AssertReturn(m != NULL, E_FAIL);
+
+    LogRel(("HostDnsMonitorProxy::GetV6NameServers:\n"));
+    dumpHostDnsStrVector("name server", m->info.serversV6);
+
+    aNameServers = m->info.serversV6;
 
     return S_OK;
 }

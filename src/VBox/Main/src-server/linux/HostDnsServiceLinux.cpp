@@ -1,4 +1,4 @@
-/* $Id: HostDnsServiceLinux.cpp 110684 2025-08-11 17:18:47Z klaus.espenlaub@oracle.com $ */
+/* $Id: HostDnsServiceLinux.cpp 112386 2026-01-08 23:07:58Z jack.doherty@oracle.com $ */
 /** @file
  * Linux specific DNS information fetching.
  */
@@ -451,6 +451,7 @@ int HostDnsServiceLinux::monitorThreadProc(void)
                 Log5Func(("Calling readResolvConf()...\n"));
                 try
                 {
+                    /** @todo r=jack: readResolvConf returns values and we should interpret them here */
                     readResolvConf();
                 }
                 catch (...)
