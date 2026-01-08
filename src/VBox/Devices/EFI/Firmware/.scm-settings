@@ -1,4 +1,4 @@
-# $Id: .scm-settings 112324 2026-01-07 03:48:17Z knut.osmundsen@oracle.com $
+# $Id: .scm-settings 112369 2026-01-08 12:05:43Z knut.osmundsen@oracle.com $
 ## @file
 # Source code massager settings for the EFI Firmware.
 #
@@ -24,12 +24,6 @@
 #
 # SPDX-License-Identifier: GPL-3.0-only
 #
-
-## @todo export: why is this?
-/CryptoPkg/Library/OpensslLib/openssl*: --svn-sync-process-export none
-## @todo export: slipup?
-/MdePkg/Library/BaseFdtLib/libfdt/libfdt/.gitignore: --svn-sync-process-export none
-
 
 # Reset the directory filtering so we can process MdeModulePkg/Universal/ReportStatusCodeRouter/.
 --filter-out-dirs ""
