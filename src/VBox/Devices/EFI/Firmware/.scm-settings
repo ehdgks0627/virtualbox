@@ -1,4 +1,4 @@
-# $Id: .scm-settings 112403 2026-01-11 19:29:08Z knut.osmundsen@oracle.com $
+# $Id: .scm-settings 112421 2026-01-12 20:29:22Z knut.osmundsen@oracle.com $
 ## @file
 # Source code massager settings for the EFI Firmware.
 #
@@ -31,10 +31,11 @@
 # Most of this is 3rd party stuff.
 /*!xcpt!/.scm-settings|/*.kmk|/MdeModulePkg/Universal/Disk/PartitionDxe/Apple.c|/VBox*|/*/VBox*: \
         --external-copyright --dont-set-svn-keywords --no-convert-tabs --no-strip-trailing-blanks \
-        --strip-no-trailing-lines --no-force-final-eol --no-fix-todos --no-fix-header-guards
+        --strip-no-trailing-lines --no-force-final-eol --no-fix-todos --no-fix-header-guards --allow-uefi-style-copyright
 
 /MdeModulePkg/Universal/Disk/PartitionDxe/Apple.c:  --license-ose-dual
-/*.kmk|/VBox*|/*/VBox*:                             --license-ose-dual
+/*.kmk:                                             --license-ose-dual
+/VBox*|/*/VBox*:                                    --license-ose-dual --allow-uefi-style-copyright
 
 # Build related files using '#' for comments.
 /*.dec:        --treat-as Makefile
@@ -252,13 +253,19 @@
 #
 # VBoxPkg
 #
+/VBoxPkg/*:                                                 --allow-uefi-style-copyright
 /VBoxPkg/*.h:                                               --no-fix-header-guards
 /VBoxPkg/VBoxFsDxe/test/*:      --external-copyright --no-strip-trailing-blanks --no-fix-todos --strip-no-trailing-lines
-/VBoxPkg/VBoxVgaMiniPortDxe/VBoxVgaFont*.h:                 --external-copyright
-/VBoxPkg/E1kNetDxe/*.*:                                     --external-copyright
-/VBoxPkg/VmwSvga3Dxe/*.*:                                   --external-copyright
-/VBoxPkg/VBoxAcpiPlatformDxe/*.*:                           --external-copyright
 /VBoxPkg/VBoxMisc/efi-app/Readme.txt:                       --treat-as hashtext
 /VBoxPkg/Logo/Logo.idf:                                     --external-copyright --no-fix-header-guards
 /VBoxPkg/Logo/*.uni:                                        --external-copyright --no-fix-header-guards
+
+
+#
+# Files that are (C) oracle, but are not by us.
+#
+/OvmfPkg/Include/IndustryStandard/FusionMptScsi.h:          --no-update-copyright-year --no-update-license
+/OvmfPkg/Include/IndustryStandard/PvScsi.h:                 --no-update-copyright-year --no-update-license
+/OvmfPkg/MptScsiDxe/*:                                      --no-update-copyright-year --no-update-license
+/OvmfPkg/PvScsiDxe/*:                                       --no-update-copyright-year --no-update-license
 
