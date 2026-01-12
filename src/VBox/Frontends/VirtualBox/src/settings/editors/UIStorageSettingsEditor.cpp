@@ -1,4 +1,4 @@
-/* $Id: UIStorageSettingsEditor.cpp 112403 2026-01-11 19:29:08Z knut.osmundsen@oracle.com $ */
+/* $Id: UIStorageSettingsEditor.cpp 112418 2026-01-12 18:48:01Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - UIStorageSettingsEditor class implementation.
  */
@@ -1354,17 +1354,21 @@ void ControllerItem::updateBusInfo()
     /* Clear the buses initially: */
     m_buses.clear();
 
-    /* Load currently supported storage buses: */
-    CPlatformProperties comProperties = gpGlobalSession->virtualBox().GetPlatformProperties(arch());
-    const QVector<KStorageBus> supportedBuses = comProperties.GetSupportedStorageBuses();
-
-    /* If current bus is NOT KStorageBus_Floppy: */
+    /* For others than the KStorageBus_Floppy bus we'll
+     * have to check for a list of supported values.
+     * For floppies we'll prepend current one item only. */
     if (m_enmBus != KStorageBus_Floppy)
     {
-        /* We update the list with all supported buses
-         * and remove the current one from that list. */
-        m_buses << supportedBuses.toList();
+        /* Update the list with all supported buses: */
+        CPlatformProperties comProperties = gpGlobalSession->virtualBox().GetPlatformProperties(arch());
+        m_buses << comProperties.GetSupportedStorageBuses();
+
+        /* Remove the current one from that list,
+         * it will be prepended in any cases: */
         m_buses.removeAll(m_enmBus);
+        /* Remove KStorageBus_Floppy as well,
+         * as this list is not for floppies: */
+        m_buses.removeAll(KStorageBus_Floppy);
     }
 
     /* And prepend current bus finally: */
