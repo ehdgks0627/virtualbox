@@ -1,4 +1,4 @@
-/* $Id: UnattendedImpl.cpp 112403 2026-01-11 19:29:08Z knut.osmundsen@oracle.com $ */
+/* $Id: UnattendedImpl.cpp 112406 2026-01-12 12:12:57Z serkan.bayraktar@oracle.com $ */
 /** @file
  * Unattended class implementation
  */
@@ -2210,6 +2210,27 @@ HRESULT Unattended::i_innerDetectIsoOSLinux(RTVFS hVfsIso, DETECTBUFFER *pBuf)
                     {
                         const char *pszVersion = NULL;
                         detectLinuxDistroNameII(apszLines[i], &mEnmOsType, &pszVersion);
+                    }
+                    else if (RTStrIStartsWith(pszLine, "version"))
+                    {
+                        const char *pszVersionLine = apszLines[i];
+                        size_t iOff = 0;
+                        // Skip until a digit is found
+                        while (pszVersionLine[iOff] != '\0' && !RT_C_IS_DIGIT(pszVersionLine[iOff]))
+                            ++iOff;
+
+                        // Remember where the version substring starts
+                        size_t iStart = iOff;
+
+                        // Scan as long as digits or dots appear (to cover "13.12", "10.4.1", etc.)
+                        while (RT_C_IS_DIGIT(pszVersionLine[iOff]) || pszVersionLine[iOff] == '.')
+                            ++iOff;
+
+                        size_t iSize = iOff - iStart;
+
+                        // Only assign if a version-like substring was actually found
+                        if (iSize != 0)
+                            mStrDetectedOSVersion.assignEx(pszVersionLine, iStart, iSize);
                     }
                     else if (RTStrIStartsWith(pszLine, "architecture"))
                         idxArchLine = i;
