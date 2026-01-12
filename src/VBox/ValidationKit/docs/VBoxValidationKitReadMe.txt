@@ -109,5 +109,5 @@ Directory Layout
 
 
 
-:Status: $Id: VBoxValidationKitReadMe.txt 110685 2025-08-11 18:54:52Z klaus.espenlaub@oracle.com $
-:Copyright: Copyright (C) 2010-2025 Oracle and/or its affiliates.
+:Status: $Id: VBoxValidationKitReadMe.txt 112423 2026-01-12 20:51:25Z knut.osmundsen@oracle.com $
+:Copyright: Copyright (C) 2010-2026 Oracle and/or its affiliates.

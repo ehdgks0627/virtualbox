@@ -2,13 +2,13 @@ diff -Nru TestFloat-3e-virgin/Makefile.kmk TestFloat-3e/Makefile.kmk
 --- TestFloat-3e-virgin/Makefile.kmk	1970-01-01 01:00:00.000000000 +0100
 +++ TestFloat-3e/Makefile.kmk	2022-08-22 21:44:59.264546989 +0200
 @@ -0,0 +1,271 @@
-+# $Id: TestFloat-3e-patch.diff 110685 2025-08-11 18:54:52Z klaus.espenlaub@oracle.com $
++# $Id: TestFloat-3e-patch.diff 112423 2026-01-12 20:51:25Z knut.osmundsen@oracle.com $
 +## @file
 +# Sub-Makefile for TestFloat-3e.
 +#
 +
 +#
-+# Copyright (C) 2022-2025 Oracle and/or its affiliates.
++# Copyright (C) 2022-2026 Oracle and/or its affiliates.
 +#
 +# This file is part of VirtualBox base platform packages, as
 +# available from https://www.virtualbox.org.
