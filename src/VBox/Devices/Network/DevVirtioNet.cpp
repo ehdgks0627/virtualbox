@@ -1,4 +1,4 @@
-/* $Id: DevVirtioNet.cpp 112403 2026-01-11 19:29:08Z knut.osmundsen@oracle.com $ */
+/* $Id: DevVirtioNet.cpp 112501 2026-01-13 14:30:58Z aleksey.ilyushin@oracle.com $ */
 /** @file
  * VBox storage devices - Virtio NET Driver
  *
@@ -671,6 +671,8 @@ static DECLCALLBACK(void) virtioNetVirtqNotified(PPDMDEVINS pDevIns, PVIRTIOCORE
     PVIRTIONETVIRTQ  pVirtq  = &pThis->aVirtqs[uVirtqNbr];
     PVIRTIONETWORKER pWorker = &pThis->aWorkers[uVirtqNbr];
 
+    AssertMsgReturnVoid(uVirtqNbr < pThis->cVirtqs,
+        ("[%s] queue index (%u) exceeds the number of queues (%u)\n", pThis->szInst, uVirtqNbr, pThis->cVirtqs));
 #ifdef VIRTIO_REL_INFO_DUMP
     if (ASMAtomicReadBool(&pVirtio->fRecovering))
         LogRel(("[%s] Received notification from the guest on queue %u\n", pThis->szInst, uVirtqNbr));
