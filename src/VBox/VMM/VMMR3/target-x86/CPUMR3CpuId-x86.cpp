@@ -1,4 +1,4 @@
-/* $Id: CPUMR3CpuId-x86.cpp 112403 2026-01-11 19:29:08Z knut.osmundsen@oracle.com $ */
+/* $Id: CPUMR3CpuId-x86.cpp 112428 2026-01-13 07:49:41Z alexander.eichner@oracle.com $ */
 /** @file
  * CPUM - CPU ID part.
  */
@@ -1043,6 +1043,7 @@ typedef struct CPUMCPUIDCONFIG
     CPUMISAEXTCFG   enmF16c;
     CPUMISAEXTCFG   enmMcdtNo;
     CPUMISAEXTCFG   enmMonitorMitgNo;
+    CPUMISAEXTCFG   enmTsc;
 
     CPUMISAEXTCFG   enmAbm;
     CPUMISAEXTCFG   enmSse4A;
@@ -1343,7 +1344,7 @@ static int cpumR3CpuIdSanitize(PVM pVM, PCPUM pCpum, PCPUMCPUIDCONFIG pConfig)
                            | X86_CPUID_FEATURE_EDX_VME
                            | X86_CPUID_FEATURE_EDX_DE
                            | X86_CPUID_FEATURE_EDX_PSE
-                           | X86_CPUID_FEATURE_EDX_TSC
+                           | PASSTHRU_FEATURE(pConfig->enmTsc, pHstFeat->fTsc, X86_CPUID_FEATURE_EDX_TSC)
                            | X86_CPUID_FEATURE_EDX_MSR
                            //| X86_CPUID_FEATURE_EDX_PAE   - set later if configured.
                            | X86_CPUID_FEATURE_EDX_MCE
@@ -1562,7 +1563,7 @@ static int cpumR3CpuIdSanitize(PVM pVM, PCPUM pCpum, PCPUMCPUIDCONFIG pConfig)
                                | X86_CPUID_AMD_FEATURE_EDX_VME
                                | X86_CPUID_AMD_FEATURE_EDX_DE
                                | X86_CPUID_AMD_FEATURE_EDX_PSE
-                               | X86_CPUID_AMD_FEATURE_EDX_TSC
+                               | PASSTHRU_FEATURE(pConfig->enmTsc, pHstFeat->fTsc, X86_CPUID_AMD_FEATURE_EDX_TSC)
                                | X86_CPUID_AMD_FEATURE_EDX_MSR //?? this means AMD MSRs..
                                //| X86_CPUID_AMD_FEATURE_EDX_PAE    - turned on when necessary
                                //| X86_CPUID_AMD_FEATURE_EDX_MCE    - not virtualized yet.
@@ -2967,6 +2968,7 @@ static int cpumR3CpuIdReadConfig(PVM pVM, PCPUMCPUIDCONFIG pConfig, PCFGMNODE pC
                                   "|MISALNSSE"
                                   "|3DNOWPRF"
                                   "|AXMMX"
+                                  "|TSC"
                                   , "" /*pszValidNodes*/, "CPUM" /*pszWho*/, 0 /*uInstance*/);
         if (RT_FAILURE(rc))
             return rc;
@@ -3183,6 +3185,12 @@ static int cpumR3CpuIdReadConfig(PVM pVM, PCPUMCPUIDCONFIG pConfig, PCFGMNODE pC
      * issues.
      */
     rc = cpumR3CpuIdReadIsaExtCfg(pVM, pIsaExts, "MonitorMitgNo", &pConfig->enmMonitorMitgNo, CPUMISAEXTCFG_ENABLED_SUPPORTED);
+    AssertLogRelRCReturn(rc, rc);
+
+    /** @cfgm{/CPUM/IsaExts/TSC, isaextcfg, true}
+     * Whether to expose the TSC instructions to the guest.
+     */
+    rc = cpumR3CpuIdReadIsaExtCfg(pVM, pIsaExts, "TSC", &pConfig->enmTsc, CPUMISAEXTCFG_ENABLED_SUPPORTED);
     AssertLogRelRCReturn(rc, rc);
 
 
