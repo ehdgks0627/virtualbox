@@ -1,4 +1,4 @@
-/* $Id: DevVGA-SVGA3d-dx-dx11.cpp 112483 2026-01-13 13:18:07Z vitali.pelenjow@oracle.com $ */
+/* $Id: DevVGA-SVGA3d-dx-dx11.cpp 112586 2026-01-14 23:38:37Z vitali.pelenjow@oracle.com $ */
 /** @file
  * DevVMWare - VMWare SVGA device
  */
@@ -4060,7 +4060,11 @@ static void dxCopyStagingTextureToScreenBitmap(PVGASTATECC pThisCC, VMSVGASCREEN
 
     uint8_t const *pu8Src = (uint8_t *)map.pData;
     uint8_t *pu8Dst;
+#ifndef PERMANENT_SCREEN_BITMAP
     if (pScreen->pvScreenBitmap)
+#else
+    if (pScreen->offVRAM == VMSVGA_VRAM_OFFSET_SCREEN_TARGET)
+#endif
         pu8Dst = (uint8_t *)pScreen->pvScreenBitmap;
     else
         pu8Dst = (uint8_t *)pThisCC->pbVRam + pScreen->offVRAM;
