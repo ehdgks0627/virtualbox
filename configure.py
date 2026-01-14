@@ -6,7 +6,7 @@ Requires >= Python 3.4.
 """
 
 # -*- coding: utf-8 -*-
-# $Id: configure.py 112562 2026-01-14 14:34:02Z andreas.loeffler@oracle.com $
+# $Id: configure.py 112563 2026-01-14 14:43:18Z andreas.loeffler@oracle.com $
 # pylint: disable=bare-except
 # pylint: disable=consider-using-f-string
 # pylint: disable=global-statement
@@ -61,7 +61,7 @@ SPDX-License-Identifier: GPL-3.0-only
 # External Python modules or other dependencies are not allowed!
 #
 
-__revision__ = "$Revision: 112562 $"
+__revision__ = "$Revision: 112563 $"
 
 import argparse
 import ctypes
@@ -704,12 +704,14 @@ def compileAndExecute(sName, enmBuildTarget, enmBuildArch, asIncPaths, asLibPath
                     sStdErr = oProc.stderr.decode("utf-8", errors="ignore") if oProc.stderr else None;
                     if fLog:
                         fnLog = printError;
-                        # Some build boxes don't like running X stuff and simply SIGSEGV, so just skip those errors for now.
-                        if oProc.returncode == -11 \
-                        or oProc.returncode == 139: # 128 + Signal number
-                            printVerbose(1, f'Treating return code {oProc.returncode} as warning instead of error');
-                            printVerbose(1,  'Running on headless build box (no X11, ...)?');
-                            fnLog = printWarn; # Just warn, don't fail.
+                        if enmBuildTarget not in [ BuildTarget.WINDOWS ]:
+                            # Some build boxes don't like running X stuff and simply SIGSEGV, so just skip those errors for now.
+                            if oProc.returncode == -11 \
+                            or oProc.returncode == 139: # 128 + Signal number
+                                printVerbose(1, f'Treating return code {oProc.returncode} as warning instead of error');
+                                printVerbose(1,  'Running on headless build box (no X11, ...)?');
+                                fnLog = printWarn; # Just warn, don't fail.
+                                fRet  = True;      # Ditto.
                         fnLog(f"Execution of test binary for {sName} failed with return code {oProc.returncode}:");
                         if enmBuildTarget == BuildTarget.WINDOWS:
                             fnLog(f"Windows Error { getWinError(oProc.returncode) }", fDontCount = True);
