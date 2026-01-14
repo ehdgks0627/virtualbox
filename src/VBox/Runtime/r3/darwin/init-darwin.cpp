@@ -1,4 +1,4 @@
-/* $Id: init-darwin.cpp 112565 2026-01-14 14:59:27Z alexander.eichner@oracle.com $ */
+/* $Id: init-darwin.cpp 112568 2026-01-14 15:49:47Z alexander.eichner@oracle.com $ */
 /** @file
  * IPRT - Init Ring-3, POSIX Specific Code.
  */
@@ -58,6 +58,10 @@
 #include <mach-o/dyld.h>
 #include <mach-o/dyld_images.h>
 #include <mach/mach_vm.h>
+#include <sys/types.h>
+#include <sys/sysctl.h>
+
+#include <stdio.h>
 
 /*********************************************************************************************************************************
 *   Structures and Typedefs                                                                                                      *
@@ -456,8 +460,60 @@ static void rtR3DarwinSigSegvBusHandler(int iSignum, siginfo_t *pSigInfo, void *
 #endif
 
         /*
-         * Dump the command line.
+         * Dump the command line - avoiding dynamic memory allocations.
          */
+        int aMib[3] = { 0 };
+        size_t cb = 0;
+        char abStr[_16K];
+        aMib[0] = CTL_KERN;
+        aMib[1] = KERN_PROCARGS2;
+        aMib[2] = RTProcSelf();
+        int rcDarwin = sysctl(&aMib[0], sizeof(aMib), NULL, &cb, NULL, 0);
+        if (   !rcDarwin
+            && cb < sizeof(abStr))
+        {
+            rcDarwin = sysctl(&aMib[0], sizeof(aMib), &abStr[0], &cb, NULL, 0);
+            if (   !rcDarwin
+                && cb >= sizeof(int))
+            {
+                RTLogLoggerWeak(pLogger, NULL, "\nCommandLine: ");
+
+                /*
+                 * First comes the argument count, then the executable path,
+                 * then comes the raw string area.
+                 */
+                int cArgs = *(int *)abStr;
+
+                cb -= sizeof(int);
+                const char *pb = &abStr[sizeof(cArgs)];
+
+                size_t cch = strlen(pb) + 1;
+                pb += cch;
+                cb -= cch;
+
+                /* Find the begining of the string area. */
+                while (cb && *pb == '\0')
+                {
+                    cb--;
+                    pb++;
+                }
+
+                while (cArgs && cb)
+                {
+                    RTLogLoggerWeak(pLogger, NULL, " %s", pb);
+                    cch = strlen(pb) + 1;
+                    cArgs--;
+                    cb -= cch;
+                    pb += cch;
+                }
+
+                RTLogLoggerWeak(pLogger, NULL, "\n");
+
+                /* Try dumping the raw string area which might contain interesting environment variables. */
+                RTLogLoggerWeak(pLogger, NULL, "\nDumping string area\n", uStack, cbToDump, uTop);
+                RTLogLoggerWeak(pLogger, NULL, "%.*RhxD\n", cb, abStr);
+            }
+        }
     }
 }
 
