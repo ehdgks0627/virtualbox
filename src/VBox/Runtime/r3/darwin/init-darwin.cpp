@@ -1,4 +1,4 @@
-/* $Id: init-darwin.cpp 112570 2026-01-14 15:54:59Z alexander.eichner@oracle.com $ */
+/* $Id: init-darwin.cpp 112571 2026-01-14 16:00:22Z alexander.eichner@oracle.com $ */
 /** @file
  * IPRT - Init Ring-3, POSIX Specific Code.
  */
@@ -183,9 +183,6 @@ static const char *rtR3DarwinVmUserTagStringify(unsigned int uTag)
     return "<UNKNOWN>";
 }
 
-extern "C" {
-extern const void *_dyld_get_shared_cache_range(size_t *length);
-}
 
 /**
  * Signal handler callback.
