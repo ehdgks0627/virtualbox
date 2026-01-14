@@ -6,7 +6,7 @@ Requires >= Python 3.4.
 """
 
 # -*- coding: utf-8 -*-
-# $Id: configure.py 112563 2026-01-14 14:43:18Z andreas.loeffler@oracle.com $
+# $Id: configure.py 112566 2026-01-14 15:30:49Z andreas.loeffler@oracle.com $
 # pylint: disable=bare-except
 # pylint: disable=consider-using-f-string
 # pylint: disable=global-statement
@@ -61,7 +61,7 @@ SPDX-License-Identifier: GPL-3.0-only
 # External Python modules or other dependencies are not allowed!
 #
 
-__revision__ = "$Revision: 112563 $"
+__revision__ = "$Revision: 112566 $"
 
 import argparse
 import ctypes
@@ -592,7 +592,7 @@ def getPosixError(uCode):
     return f"Killed by signal {sName}";
 
 def compileAndExecute(sName, enmBuildTarget, enmBuildArch, asIncPaths, asLibPaths, asIncFiles, asLibFiles, sCode, \
-                      oEnv = None, asCompilerArgs = None, asLinkerArgs = None, asDefines = None, fLog = True, fMayFail = False):
+                      oEnv = None, asCompilerArgs = None, asLinkerArgs = None, asDefines = None, fLog = True, fErrorsAsWarnings = False):
     """
     Compiles and executes a test program.
 
@@ -686,7 +686,7 @@ def compileAndExecute(sName, enmBuildTarget, enmBuildArch, asIncPaths, asLibPath
         if oProc.returncode != 0:
             sStdOut = oProc.stdout.decode("utf-8", errors="ignore");
             if fLog:
-                fnLog = printWarn if fMayFail else printError;
+                fnLog = printWarn if fErrorsAsWarnings else printError;
                 fnLog(f'Compilation of test program for {sName} failed');
                 fnLog(f'    { " ".join(asCmd) }', fDontCount = True);
                 fnLog(sStdOut, fDontCount = True);
@@ -1143,7 +1143,7 @@ class LibraryCheck(CheckBase):
                 return '\n'.join(sIncludes) + '#include <iostream>\nint main() {{ std::cout << "<found>" << std::endl; return 0; }}\n';
         return '\n'.join(sIncludes) + '#include <stdio.h>\nint main(void) {{ printf("<found>"); return 0; }}\n';
 
-    def compileAndExecute(self, enmBuildTarget, enmBuildArch):
+    def compileAndExecute(self, enmBuildTarget, enmBuildArch, fErrorsAsWarnings):
         """
         Attempts to compile and execute test code using the discovered paths and headers.
 
@@ -1158,22 +1158,10 @@ class LibraryCheck(CheckBase):
         self.asIncPaths = list(set(self.asIncPaths));
         self.asLibPaths = list(set(self.asLibPaths));
 
-        # The compilation is allowed to fail w/o triggering an error if
-        #   - this library is in-tree, as we ASSUME that we only have working libraries in there
-        #   or
-        #   - there are defines to disable the feature.
-        fMayFail = self.fUseInTree or len(self.dictDefinesToSetIfFailed) > 0;
-
         fRc, sStdOut, sStdErr = compileAndExecute(self.sName, enmBuildTarget, enmBuildArch, \
                                                   self.asIncPaths, self.asLibPaths, self.asHdrFiles, self.asLibFiles, \
                                                   sCode, asCompilerArgs = self.asCompilerArgs, asLinkerArgs = self.asLinkerArgs, asDefines = self.asDefines,
-                                                  fMayFail = fMayFail);
-
-        # Compilation / execution failed by allowed to fail? Overwrite returned result.
-        if  not fRc \
-        and fMayFail:
-            fRc = True;
-
+                                                  fErrorsAsWarnings = fErrorsAsWarnings);
         if fRc and sStdOut:
             self.sVer = sStdOut;
         return fRc, sStdOut, sStdErr;
@@ -1556,10 +1544,18 @@ class LibraryCheck(CheckBase):
                 fRc, self.asLibPaths, self.asLibFiles = self.checkLib();
                 if      fRc \
                 and not self.fIsInTree:
+                    # The compilation is allowed to fail w/o triggering an error if
+                    #   - this library is in-tree, as we ASSUME that we only have working libraries in there
+                    #   or
+                    #   - there are defines to disable the feature.
+                    fMayFail = self.fUseInTree or len(self.dictDefinesToSetIfFailed) > 0;
                     # Only try to compile libraries which are not in-tree, as we only have sources in-tree, not binaries.
-                    fRc, _, _ = self.compileAndExecute(g_oEnv['KBUILD_TARGET'], g_oEnv['KBUILD_TARGET_ARCH']);
-                    if fRc:
+                    fRc, _, _ = self.compileAndExecute(g_oEnv['KBUILD_TARGET'], g_oEnv['KBUILD_TARGET_ARCH'], fErrorsAsWarnings = fMayFail);
+                    if not fRc:
+                        self.fHave = None if fMayFail else False;
+                    else:
                         self.fHave = True;
+
                 if self.fUseInTree and not self.fIsInTree:
                     self.printWarn('Library needs to be used from in-tree sources but was not detected there -- might lead to build errors');
 
