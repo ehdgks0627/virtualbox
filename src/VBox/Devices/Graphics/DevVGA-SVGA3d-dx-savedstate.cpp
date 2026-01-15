@@ -1,4 +1,4 @@
-/* $Id: DevVGA-SVGA3d-dx-savedstate.cpp 112579 2026-01-14 19:58:07Z vitali.pelenjow@oracle.com $ */
+/* $Id: DevVGA-SVGA3d-dx-savedstate.cpp 112601 2026-01-15 12:05:40Z vitali.pelenjow@oracle.com $ */
 /** @file
  * DevSVGA3d - VMWare SVGA device, 3D parts - DX backend saved state.
  */
@@ -150,8 +150,13 @@ static int vmsvga3dDXLoadContext(PCPDMDEVHLPR3 pHlp, PVGASTATECC pThisCC, PSSMHA
     {
         rc = pHlp->pfnSSMGetU32(pSSM, &u32);
         AssertLogRelRCReturn(rc, rc);
+#ifndef COTABLE_NO_BACKING
         pDXContext->aCOTMobs[i] = vmsvgaR3MobGet(pSvgaR3State, u32);
         Assert(pDXContext->aCOTMobs[i] || u32 == SVGA_ID_INVALID);
+#else
+        Assert(vmsvgaR3MobGet(pSvgaR3State, u32) != NULL || u32 == SVGA_ID_INVALID);
+        pDXContext->aCOTMobs[i] = u32;
+#endif
     }
 
     struct
@@ -202,7 +207,8 @@ static int vmsvga3dDXLoadContext(PCPDMDEVHLPR3 pHlp, PVGASTATECC pThisCC, PSSMHA
 #ifdef COTABLE_NO_BACKING
         if (cEntries > 0)
         {
-            uint32_t const cbCOT = vmsvgaR3MobSize(pDXContext->aCOTMobs[i]);
+            PVMSVGAMOB pMob = vmsvgaR3MobGet(pSvgaR3State, pDXContext->aCOTMobs[idxCOTable]);
+            uint32_t const cbCOT = vmsvgaR3MobSize(pMob);
             uint32_t const cbEntries = cEntries * cot[i].cbEntry;
             AssertReturn(cbEntries <= cbCOT, VERR_INVALID_STATE);
 
@@ -221,7 +227,7 @@ static int vmsvga3dDXLoadContext(PCPDMDEVHLPR3 pHlp, PVGASTATECC pThisCC, PSSMHA
             else
             {
                 /* COTable content must be in the MOB host buffer. */
-                void const *pvMobData = vmsvgaR3MobBackingStorePtr(pDXContext->aCOTMobs[idxCOTable], 0);
+                void const *pvMobData = vmsvgaR3MobBackingStorePtr(pMob, 0);
                 Assert(pvMobData);
                 if (pvMobData)
                     memcpy(*cot[i].ppaEntries, pvMobData, cbEntries);
@@ -453,7 +459,11 @@ static int vmsvga3dDXSaveContext(PCPDMDEVHLPR3 pHlp, PVGASTATECC pThisCC, PSSMHA
     AssertLogRelRCReturn(rc, rc);
     for (unsigned i = 0; i < RT_ELEMENTS(pDXContext->aCOTMobs); ++i)
     {
+#ifndef COTABLE_NO_BACKING
         uint32_t const mobId = vmsvgaR3MobId(pDXContext->aCOTMobs[i]);
+#else
+        uint32_t const mobId = pDXContext->aCOTMobs[i];
+#endif
         rc = pHlp->pfnSSMPutU32(pSSM, mobId);
         AssertLogRelRCReturn(rc, rc);
     }

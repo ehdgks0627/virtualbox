@@ -1,4 +1,4 @@
-/* $Id: DevVGA-SVGA3d-internal.h 112574 2026-01-14 17:50:05Z vitali.pelenjow@oracle.com $ */
+/* $Id: DevVGA-SVGA3d-internal.h 112601 2026-01-15 12:05:40Z vitali.pelenjow@oracle.com $ */
 /** @file
  * DevVMWare - VMWare SVGA device - 3D part, internal header.
  */
@@ -1002,7 +1002,11 @@ typedef struct VMSVGA3DDXCONTEXT
     /** Copy of the guest memory for this context. The guest will be updated on unbind. */
     SVGADXContextMobFormat    svgaDXContext;
     /* Context-Object Tables bound to this context. */
+#ifndef COTABLE_NO_BACKING
     PVMSVGAMOB aCOTMobs[VBSVGA_NUM_COTABLES];
+#else
+    uint32_t aCOTMobs[VBSVGA_NUM_COTABLES];
+#endif
     struct
     {
         SVGACOTableDXRTViewEntry          *paRTView;
