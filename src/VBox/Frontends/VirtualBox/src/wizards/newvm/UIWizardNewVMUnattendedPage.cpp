@@ -1,4 +1,4 @@
-/* $Id: UIWizardNewVMUnattendedPage.cpp 112403 2026-01-11 19:29:08Z knut.osmundsen@oracle.com $ */
+/* $Id: UIWizardNewVMUnattendedPage.cpp 112600 2026-01-15 11:11:39Z serkan.bayraktar@oracle.com $ */
 /** @file
  * VBox Qt GUI - UIWizardNewVMUnattendedPage class implementation.
  */
@@ -31,6 +31,7 @@
 
 /* GUI includes: */
 #include "QIRichTextLabel.h"
+#include "UIMediumEnumerator.h"
 #include "UIWizardNewVMEditors.h"
 #include "UIWizardNewVMUnattendedPage.h"
 #include "UIWizardNewVM.h"
@@ -196,6 +197,10 @@ void UIWizardNewVMUnattendedPage::sltGAISOPathChanged(const QString &strPath)
 {
     wizardWindow<UIWizardNewVM>()->setGuestAdditionsISOPath(strPath);
     m_userModifiedParameters << "GuestAdditionsISOPath";
+    /* Update the global recent ISO path: */
+    QFileInfo fileInfo(strPath);
+    if (fileInfo.exists() && fileInfo.isReadable())
+        gpMediumEnumerator->updateRecentlyUsedMediumListAndFolder(UIMediumDeviceType_DVD, strPath);
     emit completeChanged();
 }
 

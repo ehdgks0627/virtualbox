@@ -1,4 +1,4 @@
-/* $Id: UIWizardNewVMExpertPage.cpp 112403 2026-01-11 19:29:08Z knut.osmundsen@oracle.com $ */
+/* $Id: UIWizardNewVMExpertPage.cpp 112600 2026-01-15 11:11:39Z serkan.bayraktar@oracle.com $ */
 /** @file
  * VBox Qt GUI - UIWizardNewVMExpertPage class implementation.
  */
@@ -218,6 +218,10 @@ void UIWizardNewVMExpertPage::sltGAISOPathChanged(const QString &strPath)
 {
     AssertReturnVoid(wizardWindow<UIWizardNewVM>());
     m_userModifiedParameters << "GuestAdditionsISOPath";
+    /* Update the global recent ISO path: */
+    QFileInfo fileInfo(strPath);
+    if (fileInfo.exists() && fileInfo.isReadable())
+        gpMediumEnumerator->updateRecentlyUsedMediumListAndFolder(UIMediumDeviceType_DVD, strPath);
     wizardWindow<UIWizardNewVM>()->setGuestAdditionsISOPath(strPath);
     emit completeChanged();
 }
