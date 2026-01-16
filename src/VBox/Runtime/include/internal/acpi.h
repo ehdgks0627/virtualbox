@@ -1,4 +1,4 @@
-/* $Id: acpi.h 112621 2026-01-16 09:46:12Z alexander.eichner@oracle.com $ */
+/* $Id: acpi.h 112623 2026-01-16 09:56:20Z alexander.eichner@oracle.com $ */
 /** @file
  * IPRT - Internal RTAcpi header.
  */
@@ -529,8 +529,7 @@ DECLHIDDEN(int) rtAcpiAstDumpToTbl(PCRTACPIASTNODE pAstNd, PRTACPINSROOT pNsRoot
  *
  * @returns IPRT status code.
  * @param   pAstNd              The AST node to dump.
- * @param   pNsRoot             The namespace root this AST belongs to.
- * @param   hAcpiTbl            The ACPI table to dump to.
+ * @param   hVfsIosOut          The VFS I/O stream to dump the ASL source to.
  * @param   uLvl                The current call depth level (for indentation).
  */
 DECLHIDDEN(int) rtAcpiAstDumpToAsl(PCRTACPIASTNODE pAstNd, RTVFSIOSTREAM hVfsIosOut, uint32_t uLvl);
