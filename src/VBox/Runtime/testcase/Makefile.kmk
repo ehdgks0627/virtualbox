@@ -1,4 +1,4 @@
-# $Id: Makefile.kmk 112403 2026-01-11 19:29:08Z knut.osmundsen@oracle.com $
+# $Id: Makefile.kmk 112621 2026-01-16 09:46:12Z alexander.eichner@oracle.com $
 ## @file
 # Sub-Makefile for the IPRT testcases.
 #
@@ -287,7 +287,8 @@ ifdef VBOX_WITH_TESTCASES # The whole file
  TST_RT_ACPI_FILE = $(tstRTAcpi_0_OUTDIR)/tstRTAcpi-tests.h
  TST_RT_ACPI_SOURCES := \
  	01_empty=01-empty.asl \
- 	02_method=02-method.asl
+ 	02_method=02-method.asl \
+ 	03_grammar=03-grammar.asl
 
  TST_RT_ACPI_PATH_SOURCES := $(PATH_SUB_CURRENT)/acpi
 
