@@ -1,4 +1,4 @@
-/* $Id: acpi-ast.cpp 112625 2026-01-16 13:04:27Z alexander.eichner@oracle.com $ */
+/* $Id: acpi-ast.cpp 112628 2026-01-18 09:10:34Z alexander.eichner@oracle.com $ */
 /** @file
  * IPRT - Advanced Configuration and Power Interface (ACPI) AST handling.
  */
@@ -1080,6 +1080,33 @@ static const char *g_apszRegionSpace[] =
 };
 
 
+/**
+ * Field access encoding table, indexed by kAcpiFieldAcc_XXX.
+ */
+static const char *g_apszFieldAcc[] =
+{
+    /* kAcpiFieldAcc_Invalid */ NULL,
+    /* kAcpiFieldAcc_Any     */ "AnyAcc",
+    /* kAcpiFieldAcc_Byte    */ "ByteAcc",
+    /* kAcpiFieldAcc_Word    */ "WordAcc",
+    /* kAcpiFieldAcc_DWord   */ "DWordAcc",
+    /* kAcpiFieldAcc_QWord   */ "QWordAcc",
+    /* kAcpiFieldAcc_Buffer  */ "BufferAcc"
+};
+
+
+/**
+ * Field udpate encoding table, indexed by kAcpiFieldUpdate_XXX.
+ */
+static const char *g_apszFieldUpdate[] =
+{
+    /* kAcpiFieldUpdate_Invalid       */ NULL,
+    /* kAcpiFieldUpdate_Preserve      */ "Preserve",
+    /* kAcpiFieldUpdate_WriteAsOnes   */ "WriteAsOnes",
+    /* kAcpiFieldUpdate_WriteAsZeroes */ "WriteAsZeros",
+};
+
+
 DECLHIDDEN(int) rtAcpiAstDumpToAsl(PCRTACPIASTNODE pAstNd, RTVFSIOSTREAM hVfsIosOut, uint32_t uLvl)
 {
     int rc = VINF_SUCCESS;
@@ -1169,6 +1196,44 @@ DECLHIDDEN(int) rtAcpiAstDumpToAsl(PCRTACPIASTNODE pAstNd, RTVFSIOSTREAM hVfsIos
                 if (RT_SUCCESS(rc))
                     rc = rtAcpiAstNodeFormat(uLvl, hVfsIosOut, "}");
             }
+            break;
+        }
+        case kAcpiAstNodeOp_Field:
+        {
+            AssertBreakStmt(   pAstNd->cArgs == 4
+                            && pAstNd->aArgs[0].enmType == kAcpiAstArgType_NameString
+                            && pAstNd->aArgs[1].enmType == kAcpiAstArgType_FieldAcc
+                            && pAstNd->aArgs[2].enmType == kAcpiAstArgType_Bool
+                            && pAstNd->aArgs[3].enmType == kAcpiAstArgType_FieldUpdate,
+                            rc = VERR_INTERNAL_ERROR);
+
+            rc = rtAcpiAstNodeFormat(uLvl, hVfsIosOut,
+                                     "Field(%s, %s, %s, %s)",
+                                     pAstNd->aArgs[0].u.pszNameString,
+                                     g_apszFieldAcc[pAstNd->aArgs[1].u.enmFieldAcc],
+                                     pAstNd->aArgs[2].u.f ? "Lock" : "NoLock",
+                                     g_apszFieldUpdate[pAstNd->aArgs[3].u.enmFieldUpdate]);
+            if (RT_SUCCESS(rc))
+                rc = rtAcpiAstNodeFormat(uLvl, hVfsIosOut, "{");
+            if (RT_SUCCESS(rc))
+            {
+                for (uint32_t i = 0; i < pAstNd->Fields.cFields; i++)
+                {
+                    PCRTACPIFIELDENTRY pField = &pAstNd->Fields.paFields[i];
+
+                    if (pField->pszName)
+                        rc = rtAcpiAstNodeFormat(uLvl + 1, hVfsIosOut, "%s, %RU32,", pField->pszName, pField->cBits / 8);
+                    else
+                        rc = rtAcpiAstNodeFormat(uLvl + 1, hVfsIosOut, "Offset(%#RX32),", pField->cBits / 8);
+
+                    if (RT_FAILURE(rc))
+                        break;
+                }
+            }
+
+            if (RT_SUCCESS(rc))
+                rc = rtAcpiAstNodeFormat(uLvl, hVfsIosOut, "}");
+
             break;
         }
         default:

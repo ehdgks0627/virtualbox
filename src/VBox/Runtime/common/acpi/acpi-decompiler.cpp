@@ -1,4 +1,4 @@
-/* $Id: acpi-decompiler.cpp 112625 2026-01-16 13:04:27Z alexander.eichner@oracle.com $ */
+/* $Id: acpi-decompiler.cpp 112628 2026-01-18 09:10:34Z alexander.eichner@oracle.com $ */
 /** @file
  * IPRT - Advanced Configuration and Power Interface (ACPI) Table generation API.
  */
@@ -664,7 +664,7 @@ static int rtAcpiTblAmlDecodeIntegerWorker(PRTACPITBLAMLDECODE pThis, uint64_t *
 }
 
 
-static int rtAcpiTblAmlDecodeFieldFlags(PRTACPITBLAMLDECODE pThis, const char **ppszAcc, const char **ppszLock, const char **ppszUpdate, PRTERRINFO pErrInfo)
+static int rtAcpiTblAmlDecodeFieldFlags(PRTACPITBLAMLDECODE pThis, RTACPIFIELDACC *penmAcc, bool *pfLock, RTACPIFIELDUPDATE *penmUpdate, PRTERRINFO pErrInfo)
 {
     uint8_t bFlags = 0; /* shut up gcc */
     int rc = rtAcpiTblAmlDecodeReadU8(pThis, &bFlags, pErrInfo);
@@ -673,23 +673,23 @@ static int rtAcpiTblAmlDecodeFieldFlags(PRTACPITBLAMLDECODE pThis, const char **
 
     switch (bFlags & 0xf)
     {
-        case 0: *ppszAcc = "AnyAcc"; break;
-        case 1: *ppszAcc = "ByteAcc"; break;
-        case 2: *ppszAcc = "WordAcc"; break;
-        case 3: *ppszAcc = "DWordAcc"; break;
-        case 4: *ppszAcc = "QWordAcc"; break;
-        case 5: *ppszAcc = "BufferAcc"; break;
-        default: *ppszAcc = "Reserved"; break;
+        case 0: *penmAcc = kAcpiFieldAcc_Any; break;
+        case 1: *penmAcc = kAcpiFieldAcc_Byte; break;
+        case 2: *penmAcc = kAcpiFieldAcc_Word; break;
+        case 3: *penmAcc = kAcpiFieldAcc_DWord; break;
+        case 4: *penmAcc = kAcpiFieldAcc_QWord; break;
+        case 5: *penmAcc = kAcpiFieldAcc_Buffer; break;
+        default: *penmAcc = kAcpiFieldAcc_Invalid; break;
     }
 
-    *ppszLock = (bFlags & RT_BIT(4)) ? "Lock" : "NoLock";
+    *pfLock = RT_BOOL(bFlags & RT_BIT(4));
 
     switch ((bFlags >> 5) & 0x3)
     {
-        case 0: *ppszUpdate = "Preserve"; break;
-        case 1: *ppszUpdate = "WriteAsOnes"; break;
-        case 2: *ppszUpdate = "WriteAsZeros"; break;
-        default: *ppszUpdate = "Reserved"; break;
+        case 0: *penmUpdate = kAcpiFieldUpdate_Preserve; break;
+        case 1: *penmUpdate = kAcpiFieldUpdate_WriteAsOnes; break;
+        case 2: *penmUpdate = kAcpiFieldUpdate_WriteAsZeroes; break;
+        default: *penmUpdate = kAcpiFieldUpdate_Invalid; break;
     }
 
     return VINF_SUCCESS;
@@ -1017,10 +1017,10 @@ static DECLCALLBACK(int) rtAcpiTblAmlDecodeField(PRTACPITBLAMLDECODE pThis, PCRT
     cbPkgConsumed += cchName;
 
     /* Decode the field flags. */
-    const char *pszAcc  = NULL;
-    const char *pszLock = NULL;
-    const char *pszUpdate = NULL;
-    rc = rtAcpiTblAmlDecodeFieldFlags(pThis, &pszAcc, &pszLock, &pszUpdate, pErrInfo);
+    RTACPIFIELDACC    enmAcc    = kAcpiFieldAcc_Invalid;
+    bool              fLock     = false;
+    RTACPIFIELDUPDATE enmUpdate = kAcpiFieldUpdate_Invalid;
+    rc = rtAcpiTblAmlDecodeFieldFlags(pThis, &enmAcc, &fLock, &enmUpdate, pErrInfo);
     if (RT_FAILURE(rc))
         return rc;
 
@@ -1031,22 +1031,50 @@ static DECLCALLBACK(int) rtAcpiTblAmlDecodeField(PRTACPITBLAMLDECODE pThis, PCRT
                              "Number of bytes consumed for the current package exceeds package length while decoding a FieldOp (%zu vs %zu)",
                              cbPkgConsumed, cbPkg);
 
-#if 0
-    rc = rtAcpiTblAmlDecodeFormat(pThis, hVfsIosOut, "Field(%s, %s, %s, %s)",  szName, pszAcc, pszLock, pszUpdate);
-    if (RT_SUCCESS(rc))
-        rc = rtAcpiTblAmlDecodeFormat(pThis, hVfsIosOut, "{");
-    if (RT_FAILURE(rc))
-        return rc;
+    PRTACPIASTNODE pAstNd = rtAcpiAstNodeAlloc(pThis->pNs, pAmlOpc->enmOp, RTACPI_AST_NODE_F_DEFAULT, 4 /*cArgs*/);
+    if (!pAstNd)
+        return RTErrInfoSetF(pErrInfo, VERR_NO_MEMORY, "Out of memory trying to allocate AST node for Field \"%s\"", szName);
+
+    pAstNd->aArgs[0].enmType          = kAcpiAstArgType_NameString;
+    pAstNd->aArgs[0].u.pszNameString  = RTStrCacheEnter(pThis->hStrCache, szName);
+    pAstNd->aArgs[1].enmType          = kAcpiAstArgType_FieldAcc;
+    pAstNd->aArgs[1].u.enmFieldAcc    = enmAcc;
+    pAstNd->aArgs[2].enmType          = kAcpiAstArgType_Bool;
+    pAstNd->aArgs[2].u.f              = fLock;
+    pAstNd->aArgs[3].enmType          = kAcpiAstArgType_FieldUpdate;
+    pAstNd->aArgs[3].u.enmFieldUpdate = enmUpdate;
 
     /* Decode the individual fields. */
+    uint32_t          cFieldsMax = 8;
+    uint32_t          cFields    = 0;
+    PRTACPIFIELDENTRY paFields   = (PRTACPIFIELDENTRY)RTMemAllocZ(cFieldsMax * sizeof(*paFields));
+    if (!paFields)
+    {
+        RTMemFree(pAstNd);
+        return RTErrInfoSetF(pErrInfo, VERR_NO_MEMORY, "Out of memory trying to allocate AST node for Field \"%s\"", szName);
+    }
+
     for (;;)
     {
         uint8_t bField = 0;
         rc = rtAcpiTblAmlDecodeReadU8(pThis, &bField, pErrInfo);
         if (RT_FAILURE(rc))
-            return rc;
+            break;
 
         cbPkgConsumed++;
+
+        if (cFields == cFieldsMax)
+        {
+            uint32_t const cFieldsMaxNew = cFieldsMax + 8;
+            PRTACPIFIELDENTRY paFieldsNew = (PRTACPIFIELDENTRY)RTMemRealloc(paFieldsNew, cFieldsMaxNew * sizeof(*paFields));
+            if (!paFieldsNew)
+            {
+                rc = RTErrInfoSetF(pErrInfo, VERR_NO_MEMORY, "Out of memory trying to grow fields array of node for Field \"%s\"", szName);
+                break;
+            }
+
+            paFields = paFieldsNew;
+        }
 
         if (bField == 0) /* ReservedField. */
         {
@@ -1054,53 +1082,75 @@ static DECLCALLBACK(int) rtAcpiTblAmlDecodeField(PRTACPITBLAMLDECODE pThis, PCRT
             size_t cbFieldPkgLength = 0;
             rc = rtAcpiTblAmlDecodePkgLength(pThis, &cBitsField, &cbFieldPkgLength, pErrInfo);
             if (RT_FAILURE(rc))
-                return rc;
+                break;
 
-            rc = rtAcpiTblAmlDecodeFormat(pThis, hVfsIosOut, "    Offset(%#x),",  cBitsField / 8);
-            if (RT_FAILURE(rc))
-                return rc;
+            paFields[cFields].pszName = NULL;
+            paFields[cFields].cBits   = cBitsField;
 
             cbPkgConsumed += cbFieldPkgLength;
         }
         else if (bField == 1 || bField == 2 || bField == 3) /* Not supported right now. */
-            return RTErrInfoSetF(pErrInfo, VERR_NOT_SUPPORTED,
-                                 "Decoding AccessField, ExtendedAccessField and ConnectField items are not yet supported");
+        {
+            rc = RTErrInfoSetF(pErrInfo, VERR_NOT_SUPPORTED,
+                               "Decoding AccessField, ExtendedAccessField and ConnectField items are not yet supported");
+            break;
+        }
         else /* NamedField */
         {
             /* NameSeg PkgLength */
-            char achNameSeg[4];
+            char achNameSeg[5]; RT_ZERO(achNameSeg);
             rc = rtAcpiTblAmlDecodeNameSegWithoutLeadChar(pThis, bField, &achNameSeg[0], pErrInfo);
             if (RT_FAILURE(rc))
-                return rc;
+                break;
 
             size_t cbField          = 0;
             size_t cbFieldPkgLength = 0;
             rc = rtAcpiTblAmlDecodePkgLength(pThis, &cbField, &cbFieldPkgLength, pErrInfo);
             if (RT_FAILURE(rc))
-                return rc;
+                break;
 
-            rc = rtAcpiTblAmlDecodeFormat(pThis, hVfsIosOut, "    %.4s, %u,",  &achNameSeg[0], cbField);
-            if (RT_FAILURE(rc))
-                return rc;
+            paFields[cFields].pszName = RTStrCacheEnterN(pThis->hStrCache, &achNameSeg[0], RT_ELEMENTS(achNameSeg));
+            paFields[cFields].cBits   = cbField * 8;
+
+            if (!paFields[cFields].pszName)
+            {
+                rc = RTErrInfoSetF(pErrInfo, VERR_NO_STR_MEMORY, "Out of memory trying to enter \"%.4s\" into the string cache for Field \"%s\"", achNameSeg);
+                break;
+            }
 
             cbPkgConsumed += 3 + cbFieldPkgLength;
         }
 
+        cFields++;
+
         if (cbPkg == cbPkgConsumed) /* Done? */
             break;
         else if (cbPkg < cbPkgConsumed)
-            return RTErrInfoSetF(pErrInfo, VERR_INVALID_STATE,
-                                 "Number of bytes consumed for the current package exceeds package length while decoding a FieldOp (%zu vs %zu)",
-                                 cbPkgConsumed, cbPkg);
-
-        
+        {
+            rc = RTErrInfoSetF(pErrInfo, VERR_INVALID_STATE,
+                               "Number of bytes consumed for the current package exceeds package length while decoding a FieldOp (%zu vs %zu)",
+                               cbPkgConsumed, cbPkg);
+            break;
+        }
     }
 
-    return rtAcpiTblAmlDecodeFormat(pThis, hVfsIosOut, "}");
-#else
-    RT_NOREF(pAmlOpc, ppAstNd);
-    return VINF_SUCCESS;
-#endif
+    if (RT_SUCCESS(rc))
+    {
+        pAstNd->Fields.paFields = paFields;
+        pAstNd->Fields.cFields  = cFields;
+
+        if (ppAstNd)
+            *ppAstNd = pAstNd;
+        else
+            rtAcpiTblAmlDecodePkgAddNode(pThis, pAstNd);
+    }
+    else
+    {
+        RTMemFree(pAstNd);
+        RTMemFree(paFields);
+    }
+
+    return rc;
 }
 
 
