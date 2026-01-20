@@ -1,4 +1,4 @@
-/* $Id: UIDetailsView.cpp 112649 2026-01-20 15:00:58Z sergey.dubov@oracle.com $ */
+/* $Id: UIDetailsView.cpp 112650 2026-01-20 15:02:17Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - UIDetailsView class implementation.
  */
@@ -120,6 +120,22 @@ public:
 
         /* Return the index of item in it's parent: */
         return pChildItem->parentItem()->items().indexOf(pChildItem);
+    }
+
+    /** Returns the state. */
+    virtual QAccessible::State state() const RT_OVERRIDE
+    {
+        /* Sanity check: */
+        AssertPtrReturn(view(), QAccessible::State());
+
+        /* Compose the state: */
+        QAccessible::State myState;
+        myState.focusable = true;
+        if (view()->hasFocus())
+            myState.focused = true;
+
+        /* Return the state: */
+        return myState;
     }
 
     /** Returns a text for the passed @a enmTextRole. */
