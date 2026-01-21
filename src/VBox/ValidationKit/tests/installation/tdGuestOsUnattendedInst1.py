@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# $Id: tdGuestOsUnattendedInst1.py 112403 2026-01-11 19:29:08Z knut.osmundsen@oracle.com $
+# $Id: tdGuestOsUnattendedInst1.py 112655 2026-01-21 09:44:29Z valery.portnyagin@oracle.com $
 
 """
 VirtualBox Validation Kit - Guest OS unattended installation tests.
@@ -37,7 +37,7 @@ terms and conditions of either the GPL or the CDDL or both.
 
 SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
 """
-__version__ = "$Revision: 112403 $"
+__version__ = "$Revision: 112655 $"
 
 
 # Standard Python imports.
@@ -608,6 +608,12 @@ class tdGuestOsInstTest1(vbox.TestDriver):
             UnattendedVm(oSet, 'tst-debian-9.4-64', 'Debian_64', '6.0/uaisos/debian-9.4.0-amd64-DVD-1.iso',  # >=6GiB?
                          UnattendedVm.kfAvoidNetwork | UnattendedVm.kfNoGAs | UnattendedVm.kfLinuxIoApic),
             UnattendedVm(oSet, 'tst-debian-10.0-64', 'Debian_64', '6.0/uaisos/debian-10.0.0-amd64-DVD-1.iso',  # >=6GiB?
+                         UnattendedVm.kfAvoidNetwork | UnattendedVm.kfLinuxIoApic),
+            UnattendedVm(oSet, 'tst-debian-11.8-64', 'Debian_64', '7.1/uaisos/debian-11.8.0-arm64-DVD-1.iso',  # >=6GiB?
+                         UnattendedVm.kfAvoidNetwork | UnattendedVm.kfLinuxIoApic),
+            UnattendedVm(oSet, 'tst-debian-12.8-64', 'Debian_64', '7.1/uaisos/debian-12.8.0-amd64-DVD-1.iso',  # >=6GiB?
+                         UnattendedVm.kfAvoidNetwork | UnattendedVm.kfLinuxIoApic),
+            UnattendedVm(oSet, 'tst-debian-13.0-64', 'Debian_64', '7.1/uaisos/debian-13.0.0-amd64-DVD-1.iso',  # >=6GiB?
                          UnattendedVm.kfAvoidNetwork | UnattendedVm.kfLinuxIoApic),
 
             #
