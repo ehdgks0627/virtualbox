@@ -1,4 +1,4 @@
-/* $Id: UIDetailsModel.cpp 112668 2026-01-22 14:54:40Z sergey.dubov@oracle.com $ */
+/* $Id: UIDetailsModel.cpp 112671 2026-01-22 15:02:11Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - UIDetailsModel class implementation.
  */
@@ -26,6 +26,7 @@
  */
 
 /* Qt includes: */
+#include <QAccessibleInterface>
 #include <QAction>
 #include <QGraphicsScene>
 #include <QGraphicsSceneContextMenuEvent>
@@ -131,6 +132,22 @@ void UIDetailsModel::setCurrentItem(UIDetailsItem *pItem)
 
     /* Set new current-item: */
     m_pCurrentItem = pItem;
+
+    /* Updating accessibility for newly chosen item if necessary: */
+    if (currentItem() && QAccessible::isActive())
+    {
+        /* Calculate index of item interface in parent interface: */
+        QAccessibleInterface *pIfaceItem = QAccessible::queryAccessibleInterface(currentItem());
+        AssertPtrReturnVoid(pIfaceItem);
+        QAccessibleInterface *pIfaceParent = pIfaceItem->parent();
+        AssertPtrReturnVoid(pIfaceParent);
+        const int iIndexOfItem = pIfaceParent->indexOfChild(pIfaceItem);
+
+        /* Compose and send accessibility update event: */
+        QAccessibleEvent focusEvent(pIfaceParent, QAccessible::Focus);
+        focusEvent.setChild(iIndexOfItem);
+        QAccessible::updateAccessibility(&focusEvent);
+    }
 }
 
 UIDetailsItem *UIDetailsModel::currentItem() const
