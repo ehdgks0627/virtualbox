@@ -1,4 +1,4 @@
-/* $Id: UIDetailsView.cpp 112651 2026-01-20 15:09:31Z sergey.dubov@oracle.com $ */
+/* $Id: UIDetailsView.cpp 112670 2026-01-22 15:00:13Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - UIDetailsView class implementation.
  */
@@ -191,11 +191,10 @@ public:
         /* Sanity check: */
         AssertPtrReturn(view(), QList<QAccessibleInterface*>());
         AssertPtrReturn(view()->model(), QList<QAccessibleInterface*>());
-        AssertPtrReturn(view()->model()->root(), QList<QAccessibleInterface*>());
-        AssertPtrReturn(view()->model()->root()->items().first(), QList<QAccessibleInterface*>());
+        AssertPtrReturn(view()->model()->currentItem(), QList<QAccessibleInterface*>());
 
         /* For now we are interested in just first one selected item: */
-        return QList<QAccessibleInterface*>() << QAccessible::queryAccessibleInterface(view()->model()->root()->items().first());
+        return QList<QAccessibleInterface*>() << QAccessible::queryAccessibleInterface(view()->model()->currentItem());
     }
 
     /** Adds childItem to the selection. */
