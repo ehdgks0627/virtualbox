@@ -1,4 +1,4 @@
-/* $Id: Dev3C501.cpp 112532 2026-01-13 16:08:24Z michal.necasek@oracle.com $ */
+/* $Id: Dev3C501.cpp 112672 2026-01-22 15:36:05Z michal.necasek@oracle.com $ */
 /** @file
  * Dev3C501 - 3Com EtherLink (3C501) Ethernet Adapter Emulation.
  */
@@ -2465,6 +2465,10 @@ static DECLCALLBACK(int) elnkR3Construct(PPDMDEVINS pDevIns, int iInstance, PCFG
     Log(("#%d Link up delay is set to %u seconds\n",
          iInstance, pThis->cMsLinkUpDelay / 1000));
 
+    uint32_t uStatNo = iInstance;
+    rc = pHlp->pfnCFGMQueryU32Def(pCfg, "StatNo", &uStatNo, iInstance);
+    if (RT_FAILURE(rc))
+        return PDMDEV_SET_ERROR(pDevIns, rc, N_("Configuration error: Failed to get the \"StatNo\" value"));
 
     /*
      * Initialize data (most of it anyway).
@@ -2587,9 +2591,14 @@ static DECLCALLBACK(int) elnkR3Construct(PPDMDEVINS pDevIns, int iInstance, PCFG
 
     /*
      * Register statistics counters.
+     * The /Public/ bits are official and used by session info in the GUI.
      */
-    PDMDevHlpSTAMRegisterF(pDevIns, &pThis->StatReceiveBytes,       STAMTYPE_COUNTER, STAMVISIBILITY_ALWAYS, STAMUNIT_BYTES,          "Amount of data received",                "/Public/Net/EtherLink%d/BytesReceived", iInstance);
-    PDMDevHlpSTAMRegisterF(pDevIns, &pThis->StatTransmitBytes,      STAMTYPE_COUNTER, STAMVISIBILITY_ALWAYS, STAMUNIT_BYTES,          "Amount of data transmitted",             "/Public/Net/EtherLink%d/BytesTransmitted", iInstance);
+    PDMDevHlpSTAMRegisterF(pDevIns, &pThis->StatReceiveBytes,      STAMTYPE_COUNTER, STAMVISIBILITY_ALWAYS, STAMUNIT_BYTES,
+                           "Amount of data received",     "/Public/NetAdapter/%u/BytesReceived", uStatNo);
+    PDMDevHlpSTAMRegisterF(pDevIns, &pThis->StatTransmitBytes,     STAMTYPE_COUNTER, STAMVISIBILITY_ALWAYS, STAMUNIT_BYTES,
+                           "Amount of data transmitted",  "/Public/NetAdapter/%u/BytesTransmitted", uStatNo);
+    PDMDevHlpSTAMRegisterF(pDevIns, &pDevIns->iInstance,           STAMTYPE_U32,     STAMVISIBILITY_ALWAYS, STAMUNIT_NONE,
+                           "Device instance number",      "/Public/NetAdapter/%u/%s", uStatNo, pDevIns->pReg->szName);
 
     PDMDevHlpSTAMRegisterF(pDevIns, &pThis->StatReceiveBytes,       STAMTYPE_COUNTER, STAMVISIBILITY_ALWAYS, STAMUNIT_BYTES,          "Amount of data received",                "/Devices/EtherLink%d/ReceiveBytes", iInstance);
     PDMDevHlpSTAMRegisterF(pDevIns, &pThis->StatTransmitBytes,      STAMTYPE_COUNTER, STAMVISIBILITY_ALWAYS, STAMUNIT_BYTES,          "Amount of data transmitted",             "/Devices/EtherLink%d/TransmitBytes", iInstance);
