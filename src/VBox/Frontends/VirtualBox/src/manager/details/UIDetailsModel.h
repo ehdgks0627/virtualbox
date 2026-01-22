@@ -1,4 +1,4 @@
-/* $Id: UIDetailsModel.h 112403 2026-01-11 19:29:08Z knut.osmundsen@oracle.com $ */
+/* $Id: UIDetailsModel.h 112667 2026-01-22 14:49:22Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - UIDetailsModel class declaration.
  */
@@ -106,6 +106,11 @@ public:
     /** Defines virtual machine @a items for this model to reflect. */
     void setItems(const QList<UIVirtualMachineItem*> &items);
 
+    /** Defines current @a pItem. */
+    void setCurrentItem(UIDetailsItem *pItem);
+    /** Returns current-item. */
+    UIDetailsItem *currentItem() const;
+
     /** Returns the details categories. */
     const QMap<DetailsElementType, bool> &categories() const { return m_categories; }
     /** Defines the details @a categories. */
@@ -194,6 +199,9 @@ private slots:
     /** Handles command to detach COM. */
     void sltDetachCOM();
 
+    /** Handles group build being finished. */
+    void sltHandleGroupBuildDone();
+
     /** Handles sigal about details element of certain @a enmType toggling finished, making element @a fToggled. */
     void sltToggleAnimationFinished(DetailsElementType type, bool fToggled);
 
@@ -212,6 +220,12 @@ private:
 
         /** Cleanups all. */
         void cleanup();
+    /** @} */
+
+    /** @name Selection stuff.
+      * @{ */
+        /** Holds the current-item reference. */
+        QPointer<UIDetailsItem>  m_pCurrentItem;
     /** @} */
 
     /** Performs handling for allowed context menu @a pEvent. */

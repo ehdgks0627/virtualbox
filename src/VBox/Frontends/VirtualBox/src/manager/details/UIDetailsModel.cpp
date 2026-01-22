@@ -1,4 +1,4 @@
-/* $Id: UIDetailsModel.cpp 112403 2026-01-11 19:29:08Z knut.osmundsen@oracle.com $ */
+/* $Id: UIDetailsModel.cpp 112667 2026-01-22 14:49:22Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - UIDetailsModel class implementation.
  */
@@ -121,6 +121,21 @@ void UIDetailsModel::updateLayout()
 void UIDetailsModel::setItems(const QList<UIVirtualMachineItem*> &items)
 {
     m_pRoot->buildGroup(items);
+}
+
+void UIDetailsModel::setCurrentItem(UIDetailsItem *pItem)
+{
+    /* Is there something changed? */
+    if (currentItem() == pItem)
+        return;
+
+    /* Set new current-item: */
+    m_pCurrentItem = pItem;
+}
+
+UIDetailsItem *UIDetailsModel::currentItem() const
+{
+    return m_pCurrentItem;
 }
 
 void UIDetailsModel::setCategories(const QMap<DetailsElementType, bool> &categories)
@@ -694,7 +709,7 @@ bool UIDetailsModel::eventFilter(QObject *pObject, QEvent *pEvent)
 {
     /* Handle allowed context-menu events: */
     if (pObject == scene() && pEvent->type() == QEvent::GraphicsSceneContextMenu)
-        return processContextMenuEvent(static_cast<QGraphicsSceneContextMenuEvent*>(pEvent));
+            return processContextMenuEvent(static_cast<QGraphicsSceneContextMenuEvent*>(pEvent));
 
     /* Call to base-class: */
     return QObject::eventFilter(pObject, pEvent);
@@ -744,6 +759,23 @@ void UIDetailsModel::sltDetachCOM()
     setItems(QList<UIVirtualMachineItem*>());
 }
 
+void UIDetailsModel::sltHandleGroupBuildDone()
+{
+    /* Sanity check: */
+    AssertPtrReturnVoid(root());
+
+    /* Set the 1st element to be current one: */
+    if (root()->hasItems())
+    {
+        UIDetailsItem *pFirstSet = root()->items().first();
+        if (pFirstSet->hasItems())
+        {
+            UIDetailsItem *pFirstElement = pFirstSet->items().first();
+            setCurrentItem(pFirstElement);
+        }
+    }
+}
+
 void UIDetailsModel::sltToggleAnimationFinished(DetailsElementType enmType, bool fToggled)
 {
     /* Cleanup animation callback: */
@@ -784,6 +816,9 @@ void UIDetailsModel::prepare()
 
     /* Prepare root item: */
     m_pRoot = new UIDetailsGroup(scene());
+    if (root())
+        connect(root(), &UIDetailsGroup::sigBuildDone,
+                this, &UIDetailsModel::sltHandleGroupBuildDone);
 
     /* Prepare context-menu: */
     m_pContextMenu = new UIDetailsContextMenu(this);
