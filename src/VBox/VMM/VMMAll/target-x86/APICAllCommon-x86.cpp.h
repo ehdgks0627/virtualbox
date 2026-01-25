@@ -1,4 +1,4 @@
-/* $Id: APICAllCommon-x86.cpp.h 112403 2026-01-11 19:29:08Z knut.osmundsen@oracle.com $ */
+/* $Id: APICAllCommon-x86.cpp.h 112683 2026-01-25 17:23:05Z alexander.eichner@oracle.com $ */
 /** @file
  * APIC - Advanced Programmable Interrupt Controller - All-context and R3-context common code.
  */
@@ -223,6 +223,7 @@ static void apicCommonInitIpi(PVMCPUCC pVCpu)
 }
 
 
+#ifndef VMM_INCLUDED_SRC_include_APICKvmInternal_h
 /**
  * Checks if this APIC belongs to a logical destination.
  *
@@ -412,6 +413,7 @@ static void apicCommonGetDestCpuSet(PVMCC pVM, uint32_t fDestMask, uint32_t fBro
         }
     }
 }
+#endif /* VMM_INCLUDED_SRC_include_APICKvmInternal_h */
 
 
 /**

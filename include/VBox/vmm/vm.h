@@ -314,6 +314,8 @@ typedef struct VMCPU
             struct APICCPU      s;
 # elif defined(VMM_INCLUDED_SRC_include_APICHvInternal_h)
             struct HVAPICCPU    s;
+# elif defined(VMM_INCLUDED_SRC_include_APICKvmInternal_h)
+            struct KVMAPICCPU   s;
 # endif
             uint8_t             padding[3840];      /* multiple of 64 */
         } apic;
@@ -1632,6 +1634,8 @@ typedef struct VM
             struct APIC s;
 # elif defined(VMM_INCLUDED_SRC_include_APICHvInternal_h)
             struct HVAPIC s;
+# elif defined(VMM_INCLUDED_SRC_include_APICKvmInternal_h)
+            struct KVMAPIC s;
 # endif
             uint8_t     padding[128];   /* multiple of 8 */
         } apic;

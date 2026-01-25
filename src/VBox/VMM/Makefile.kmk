@@ -1,4 +1,4 @@
-# $Id: Makefile.kmk 112403 2026-01-11 19:29:08Z knut.osmundsen@oracle.com $
+# $Id: Makefile.kmk 112683 2026-01-25 17:23:05Z alexander.eichner@oracle.com $
 ## @file
 # Top-level makefile for the VMM.
 #
@@ -317,7 +317,8 @@ endif
 
 ifdef VBOX_WITH_NATIVE_NEM
  VBoxVMM_SOURCES.linux.amd64 += \
- 	VMMR3/target-x86/NEMR3Native-linux-x86.cpp
+ 	VMMR3/target-x86/NEMR3Native-linux-x86.cpp \
+ 	VMMR3/target-x86/APICR3Nem-linux-x86.cpp
 
  VBoxVMM_SOURCES.win.amd64 += \
  	VMMR3/target-x86/NEMR3Native-win-x86.cpp \
