@@ -1,4 +1,4 @@
-/* $Id: NEMR3Native-linux-x86.cpp 112677 2026-01-25 16:13:56Z alexander.eichner@oracle.com $ */
+/* $Id: NEMR3Native-linux-x86.cpp 112678 2026-01-25 16:15:59Z alexander.eichner@oracle.com $ */
 /** @file
  * NEM - Native execution manager, native ring-3 Linux backend.
  */
@@ -216,6 +216,7 @@ DECLHIDDEN(int) nemR3NativeInitCompletedRing3(PVM pVM)
     MSR_RANGE_BEGIN(0xc0000000, 0xc0003000, KVM_MSR_FILTER_READ | KVM_MSR_FILTER_WRITE);
     MSR_RANGE_ADD(MSR_K6_EFER);
     MSR_RANGE_ADD(MSR_K6_STAR);
+    MSR_RANGE_ADD(MSR_K8_FS_BASE);
     MSR_RANGE_ADD(MSR_K8_GS_BASE);
     MSR_RANGE_ADD(MSR_K8_KERNEL_GS_BASE);
     MSR_RANGE_ADD(MSR_K8_LSTAR);
