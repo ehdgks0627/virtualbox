@@ -1,4 +1,4 @@
-/* $Id: DevVGA-SVGA-cmd.cpp 112675 2026-01-23 17:45:53Z andreas.loeffler@oracle.com $ */
+/* $Id: DevVGA-SVGA-cmd.cpp 112687 2026-01-26 08:36:22Z andreas.loeffler@oracle.com $ */
 /** @file
  * VMware SVGA device - implementation of VMSVGA commands.
  */
@@ -1532,7 +1532,7 @@ void vmsvgaR3InstallAlphaCursor(PVGASTATE pThis, PVGASTATECC pThisCC, SVGAGBAlph
     PVMSVGAR3STATE const pSvgaR3State = pThisCC->svga.pSvgaR3State;
 
     /* Check against a reasonable upper limit to prevent integer overflows in the sanity checks below. */
-    ASSERT_GUEST_RETURN_VOID(pCursorHdr->height < 2048 && pCursorHdr->width < 2048);
+    ASSERT_GUEST_RETURN_VOID(pCursorHdr->height < VMSVGA_CURSOR_MAX_DIMENSION && pCursorHdr->width < VMSVGA_CURSOR_MAX_DIMENSION);
     RT_UNTRUSTED_VALIDATED_FENCE();
 
     /* The mouse pointer interface always expects an AND mask followed by the color data (XOR mask). */
@@ -1547,7 +1547,7 @@ void vmsvgaR3InstallAlphaCursor(PVGASTATE pThis, PVGASTATECC pThisCC, SVGAGBAlph
     /* Transparency is defined by the alpha bytes, so make the whole bitmap visible. */
     memset(pCursorCopy, 0xff, cbAndMask);
     /* Colour data */
-    memcpy(pCursorCopy + cbAndMask, pCursorHdr + sizeof(SVGAGBAlphaCursorHeader), cbXorMask);
+    memcpy(pCursorCopy + cbAndMask, pCursorHdr + 1, cbXorMask);
 
     vmsvgaR3InstallNewCursor(pThisCC, pSvgaR3State, true /*fAlpha*/, pCursorHdr->hotspotX, pCursorHdr->hotspotY,
                              pCursorHdr->width, pCursorHdr->height, pCursorCopy, cbCursorShape);
@@ -1565,7 +1565,7 @@ void vmsvgaR3InstallColorCursor(PVGASTATE pThis, PVGASTATECC pThisCC, SVGAGBColo
 {
     PVMSVGAR3STATE const pSvgaR3State = pThisCC->svga.pSvgaR3State;
 
-    ASSERT_GUEST_RETURN_VOID(pCursorHdr->height < 2048 && pCursorHdr->width < 2048);
+    ASSERT_GUEST_RETURN_VOID(pCursorHdr->height < VMSVGA_CURSOR_MAX_DIMENSION && pCursorHdr->width < VMSVGA_CURSOR_MAX_DIMENSION);
     ASSERT_GUEST_RETURN_VOID(pCursorHdr->andMaskDepth <= 32);
     ASSERT_GUEST_RETURN_VOID(pCursorHdr->xorMaskDepth <= 32);
     RT_UNTRUSTED_VALIDATED_FENCE();
@@ -8074,7 +8074,7 @@ void vmsvgaR3CmdDefineCursor(PVGASTATE pThis, PVGASTATECC pThisCC, SVGAFifoCmdDe
 
     /* We simply can cast SVGAFifoCmdDefineCursor to SVGAGBColorCursorHeader here, skipping the reserved ID at the beginning.
      * This ASSUMES that the structs don't diverge from each other. */
-    vmsvgaR3InstallColorCursor(pThis, pThisCC, (SVGAGBColorCursorHeader *)pCmd + sizeof(uint32_t) /* ID, reserved */);
+    vmsvgaR3InstallColorCursor(pThis, pThisCC, (SVGAGBColorCursorHeader *)&pCmd->hotspotX);
 }
 
 
@@ -8088,7 +8088,7 @@ void vmsvgaR3CmdDefineAlphaCursor(PVGASTATE pThis, PVGASTATECC pThisCC, SVGAFifo
 
     /* We simply can cast SVGAFifoCmdDefineAlphaCursor to SVGAGBAlphaCursorHeader here, skipping the reserved ID at the beginning.
      * This ASSUMES that the structs don't diverge from each other. */
-    vmsvgaR3InstallAlphaCursor(pThis, pThisCC, (SVGAGBAlphaCursorHeader *)pCmd + sizeof(uint32_t) /* ID, reserved */);
+    vmsvgaR3InstallAlphaCursor(pThis, pThisCC, (SVGAGBAlphaCursorHeader *)&pCmd->hotspotX);
 }
 
 

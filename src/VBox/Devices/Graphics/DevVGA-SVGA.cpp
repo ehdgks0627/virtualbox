@@ -1,4 +1,4 @@
-/* $Id: DevVGA-SVGA.cpp 112675 2026-01-23 17:45:53Z andreas.loeffler@oracle.com $ */
+/* $Id: DevVGA-SVGA.cpp 112687 2026-01-26 08:36:22Z andreas.loeffler@oracle.com $ */
 /** @file
  * VMware SVGA device.
  *
@@ -2493,14 +2493,16 @@ static VBOXSTRICTRC vmsvgaWritePort(PPDMDEVINS pDevIns, PVGASTATE pThis, PVGASTA
                                 LogRelMax(16, ("VMSVGA: Invalid MOB cursor size %#x, ignoring\n", pHdr->sizeInBytes));
                         }
                     }
+
+                    RTMemFree(pvBuf);
                 }
                 else
                     LogRelMax(16, ("VMSVGA: Invalid CURSOR_MOBID size %#x, ignoring\n", cbMob));
             }
             else
                 LogRelMax(16, ("VMSVGA: Invalid CURSOR_MOBID %#x written, ignoring\n", u32));
-#endif
             break;
+#endif
         }
         case SVGA_REG_FB_START:
         case SVGA_REG_MEM_START:
