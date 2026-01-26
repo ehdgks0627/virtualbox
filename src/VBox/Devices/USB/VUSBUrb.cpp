@@ -1,4 +1,4 @@
-/* $Id: VUSBUrb.cpp 112698 2026-01-26 14:26:47Z michal.necasek@oracle.com $ */
+/* $Id: VUSBUrb.cpp 112702 2026-01-26 16:00:13Z michal.necasek@oracle.com $ */
 /** @file
  * Virtual USB - URBs.
  */
@@ -276,7 +276,9 @@ void vusbUrbCompletionRhEx(PVUSBROOTHUB pRh, PVUSBURB pUrb)
      */
     if (pUrb->enmType != VUSBXFERTYPE_MSG)
     {
+#ifdef VBOX_WITH_STATISTICS /* pRh->aTypes isn't always defined */
         Assert(pUrb->enmType >= 0 && pUrb->enmType < (int)RT_ELEMENTS(pRh->aTypes));
+#endif
 
         if (    pUrb->enmStatus == VUSBSTATUS_OK
             ||  pUrb->enmStatus == VUSBSTATUS_DATA_UNDERRUN
