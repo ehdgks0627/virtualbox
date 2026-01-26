@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# $Id: vbox.py 112697 2026-01-26 13:42:08Z alexander.rudnev@oracle.com $
+# $Id: vbox.py 112699 2026-01-26 15:19:48Z alexander.rudnev@oracle.com $
 # pylint: disable=too-many-lines
 
 """
@@ -37,7 +37,7 @@ terms and conditions of either the GPL or the CDDL or both.
 
 SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
 """
-__version__ = "$Revision: 112697 $"
+__version__ = "$Revision: 112699 $"
 
 # pylint: disable=unnecessary-semicolon
 
@@ -910,8 +910,6 @@ class TestDriver(base.TestDriver):                                              
         self.fAlwaysUploadRecordings  = False; # Only upload recording files on failure by default.
         self.fEnableDebugger          = True;
         self.fVmNoTerminate           = False; # Whether to skip exit handling and tearing down the VMs.
-        self.sProxyUrl                = None;  # proxy url
-        self.fEnableProxy             = False  # oci tests need to access oci instance outside oracle network
         self.adRecordingFiles         = [];
         self.fRecordingEnabled        = False; # Don't record by default (yet).
         self.fRecordingAudio          = False; # Don't record audio by default.
@@ -1123,16 +1121,6 @@ class TestDriver(base.TestDriver):                                              
         reporter.log2('importVBoxApi finished\n')
         return self.fImportedVBoxApi;
 
-    def _provideProxy(self, sProxy, dEnv=os.environ):
-        """
-        Adds http https proxies to environment.
-        A necessity for a couple of OCI tests.
-        """
-        if sProxy is not None:
-            if 'HTTP_PROXY' not in dEnv and 'HTTPS_PROXY' not in dEnv:
-                os.environ['HTTP_PROXY'] = sProxy
-                os.environ['HTTPS_PROXY'] = sProxy
-
     def _printEnv(self, dEnv = os.environ, fRaw = False): # pylint: disable=dangerous-default-value
         """
         Prints the given environment block to log2.
@@ -1159,9 +1147,6 @@ class TestDriver(base.TestDriver):                                              
         else:
             os.environ['VBOX_LOG_DEST'] = 'nodeny file=%s' % (self.sVBoxSvcLogFile,);
         os.environ['VBOXSVC_RELEASE_LOG_FLAGS'] = 'time append';
-
-        if self.fEnableProxy:
-            self._provideProxy(sProxy=self.sProxyUrl);
 
         reporter.log2('VBoxSVC environment:');
         self._printEnv();
@@ -1910,11 +1895,6 @@ class TestDriver(base.TestDriver):                                              
         reporter.log('      Default: 195 MB.');
         reporter.log('  --vbox-vm-no-terminate');
         reporter.log('      Does not terminate the test VM after running the test driver.');
-        reporter.log('  --vbox-proxy-enable')
-        reporter.log('      Adds http https proxy to environment. Disabled by default.')
-        reporter.log('  --vbox-proxy-url')
-        reporter.log('      Specifies proxy address.')
-
         if self.oTestVmSet is not None:
             self.oTestVmSet.showUsage();
         return rc;
@@ -2047,15 +2027,6 @@ class TestDriver(base.TestDriver):                                              
             self.cMbRecordingMax = int(asArgs[iArg]);
         elif asArgs[iArg] == '--vbox-vm-no-terminate':
             self.fVmNoTerminate = True;
-        elif asArgs[iArg] == '--vbox-proxy-enable':
-            # default proxy address to use
-            self.fEnableProxy = True
-        elif asArgs[iArg] == '--vbox-proxy-url':
-            iArg += 1
-            if iArg >= len(asArgs):
-                raise base.InvalidOption('The --vbox-proxy-url takes an argument')
-            self.sProxyUrl = asArgs[iArg];
-            self.fEnableProxy = True
         else:
             # Relevant for selecting VMs to test?
             if self.oTestVmSet is not None:
