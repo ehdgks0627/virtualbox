@@ -1,4 +1,4 @@
-/* $Id: UIGraphicsTextPane.cpp 112403 2026-01-11 19:29:08Z knut.osmundsen@oracle.com $ */
+/* $Id: UIGraphicsTextPane.cpp 112717 2026-01-27 16:35:59Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - UIGraphicsTextPane class implementation.
  */
@@ -26,10 +26,9 @@
  */
 
 /* Qt includes: */
-#include <QAccessibleObject>
+#include <QCursor>
 #include <QPainter>
 #include <QTextLayout>
-#include <QApplication>
 #include <QFontMetrics>
 #include <QGraphicsSceneHoverEvent>
 #include <QRegularExpression>
@@ -38,82 +37,6 @@
 #include "UIGraphicsTextPane.h"
 #include "UIRichTextString.h"
 
-/* Other VBox includes: */
-#include <iprt/assert.h>
-
-/** QAccessibleObject extension used as an accessibility interface for UITextTableLine. */
-class UIAccessibilityInterfaceForUITextTableLine : public QAccessibleObject
-{
-public:
-
-    /** Returns an accessibility interface for passed @a strClassname and @a pObject. */
-    static QAccessibleInterface *pFactory(const QString &strClassname, QObject *pObject)
-    {
-        /* Creating Details-view accessibility interface: */
-        if (pObject && strClassname == QLatin1String("UITextTableLine"))
-            return new UIAccessibilityInterfaceForUITextTableLine(pObject);
-
-        /* Null by default: */
-        return 0;
-    }
-
-    /** Constructs an accessibility interface passing @a pObject to the base-class. */
-    UIAccessibilityInterfaceForUITextTableLine(QObject *pObject)
-        : QAccessibleObject(pObject)
-    {}
-
-    /** Returns the parent. */
-    virtual QAccessibleInterface *parent() const RT_OVERRIDE
-    {
-        /* Make sure line still alive: */
-        AssertPtrReturn(line(), 0);
-
-        /* Return the parent: */
-        return QAccessible::queryAccessibleInterface(line()->parent());
-    }
-
-    /** Returns the number of children. */
-    virtual int childCount() const RT_OVERRIDE { return 0; }
-    /** Returns the child with the passed @a iIndex. */
-    virtual QAccessibleInterface *child(int /* iIndex */) const RT_OVERRIDE { return 0; }
-    /** Returns the index of the passed @a pChild. */
-    virtual int indexOfChild(const QAccessibleInterface * /* pChild */) const RT_OVERRIDE { return -1; }
-
-    /** Returns the rect. */
-    virtual QRect rect() const RT_OVERRIDE
-    {
-        /* Make sure parent still alive: */
-        AssertPtrReturn(parent(), QRect());
-
-        /* Return the parent's rect for now: */
-        /// @todo Return sub-rect.
-        return parent()->rect();
-    }
-
-    /** Returns a text for the passed @a enmTextRole. */
-    virtual QString text(QAccessible::Text enmTextRole) const RT_OVERRIDE
-    {
-        /* Make sure line still alive: */
-        AssertPtrReturn(line(), QString());
-
-        /* Return the description: */
-        if (enmTextRole == QAccessible::Description)
-            return QString("%1: %2").arg(line()->string1(), line()->string2());
-
-        /* Null-string by default: */
-        return QString();
-    }
-
-    /** Returns the role. */
-    virtual QAccessible::Role role() const RT_OVERRIDE { return QAccessible::StaticText; }
-    /** Returns the state. */
-    virtual QAccessible::State state() const RT_OVERRIDE { return QAccessible::State(); }
-
-private:
-
-    /** Returns corresponding text-table line. */
-    UITextTableLine *line() const { return qobject_cast<UITextTableLine*>(object()); }
-};
 
 UIGraphicsTextPane::UIGraphicsTextPane(QIGraphicsWidget *pParent, QPaintDevice *pPaintDevice)
     : QIGraphicsWidget(pParent)
@@ -126,9 +49,6 @@ UIGraphicsTextPane::UIGraphicsTextPane(QIGraphicsWidget *pParent, QPaintDevice *
     , m_iMinimumTextHeight(0)
     , m_fAnchorCanBeHovered(true)
 {
-    /* Install text-table line accessibility interface factory: */
-    QAccessible::installFactory(UIAccessibilityInterfaceForUITextTableLine::pFactory);
-
     /* We do support hover-events: */
     setAcceptHoverEvents(true);
 }
