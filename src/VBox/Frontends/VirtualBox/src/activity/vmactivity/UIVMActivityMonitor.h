@@ -1,4 +1,4 @@
-/* $Id: UIVMActivityMonitor.h 112403 2026-01-11 19:29:08Z knut.osmundsen@oracle.com $ */
+/* $Id: UIVMActivityMonitor.h 112710 2026-01-27 10:09:25Z serkan.bayraktar@oracle.com $ */
 /** @file
  * VBox Qt GUI - UIVMActivityMonitor class declaration.
  */
@@ -77,6 +77,7 @@ enum Metric_Type
     Metric_Type_Network_InOut,
     Metric_Type_Network_In,
     Metric_Type_Network_Out,
+    Metric_Type_USB_InOut,
     Metric_Type_VM_Exits,
     Metric_Type_Max
 };
@@ -287,11 +288,13 @@ private:
     void updateCPUChart(ULONG iLoadPercentage, ULONG iOtherPercentage);
     void updateRAMGraphsAndMetric(quint64 iTotalRAM, quint64 iFreeRAM);
     void updateNetworkChart(quint64 uReceiveTotal, quint64 uTransmitTotal);
+    void updateUSBChart(quint64 uReceiveTotal, quint64 uTransmitTotal);
     void updateDiskIOChart(quint64 uDiskIOTotalWritten, quint64 uDiskIOTotalRead);
     void updateVMExitMetric(quint64 uTotalVMExits);
     void resetVMExitInfoLabel();
     virtual void resetCPUInfoLabel() RT_OVERRIDE;
     void resetNetworkInfoLabel();
+    void resetUSBInfoLabel();
     void resetDiskIOInfoLabel();
     virtual void prepareWidgets() RT_OVERRIDE;
     void configureCOMPerformanceCollector();
@@ -305,11 +308,15 @@ private:
     CPerformanceCollector m_performanceCollector;
     bool                  m_fCOMPerformanceCollectorConfigured;
     CMachineDebugger      m_comMachineDebugger;
-    /** VM Exit info label strings. */
     QString m_strVMExitInfoLabelTitle;
     QString m_strVMExitLabelCurrent;
     QString m_strVMExitLabelTotal;
     QString m_strNetworkInfoLabelTitle;
+    QString m_strUSBInfoLabelTitle;
+    QString m_strUSBInfoLabelReceived;
+    QString m_strUSBInfoLabelTransmitted;
+    QString m_strUSBInfoLabelReceivedTotal;
+    QString m_strUSBInfoLabelTransmittedTotal;
     ComObjPtr<UIMainEventListenerImpl> m_pQtConsoleListener;
     CEventListener m_comConsoleListener;
 };

@@ -1,4 +1,4 @@
-/* $Id: UIMonitorCommon.cpp 112403 2026-01-11 19:29:08Z knut.osmundsen@oracle.com $ */
+/* $Id: UIMonitorCommon.cpp 112710 2026-01-27 10:09:25Z serkan.bayraktar@oracle.com $ */
 /** @file
  * VBox Qt GUI - UIMonitorCommon class implementation.
  */
@@ -114,6 +114,23 @@ void UIMonitorCommon::getNetworkLoad(CMachineDebugger &debugger, quint64 &uOutNe
             uOutNetworkReceived += data.m_counter;
         else if (data.m_strName.endsWith("BytesTransmitted"))
             uOutNetworkTransmitted += data.m_counter;
+        else
+            AssertMsgFailed(("name=%s\n", data.m_strName.toLocal8Bit().data()));
+    }
+}
+
+/* static */
+void UIMonitorCommon::getUSBLoad(CMachineDebugger &debugger, quint64 &uOutUSBReceived, quint64 &uOutUSBTransmitted)
+{
+    uOutUSBReceived = 0;
+    uOutUSBTransmitted = 0;
+    QVector<UIDebuggerMetricData> xmlData = getAndParseStatsFromDebugger(debugger, "/Public/USB/*/Bytes*");
+    foreach (const UIDebuggerMetricData &data, xmlData)
+    {
+        if (data.m_strName.endsWith("BytesReceived"))
+            uOutUSBReceived += data.m_counter;
+        else if (data.m_strName.endsWith("BytesTransmitted"))
+            uOutUSBTransmitted += data.m_counter;
         else
             AssertMsgFailed(("name=%s\n", data.m_strName.toLocal8Bit().data()));
     }

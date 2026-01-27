@@ -1,4 +1,4 @@
-/* $Id: UIVMActivityMonitor.cpp 112403 2026-01-11 19:29:08Z knut.osmundsen@oracle.com $ */
+/* $Id: UIVMActivityMonitor.cpp 112710 2026-01-27 10:09:25Z serkan.bayraktar@oracle.com $ */
 /** @file
  * VBox Qt GUI - UIVMActivityMonitor class implementation.
  */
@@ -1106,13 +1106,13 @@ void UIVMActivityMonitor::sltRetranslateUI()
     m_iMaximumLabelLength = qMax(m_iMaximumLabelLength, m_strRAMInfoLabelFree.length());
     m_strRAMInfoLabelUsed = QApplication::translate("UIVMInformationDialog", "Used");
     m_iMaximumLabelLength = qMax(m_iMaximumLabelLength, m_strRAMInfoLabelUsed.length());
-    m_strNetworkInfoLabelReceived = QApplication::translate("UIVMInformationDialog", "Download Rate");
+    m_strNetworkInfoLabelReceived = QApplication::translate("UIVMInformationDialog", "Receive Rate");
     m_iMaximumLabelLength = qMax(m_iMaximumLabelLength, m_strNetworkInfoLabelReceived.length());
-    m_strNetworkInfoLabelTransmitted = QApplication::translate("UIVMInformationDialog", "Upload Rate");
+    m_strNetworkInfoLabelTransmitted = QApplication::translate("UIVMInformationDialog", "Transmit Rate");
     m_iMaximumLabelLength = qMax(m_iMaximumLabelLength, m_strNetworkInfoLabelTransmitted.length());
-    m_strNetworkInfoLabelReceivedTotal = QApplication::translate("UIVMInformationDialog", "Total Downloaded");
+    m_strNetworkInfoLabelReceivedTotal = QApplication::translate("UIVMInformationDialog", "Total Received");
     m_iMaximumLabelLength = qMax(m_iMaximumLabelLength, m_strNetworkInfoLabelReceivedTotal.length());
-    m_strNetworkInfoLabelTransmittedTotal = QApplication::translate("UIVMInformationDialog", "Total Uploaded");
+    m_strNetworkInfoLabelTransmittedTotal = QApplication::translate("UIVMInformationDialog", "Total Transmitted");
     m_iMaximumLabelLength = qMax(m_iMaximumLabelLength, m_strNetworkInfoLabelReceivedTotal.length());
     m_strDiskIOInfoLabelTitle = QApplication::translate("UIVMInformationDialog", "Disk IO");
     m_iMaximumLabelLength = qMax(m_iMaximumLabelLength, m_strDiskIOInfoLabelTitle.length());
@@ -1313,6 +1313,16 @@ void UIVMActivityMonitorLocal::sltRetranslateUI()
     m_iMaximumLabelLength = qMax(m_iMaximumLabelLength, m_strVMExitLabelTotal.length());
     m_strNetworkInfoLabelTitle = QApplication::translate("UIVMInformationDialog", "Network Rate");
     m_iMaximumLabelLength = qMax(m_iMaximumLabelLength, m_strNetworkInfoLabelTitle.length());
+    m_strUSBInfoLabelTitle = QApplication::translate("UIVMInformationDialog", "USB Rate");
+    m_iMaximumLabelLength = qMax(m_iMaximumLabelLength, m_strUSBInfoLabelTitle.length());
+    m_strUSBInfoLabelReceived = QApplication::translate("UIVMInformationDialog", "Read Rate");
+    m_iMaximumLabelLength = qMax(m_iMaximumLabelLength, m_strUSBInfoLabelReceived.length());
+    m_strUSBInfoLabelTransmitted = QApplication::translate("UIVMInformationDialog", "Write Rate");
+    m_iMaximumLabelLength = qMax(m_iMaximumLabelLength, m_strUSBInfoLabelTransmitted.length());
+    m_strUSBInfoLabelReceivedTotal = QApplication::translate("UIVMInformationDialog", "Total Read");
+    m_iMaximumLabelLength = qMax(m_iMaximumLabelLength, m_strUSBInfoLabelReceivedTotal.length());
+    m_strUSBInfoLabelTransmittedTotal = QApplication::translate("UIVMInformationDialog", "Total Written");
+
     setInfoLabelWidth();
 }
 
@@ -1411,6 +1421,14 @@ void UIVMActivityMonitorLocal::obtainDataAndUpdate()
         quint64 cbDiskIOTotalRead = 0;
         UIMonitorCommon::getDiskLoad(m_comMachineDebugger, cbDiskIOTotalWritten, cbDiskIOTotalRead);
         updateDiskIOChart(cbDiskIOTotalWritten, cbDiskIOTotalRead);
+    }
+
+    /* Update the USB chart with values we find under /Public/USB/ * /Bytes*: */
+    {
+        quint64 cbUSBIOTotalWritten = 0;
+        quint64 cbUSBIOTotalRead = 0;
+        UIMonitorCommon::getUSBLoad(m_comMachineDebugger, cbUSBIOTotalWritten, cbUSBIOTotalRead);
+        updateUSBChart(cbUSBIOTotalWritten, cbUSBIOTotalRead);
     }
 
     /* Update the VM exit chart with values we find as /PROF/CPU?/EM/RecordedExits: */
@@ -1513,6 +1531,7 @@ void UIVMActivityMonitorLocal::reset()
     resetRAMInfoLabel();
     resetNetworkInfoLabel();
     resetDiskIOInfoLabel();
+    resetUSBInfoLabel();
     resetVMExitInfoLabel();
     update();
     sltClearCOMData();
@@ -1524,7 +1543,8 @@ void UIVMActivityMonitorLocal::prepareWidgets()
 
     QVector<Metric_Type> chartOrder;
     chartOrder << Metric_Type_CPU << Metric_Type_RAM <<
-        Metric_Type_Network_InOut << Metric_Type_Disk_InOut;
+        Metric_Type_Network_InOut << Metric_Type_Disk_InOut <<
+        Metric_Type_USB_InOut;
 #ifdef DEBUG
     chartOrder << Metric_Type_VM_Exits;
 #else
@@ -1630,6 +1650,13 @@ void UIVMActivityMonitorLocal::prepareMetrics()
     diskIOMetric.setDataSeriesName(1, "Read Rate");
     diskIOMetric.setAutoUpdateMaximum(true);
     m_metrics.insert(Metric_Type_Disk_InOut, diskIOMetric);
+
+    /* USB Metric: */
+    UIMetric USBMetric("B", m_iMaximumQueueSize);
+    USBMetric.setDataSeriesName(0, "Receive Rate");
+    USBMetric.setDataSeriesName(1, "Transmit Rate");
+    USBMetric.setAutoUpdateMaximum(true);
+    m_metrics.insert(Metric_Type_USB_InOut, USBMetric);
 
     /* VM exits metric */
     UIMetric VMExitsMetric("times", m_iMaximumQueueSize);
@@ -1794,6 +1821,40 @@ void UIVMActivityMonitorLocal::updateNetworkChart(quint64 uReceiveTotal, quint64
         m_charts[Metric_Type_Network_InOut]->update();
 }
 
+void UIVMActivityMonitorLocal::updateUSBChart(quint64 uReceiveTotal, quint64 uTransmitTotal)
+{
+    UIMetric &USBMetric = m_metrics[Metric_Type_USB_InOut];
+
+    quint64 uReceiveRate = uReceiveTotal - USBMetric.total(0);
+    quint64 uTransmitRate = uTransmitTotal - USBMetric.total(1);
+
+    USBMetric.setTotal(0, uReceiveTotal);
+    USBMetric.setTotal(1, uTransmitTotal);
+
+    if (!USBMetric.isInitialized())
+    {
+        USBMetric.setIsInitialized(true);
+        return;
+    }
+
+    USBMetric.addData(0, uReceiveRate);
+    USBMetric.addData(1, uTransmitRate);
+
+    if (m_infoLabels.contains(Metric_Type_USB_InOut)  && m_infoLabels[Metric_Type_USB_InOut])
+    {
+        QString strInfo;
+        strInfo = QString("<b>%1</b></b><br/><font color=\"%2\">%3: %4<br/>%5: %6</font><br/><font color=\"%7\">%8: %9<br/>%10: %11</font>")
+            .arg(m_strUSBInfoLabelTitle)
+            .arg(dataColorString(Metric_Type_USB_InOut, 0)).arg(m_strUSBInfoLabelReceived).arg(UITranslator::formatSize(uReceiveRate, g_iDecimalCount))
+            .arg(m_strUSBInfoLabelReceivedTotal).arg(UITranslator::formatSize(uReceiveTotal, g_iDecimalCount))
+            .arg(dataColorString(Metric_Type_USB_InOut, 1)).arg(m_strUSBInfoLabelTransmitted).arg(UITranslator::formatSize(uTransmitRate, g_iDecimalCount))
+            .arg(m_strUSBInfoLabelTransmittedTotal).arg(UITranslator::formatSize(uTransmitTotal, g_iDecimalCount));
+        m_infoLabels[Metric_Type_USB_InOut]->setText(strInfo);
+    }
+    if (m_charts.contains(Metric_Type_USB_InOut))
+        m_charts[Metric_Type_USB_InOut]->update();
+}
+
 void UIVMActivityMonitorLocal::updateDiskIOChart(quint64 uDiskIOTotalWritten, quint64 uDiskIOTotalRead)
 {
     UIMetric &diskMetric = m_metrics[Metric_Type_Disk_InOut];
@@ -1816,10 +1877,10 @@ void UIVMActivityMonitorLocal::updateDiskIOChart(quint64 uDiskIOTotalWritten, qu
     {
         QString strInfo = QString("<b>%1</b></b><br/><font color=\"%2\">%3: %4<br/>%5: %6</font><br/><font color=\"%7\">%8: %9<br/>%10: %11</font>")
             .arg(m_strDiskIOInfoLabelTitle)
-            .arg(dataColorString(Metric_Type_Disk_InOut, 0)).arg(m_strDiskIOInfoLabelWritten).arg(UITranslator::formatSize(uWriteRate, g_iDecimalCount))
-            .arg(m_strDiskIOInfoLabelWrittenTotal).arg(UITranslator::formatSize((quint64)uDiskIOTotalWritten, g_iDecimalCount))
-            .arg(dataColorString(Metric_Type_Disk_InOut, 1)).arg(m_strDiskIOInfoLabelRead).arg(UITranslator::formatSize(uReadRate, g_iDecimalCount))
-            .arg(m_strDiskIOInfoLabelReadTotal).arg(UITranslator::formatSize((quint64)uDiskIOTotalRead, g_iDecimalCount));
+            .arg(dataColorString(Metric_Type_Disk_InOut, 0)).arg(m_strDiskIOInfoLabelRead).arg(UITranslator::formatSize(uReadRate, g_iDecimalCount))
+            .arg(m_strDiskIOInfoLabelReadTotal).arg(UITranslator::formatSize((quint64)uDiskIOTotalRead, g_iDecimalCount))
+            .arg(dataColorString(Metric_Type_Disk_InOut, 1)).arg(m_strDiskIOInfoLabelWritten).arg(UITranslator::formatSize(uWriteRate, g_iDecimalCount))
+            .arg(m_strDiskIOInfoLabelWrittenTotal).arg(UITranslator::formatSize((quint64)uDiskIOTotalWritten, g_iDecimalCount));
         m_infoLabels[Metric_Type_Disk_InOut]->setText(strInfo);
     }
     if (m_charts.contains(Metric_Type_Disk_InOut))
@@ -1863,6 +1924,20 @@ void UIVMActivityMonitorLocal::resetNetworkInfoLabel()
             .arg(m_strNetworkInfoLabelTransmitted).arg("--")
             .arg(m_strNetworkInfoLabelTransmittedTotal).arg("--");
         m_infoLabels[Metric_Type_Network_InOut]->setText(strInfo);
+    }
+}
+
+void UIVMActivityMonitorLocal::resetUSBInfoLabel()
+{
+    if (m_infoLabels.contains(Metric_Type_USB_InOut)  && m_infoLabels[Metric_Type_USB_InOut])
+    {
+        QString strInfo = QString("<b>%1</b></b><br/>%2: %3<br/>%4 %5<br/>%6: %7<br/>%8 %9")
+            .arg(m_strUSBInfoLabelTitle)
+            .arg(m_strUSBInfoLabelReceived).arg("--")
+            .arg(m_strUSBInfoLabelReceivedTotal).arg("--")
+            .arg(m_strUSBInfoLabelTransmitted).arg("--")
+            .arg(m_strUSBInfoLabelTransmittedTotal).arg("--");
+        m_infoLabels[Metric_Type_USB_InOut]->setText(strInfo);
     }
 }
 

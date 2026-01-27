@@ -1,4 +1,4 @@
-/* $Id: UIMonitorCommon.h 112403 2026-01-11 19:29:08Z knut.osmundsen@oracle.com $ */
+/* $Id: UIMonitorCommon.h 112710 2026-01-27 10:09:25Z serkan.bayraktar@oracle.com $ */
 /** @file
  * VBox Qt GUI - UIMonitorCommon class declaration.
  */
@@ -109,6 +109,7 @@ public:
     /** @name Static utility methods that query and parse IMachineDebugger outputs for specific metrix types.
       * @{ */
         static void getNetworkLoad(CMachineDebugger &debugger, quint64 &uOutNetworkReceived, quint64 &uOutNetworkTransmitted);
+        static void getUSBLoad(CMachineDebugger &debugger, quint64 &uOutUSBReceived, quint64 &uOutUSBTransmitted);
         static void getDiskLoad(CMachineDebugger &debugger, quint64 &uOutDiskWritten, quint64 &uOutDiskRead);
         static void getVMMExitCount(CMachineDebugger &debugger, quint64 &uOutVMMExitCount);
     /** @} */
