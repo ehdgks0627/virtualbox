@@ -1,4 +1,4 @@
-/* $Id: UIMachineToolsWidget.cpp 112403 2026-01-11 19:29:08Z knut.osmundsen@oracle.com $ */
+/* $Id: UIMachineToolsWidget.cpp 112716 2026-01-27 15:40:24Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - UIMachineToolsWidget class implementation.
  */
@@ -581,33 +581,34 @@ void UIMachineToolsWidget::cleanupConnections()
 
 void UIMachineToolsWidget::recacheCurrentMachineItemInformation(bool fDontRaiseErrorPane /* = false */)
 {
-    /* Sanity check, this method is for machine or group of machine items: */
-    if (!isMachineItemSelected() && !isGroupItemSelected())
-        return;
+    /* Propagate current items to the Tools pane.  We're doing that in any
+     * case, even if list is empty. That is required to detach/reattach
+     * all the tools from previously selected items (invalidation). */
+    toolPane()->setItems(currentItems());
 
-    /* Get current item: */
-    UIVirtualMachineItem *pItem = currentItem();
-    const bool fCurrentItemIsOk = isItemAccessible(pItem);
-
-    /* If current item is Ok: */
-    if (fCurrentItemIsOk)
+    /* The rest of stuff is for machine or group of machine items: */
+    if (isMachineItemSelected() || isGroupItemSelected())
     {
-        /* If Error-pane is chosen currently => switch to Details: */
-        if (toolPane()->currentTool() == UIToolType_Error)
-            switchToolTo(UIToolType_Details);
+        /* Get current item: */
+        UIVirtualMachineItem *pItem = currentItem();
+        AssertPtrReturnVoid(pItem);
 
-        /* Propagate current items to the Tools pane: */
-        toolPane()->setItems(currentItems());
-    }
-    /* Otherwise if we were not asked separately to calm down: */
-    else if (!fDontRaiseErrorPane)
-    {
-        /* Make sure Error pane raised: */
-        if (toolPane()->currentTool() != UIToolType_Error)
-            toolPane()->openTool(UIToolType_Error);
+        /* For accessible items: */
+        if (isItemAccessible(pItem))
+        {
+            /* If Error-pane is chosen currently => switch to Details: */
+            if (toolPane()->currentTool() == UIToolType_Error)
+                switchToolTo(UIToolType_Details);
+        }
+        /* Otherwise if we were not asked separately to calm down: */
+        else if (!fDontRaiseErrorPane)
+        {
+            /* Make sure Error pane raised: */
+            if (toolPane()->currentTool() != UIToolType_Error)
+                toolPane()->openTool(UIToolType_Error);
 
-        /* Propagate last access error to the Error-pane: */
-        if (pItem)
+            /* Propagate last access error to the Error-pane: */
             toolPane()->setErrorDetails(pItem->accessError());
+        }
     }
 }
