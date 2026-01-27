@@ -1,7 +1,7 @@
-/* $Id: ARM_ARM_Cortex_X925_A725.h 112714 2026-01-27 13:33:55Z knut.osmundsen@oracle.com $ */
+/* $Id: ARM_ARM_Cortex_X925_A725.h 112719 2026-01-27 20:48:18Z knut.osmundsen@oracle.com $ */
 /** @file
  * CPU database entry "ARM_Cortex_X925_A725".
- * Generated at 2025-12-05T01:36:04Z by VBoxCpuReport v7.2.97r171671 on linux.arm64.
+ * Generated at 2026-01-27T20:46:29Z by VBoxCpuReport v7.2.97r172412 on linux.arm64.
  */
 
 /*
@@ -97,6 +97,19 @@ static SUPARMSYSREGVAL const g_aVar0SysRegVals_ARM_ARM_Cortex_X925_A725[] =
 
 
 /**
+ * System register values for ARM Cortex-A725 (Chaberton), variation #0.
+ * 10 CPUs shares this variant: 0, 1, 2, 3, 4, 10, 11, 12, 13, 14
+ */
+static SUPARMCACHELEVEL const g_aVar0CacheEntries_ARM_ARM_Cortex_X925_A725[] =
+{
+    { 0x00, {0,0,0}, 0, UINT64_C(0x00ff0000001a), UINT64_MAX }, /* CSSEL=L0-data cbLine=64 cSets=256   Asc=4  (64 KiB) */
+    { 0x01, {0,0,0}, 0, UINT64_C(0x00ff0000001a), UINT64_MAX }, /* CSSEL=L0-inst cbLine=64 cSets=256   Asc=4  (64 KiB) */
+    { 0x02, {0,0,0}, 0, UINT64_C(0x03ff0000003a), UINT64_MAX }, /* CSSEL=L1-unif cbLine=64 cSets=1024  Asc=8  (512 KiB) */
+    { 0x04, {0,0,0}, 0, UINT64_C(0x1fff0000007a), UINT64_MAX }, /* CSSEL=L2-unif cbLine=64 cSets=8192  Asc=16 (8 MiB) */
+};
+
+
+/**
  * System register values for ARM Cortex-X925 (Blackhawk), variation #1.
  * 10 CPUs shares this variant: 5, 6, 7, 8, 9, 15, 16, 17, 18, 19
  */
@@ -125,6 +138,19 @@ static SUPARMSYSREGVAL const g_aVar1SysRegVals_ARM_ARM_Cortex_X925_A725[] =
     { UINT64_C(0x0000000000000011), ARMV8_AARCH64_SYSREG_ID_CREATE(3, 0, 0, 3, 4), 0x0 }, /* ID_PFR2_EL1 */
     { UINT64_C(0x0000000000036457), ARMV8_AARCH64_SYSREG_ID_CREATE(3, 0, 9, 9, 7), 0x0 }, /* PMSIDR_EL1 */
     { UINT64_C(0x000000000000000a), ARMV8_AARCH64_SYSREG_ID_CREATE(3, 0, 9,14, 6), 0x0 }, /* PMMIR_EL1 */
+};
+
+
+/**
+ * System register values for ARM Cortex-X925 (Blackhawk), variation #1.
+ * 10 CPUs shares this variant: 5, 6, 7, 8, 9, 15, 16, 17, 18, 19
+ */
+static SUPARMCACHELEVEL const g_aVar1CacheEntries_ARM_ARM_Cortex_X925_A725[] =
+{
+    { 0x00, {0,0,0}, 0, UINT64_C(0x00ff0000001a), UINT64_MAX }, /* CSSEL=L0-data cbLine=64 cSets=256   Asc=4  (64 KiB) */
+    { 0x01, {0,0,0}, 0, UINT64_C(0x00ff0000001a), UINT64_MAX }, /* CSSEL=L0-inst cbLine=64 cSets=256   Asc=4  (64 KiB) */
+    { 0x02, {0,0,0}, 0, UINT64_C(0x0fff0000003a), UINT64_MAX }, /* CSSEL=L1-unif cbLine=64 cSets=4096  Asc=8  (2 MiB) */
+    { 0x04, {0,0,0}, 0, UINT64_C(0x1fff0000007a), UINT64_MAX }, /* CSSEL=L2-unif cbLine=64 cSets=8192  Asc=16 (8 MiB) */
 };
 
 
@@ -160,12 +186,15 @@ static CPUMDBENTRYARM const g_Entry_ARM_ARM_Cortex_X925_A725 =
                     /*.u4Implementer = */ 0x41,
                 }
             },
-            /*.enmCoreType    = */ kCpumCoreType_Efficiency,
+            /*.enmCoreType  = */ kCpumCoreType_Efficiency,
             /*.cSysRegVals    = */ ZERO_ALONE(RT_ELEMENTS(g_aVar0SysRegVals_ARM_ARM_Cortex_X925_A725)),
             /*.paSysRegVals   = */ NULL_ALONE(g_aVar0SysRegVals_ARM_ARM_Cortex_X925_A725),
             /*.uUnused        = */ 0,
-            /*.cCacheEntries  = */ 0,
-            /*.paCacheEntries = */ NULL,
+            /*.cCacheEntries  = */ ZERO_ALONE(RT_ELEMENTS(g_aVar0CacheEntries_ARM_ARM_Cortex_X925_A725)),
+            /*.paCacheEntries = */ NULL_ALONE(g_aVar0CacheEntries_ARM_ARM_Cortex_X925_A725)
+            /* info: CLIDR_EL1  = 0xc3000123 - L1=i&d L2=unified L3=unified */
+            /* info: CTR_EL0    = 0x9444c004 */
+            /* info: DCZID_EL0: = 0x4 */
         },
         /*.Variants[1] = */
         {
@@ -181,12 +210,15 @@ static CPUMDBENTRYARM const g_Entry_ARM_ARM_Cortex_X925_A725 =
                     /*.u4Implementer = */ 0x41,
                 }
             },
-            /*.enmCoreType    = */ kCpumCoreType_Performance,
+            /*.enmCoreType  = */ kCpumCoreType_Performance,
             /*.cSysRegVals    = */ ZERO_ALONE(RT_ELEMENTS(g_aVar1SysRegVals_ARM_ARM_Cortex_X925_A725)),
             /*.paSysRegVals   = */ NULL_ALONE(g_aVar1SysRegVals_ARM_ARM_Cortex_X925_A725),
             /*.uUnused        = */ 0,
-            /*.cCacheEntries  = */ 0,
-            /*.paCacheEntries = */ NULL,
+            /*.cCacheEntries  = */ ZERO_ALONE(RT_ELEMENTS(g_aVar1CacheEntries_ARM_ARM_Cortex_X925_A725)),
+            /*.paCacheEntries = */ NULL_ALONE(g_aVar1CacheEntries_ARM_ARM_Cortex_X925_A725)
+            /* info: CLIDR_EL1  = 0xc3000123 - L1=i&d L2=unified L3=unified */
+            /* info: CTR_EL0    = 0x9444c004 */
+            /* info: DCZID_EL0: = 0x4 */
         },
     }
 };
