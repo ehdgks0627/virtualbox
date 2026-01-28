@@ -1,7 +1,7 @@
-/* $Id: ARM_Qualcomm_Snapdragon_X.h 112714 2026-01-27 13:33:55Z knut.osmundsen@oracle.com $ */
+/* $Id: ARM_Qualcomm_Snapdragon_X.h 112725 2026-01-28 13:03:14Z knut.osmundsen@oracle.com $ */
 /** @file
  * CPU database entry "Qualcomm Snapdragon X".
- * Generated at 2025-04-21T11:23:38Z by VBoxCpuReport v7.1.97r168566 on win.arm64.
+ * Generated at 2026-01-28T13:02:27Z by VBoxCpuReport v7.2.97r172412 on win.arm64.
  */
 
 /*
@@ -42,15 +42,15 @@ static SUPARMSYSREGVAL const g_aCmnSysRegVals_ARM_Qualcomm_Snapdragon_X[] =
     { UINT64_C(0x0000000000000000), ARMV8_AARCH64_SYSREG_ID_CREATE(3, 0, 0, 0, 6), 0x0 }, /* REVIDR_EL1 */
     { UINT64_C(0x1101201021111111), ARMV8_AARCH64_SYSREG_ID_CREATE(3, 0, 0, 4, 0), 0x0 }, /* ID_AA64PFR0_EL1 */
     { UINT64_C(0x0000000000000020), ARMV8_AARCH64_SYSREG_ID_CREATE(3, 0, 0, 4, 1), 0x0 }, /* ID_AA64PFR1_EL1 */
-    { UINT64_C(0x0000000000000000), ARMV8_AARCH64_SYSREG_ID_CREATE(3, 0, 0, 4, 2), 0x0 },
+    { UINT64_C(0x0000000000000000), ARMV8_AARCH64_SYSREG_ID_CREATE(3, 0, 0, 4, 2), 0x0 }, /* ID_AA64PFR2_EL1 */
     { UINT64_C(0x0000000000000000), ARMV8_AARCH64_SYSREG_ID_CREATE(3, 0, 0, 4, 3), 0x0 },
     { UINT64_C(0x0000000000000000), ARMV8_AARCH64_SYSREG_ID_CREATE(3, 0, 0, 4, 4), 0x0 }, /* ID_AA64ZFR0_EL1 */
     { UINT64_C(0x0000000000000000), ARMV8_AARCH64_SYSREG_ID_CREATE(3, 0, 0, 4, 5), 0x0 }, /* ID_AA64SMFR0_EL1 */
     { UINT64_C(0x0000000000000000), ARMV8_AARCH64_SYSREG_ID_CREATE(3, 0, 0, 4, 6), 0x0 },
-    { UINT64_C(0x0000000000000000), ARMV8_AARCH64_SYSREG_ID_CREATE(3, 0, 0, 4, 7), 0x0 },
+    { UINT64_C(0x0000000000000000), ARMV8_AARCH64_SYSREG_ID_CREATE(3, 0, 0, 4, 7), 0x0 }, /* ID_AA64FPFR0_EL1 */
     { UINT64_C(0x000000f010305709), ARMV8_AARCH64_SYSREG_ID_CREATE(3, 0, 0, 5, 0), 0x0 }, /* ID_AA64DFR0_EL1 */
     { UINT64_C(0x0000000000000000), ARMV8_AARCH64_SYSREG_ID_CREATE(3, 0, 0, 5, 1), 0x0 }, /* ID_AA64DFR1_EL1 */
-    { UINT64_C(0x0000000000000000), ARMV8_AARCH64_SYSREG_ID_CREATE(3, 0, 0, 5, 2), 0x0 },
+    { UINT64_C(0x0000000000000000), ARMV8_AARCH64_SYSREG_ID_CREATE(3, 0, 0, 5, 2), 0x0 }, /* ID_AA64DFR2_EL1 */
     { UINT64_C(0x0000000000000000), ARMV8_AARCH64_SYSREG_ID_CREATE(3, 0, 0, 5, 3), 0x0 },
     { UINT64_C(0x0000000000000000), ARMV8_AARCH64_SYSREG_ID_CREATE(3, 0, 0, 5, 4), 0x0 }, /* ID_AA64AFR0_EL1 */
     { UINT64_C(0x0000000000000000), ARMV8_AARCH64_SYSREG_ID_CREATE(3, 0, 0, 5, 5), 0x0 }, /* ID_AA64AFR1_EL1 */
@@ -64,7 +64,7 @@ static SUPARMSYSREGVAL const g_aCmnSysRegVals_ARM_Qualcomm_Snapdragon_X[] =
     { UINT64_C(0x0000000000000000), ARMV8_AARCH64_SYSREG_ID_CREATE(3, 0, 0, 6, 5), 0x0 },
     { UINT64_C(0x0000000000000000), ARMV8_AARCH64_SYSREG_ID_CREATE(3, 0, 0, 6, 6), 0x0 },
     { UINT64_C(0x0000000000000000), ARMV8_AARCH64_SYSREG_ID_CREATE(3, 0, 0, 6, 7), 0x0 },
-    { UINT64_C(0x0000111100001024), ARMV8_AARCH64_SYSREG_ID_CREATE(3, 0, 0, 7, 0), 0x0 }, /* ID_AA64MMFR0_EL1 */
+    { UINT64_C(0x2000111100001024), ARMV8_AARCH64_SYSREG_ID_CREATE(3, 0, 0, 7, 0), 0x0 }, /* ID_AA64MMFR0_EL1 */
     { UINT64_C(0x0000101001201000), ARMV8_AARCH64_SYSREG_ID_CREATE(3, 0, 0, 7, 1), 0x0 }, /* ID_AA64MMFR1_EL1 */
     { UINT64_C(0x1000001100101011), ARMV8_AARCH64_SYSREG_ID_CREATE(3, 0, 0, 7, 2), 0x0 }, /* ID_AA64MMFR2_EL1 */
     { UINT64_C(0x1000000000000000), ARMV8_AARCH64_SYSREG_ID_CREATE(3, 0, 0, 7, 3), 0x0 }, /* ID_AA64MMFR3_EL1 */
@@ -73,10 +73,10 @@ static SUPARMSYSREGVAL const g_aCmnSysRegVals_ARM_Qualcomm_Snapdragon_X[] =
     { UINT64_C(0x0000000000000000), ARMV8_AARCH64_SYSREG_ID_CREATE(3, 0, 0, 7, 6), 0x0 },
     { UINT64_C(0x0000000000000000), ARMV8_AARCH64_SYSREG_ID_CREATE(3, 0, 0, 7, 7), 0x0 },
     { UINT64_C(0x0000000000000003), ARMV8_AARCH64_SYSREG_ID_CREATE(3, 0, 5, 3, 0), 0x0 }, /* ERRIDR_EL1 */
-    { UINT64_C(0x00003fff0000005a), ARMV8_AARCH64_SYSREG_ID_CREATE(3, 1, 0, 0, 0), 0x0 }, /* CCSIDR_EL1 */
+    { UINT64_C(0x0000000000060408), ARMV8_AARCH64_SYSREG_ID_CREATE(3, 0, 9,14, 6), 0x0 }, /* PMMIR_EL1 */
     { UINT64_C(0x0000000002000023), ARMV8_AARCH64_SYSREG_ID_CREATE(3, 1, 0, 0, 1), 0x0 }, /* CLIDR_EL1 */
-    { UINT64_C(0x0000000000000000), ARMV8_AARCH64_SYSREG_ID_CREATE(3, 1, 0, 0, 2), 0x0 }, /* CCSIDR2_EL1 */
     { UINT64_C(0x0000000000000000), ARMV8_AARCH64_SYSREG_ID_CREATE(3, 1, 0, 0, 7), 0x0 }, /* AIDR_EL1 */
+    { UINT64_C(0x00000000b444c004), ARMV8_AARCH64_SYSREG_ID_CREATE(3, 3, 0, 0, 1), 0x0 }, /* CTR_EL0 */
     { UINT64_C(0x0000000000000004), ARMV8_AARCH64_SYSREG_ID_CREATE(3, 3, 0, 0, 7), 0x0 }, /* DCZID_EL0 */
     { UINT64_C(0x000000000124f800), ARMV8_AARCH64_SYSREG_ID_CREATE(3, 3,14, 0, 0), 0x0 }, /* CNTFRQ_EL0 */
 };
@@ -93,12 +93,36 @@ static SUPARMSYSREGVAL const g_aVar0SysRegVals_ARM_Qualcomm_Snapdragon_X[] =
 
 
 /**
+ * System register values for Qualcomm Snapdragon X (Oryon var 2), variation #0.
+ * 4 CPUs shares this variant: 0, 1, 2, 3
+ */
+static SUPARMCACHELEVEL const g_aVar0CacheEntries_ARM_Qualcomm_Snapdragon_X[] =
+{
+    { 0x00, {0,0,0}, 0, UINT64_C(0x00ff0000002a), 0 }, /* CSSEL=L0-data cbLine=64 cSets=256   Asc=6  (96 KiB) */
+    { 0x01, {0,0,0}, 0, UINT64_C(0x01ff0000002a), 0 }, /* CSSEL=L0-inst cbLine=64 cSets=512   Asc=6  (192 KiB) */
+    { 0x02, {0,0,0}, 0, UINT64_C(0x3fff0000005a), 0 }, /* CSSEL=L1-unif cbLine=64 cSets=16384 Asc=12 (12 MiB) */
+};
+
+
+/**
  * System register values for Qualcomm Snapdragon X (Oryon var 1), variation #1.
  * 8 CPUs shares this variant: 4, 5, 6, 7, 8, 9, 10, 11
  */
 static SUPARMSYSREGVAL const g_aVar1SysRegVals_ARM_Qualcomm_Snapdragon_X[] =
 {
     { UINT64_C(0x00000000511f0011), ARMV8_AARCH64_SYSREG_ID_CREATE(3, 0, 0, 0, 0), 0x0 }, /* MIDR_EL1 */
+};
+
+
+/**
+ * System register values for Qualcomm Snapdragon X (Oryon var 1), variation #1.
+ * 8 CPUs shares this variant: 4, 5, 6, 7, 8, 9, 10, 11
+ */
+static SUPARMCACHELEVEL const g_aVar1CacheEntries_ARM_Qualcomm_Snapdragon_X[] =
+{
+    { 0x00, {0,0,0}, 0, UINT64_C(0x00ff0000002a), 0 }, /* CSSEL=L0-data cbLine=64 cSets=256   Asc=6  (96 KiB) */
+    { 0x01, {0,0,0}, 0, UINT64_C(0x01ff0000002a), 0 }, /* CSSEL=L0-inst cbLine=64 cSets=512   Asc=6  (192 KiB) */
+    { 0x02, {0,0,0}, 0, UINT64_C(0x3fff0000005a), 0 }, /* CSSEL=L1-unif cbLine=64 cSets=16384 Asc=12 (12 MiB) */
 };
 
 
@@ -138,8 +162,11 @@ static CPUMDBENTRYARM const g_Entry_ARM_Qualcomm_Snapdragon_X =
             /*.cSysRegVals    = */ ZERO_ALONE(RT_ELEMENTS(g_aVar0SysRegVals_ARM_Qualcomm_Snapdragon_X)),
             /*.paSysRegVals   = */ NULL_ALONE(g_aVar0SysRegVals_ARM_Qualcomm_Snapdragon_X),
             /*.uUnused        = */ 0,
-            /*.cCacheEntries  = */ 0,
-            /*.paCacheEntries = */ NULL,
+            /*.cCacheEntries  = */ ZERO_ALONE(RT_ELEMENTS(g_aVar0CacheEntries_ARM_Qualcomm_Snapdragon_X)),
+            /*.paCacheEntries = */ NULL_ALONE(g_aVar0CacheEntries_ARM_Qualcomm_Snapdragon_X)
+            /* info: CLIDR_EL1  = 0x2000023 - L1=i&d L2=unified */
+            /* info: CTR_EL0    = 0xb444c004 */
+            /* info: DCZID_EL0: = 0x4 */
         },
         /*.Variants[1] = */
         {
@@ -159,8 +186,11 @@ static CPUMDBENTRYARM const g_Entry_ARM_Qualcomm_Snapdragon_X =
             /*.cSysRegVals    = */ ZERO_ALONE(RT_ELEMENTS(g_aVar1SysRegVals_ARM_Qualcomm_Snapdragon_X)),
             /*.paSysRegVals   = */ NULL_ALONE(g_aVar1SysRegVals_ARM_Qualcomm_Snapdragon_X),
             /*.uUnused        = */ 0,
-            /*.cCacheEntries  = */ 0,
-            /*.paCacheEntries = */ NULL,
+            /*.cCacheEntries  = */ ZERO_ALONE(RT_ELEMENTS(g_aVar1CacheEntries_ARM_Qualcomm_Snapdragon_X)),
+            /*.paCacheEntries = */ NULL_ALONE(g_aVar1CacheEntries_ARM_Qualcomm_Snapdragon_X)
+            /* info: CLIDR_EL1  = 0x2000023 - L1=i&d L2=unified */
+            /* info: CTR_EL0    = 0xb444c004 */
+            /* info: DCZID_EL0: = 0x4 */
         },
     }
 };
