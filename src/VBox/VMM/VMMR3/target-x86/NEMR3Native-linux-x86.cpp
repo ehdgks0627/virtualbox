@@ -1,4 +1,4 @@
-/* $Id: NEMR3Native-linux-x86.cpp 112703 2026-01-26 16:37:35Z alexander.eichner@oracle.com $ */
+/* $Id: NEMR3Native-linux-x86.cpp 112726 2026-01-28 17:01:44Z alexander.eichner@oracle.com $ */
 /** @file
  * NEM - Native execution manager, native ring-3 Linux backend.
  */
@@ -532,6 +532,8 @@ static int nemHCLnxImportState(PVMCPUCC pVCpu, uint64_t fWhat, PCPUMCTX pCtx, st
     /*
      * FPU, SSE, AVX, ++.
      */
+    bool fUpdateXcr0 = false;
+    uint64_t u64Xcr0 = 0;
     if (fWhat & (CPUMCTX_EXTRN_X87 | CPUMCTX_EXTRN_SSE_AVX | CPUMCTX_EXTRN_OTHER_XSAVE | CPUMCTX_EXTRN_XCRx))
     {
         if (fWhat & (CPUMCTX_EXTRN_X87 | CPUMCTX_EXTRN_SSE_AVX | CPUMCTX_EXTRN_OTHER_XSAVE))
@@ -557,7 +559,13 @@ static int nemHCLnxImportState(PVMCPUCC pVCpu, uint64_t fWhat, PCPUMCTX pCtx, st
             int rc = ioctl(pVCpu->nem.s.fdVCpu, KVM_GET_XCRS, &Xcrs);
             AssertMsgReturn(rc == 0, ("rc=%d errno=%d\n", rc, errno), VERR_NEM_IPE_3);
 
-            pCtx->aXcr[0] = Xcrs.xcrs[0].value;
+            if (pCtx->aXcr[0] != Xcrs.xcrs[0].value)
+            {
+                u64Xcr0 = Xcrs.xcrs[0].value;
+                fUpdateXcr0 = true;
+            }
+
+            /** @todo Same logic for XCR1 when it becomes necessary. */
             pCtx->aXcr[1] = Xcrs.xcrs[1].value;
         }
     }
@@ -664,15 +672,23 @@ static int nemHCLnxImportState(PVMCPUCC pVCpu, uint64_t fWhat, PCPUMCTX pCtx, st
     /*
      * We sometimes need to update PGM on the guest status.
      */
-    if (!fMaybeChangedMode && !fUpdateCr3)
+    if (!fMaybeChangedMode && !fUpdateCr3 && !fUpdateXcr0)
     { /* likely */ }
     else
     {
         /*
          * Make sure we got all the state PGM might need.
          */
-        Log7(("nemHCLnxImportState: fMaybeChangedMode=%d fUpdateCr3=%d fExtrnNeeded=%#RX64\n", fMaybeChangedMode, fUpdateCr3,
+        Log7(("nemHCLnxImportState: fMaybeChangedMode=%d fUpdateCr3=%d fUpdateXcr0=%RTbool fExtrnNeeded=%#RX64\n",
+              fMaybeChangedMode, fUpdateCr3, fUpdateXcr0,
               pVCpu->cpum.GstCtx.fExtrn & (CPUMCTX_EXTRN_CR0 | CPUMCTX_EXTRN_CR4 | CPUMCTX_EXTRN_CR3 | CPUMCTX_EXTRN_EFER) ));
+
+        if (fUpdateXcr0)
+        {
+            int rc = CPUMSetGuestXcr0(pVCpu, u64Xcr0);
+            AssertMsgReturn(rc == VINF_SUCCESS, ("rc=%Rrc\n", rc), RT_FAILURE_NP(rc) ? rc : VERR_NEM_IPE_3);
+        }
+
         if (pVCpu->cpum.GstCtx.fExtrn & (CPUMCTX_EXTRN_CR0 | CPUMCTX_EXTRN_CR4 | CPUMCTX_EXTRN_CR3 | CPUMCTX_EXTRN_EFER))
         {
             if (pVCpu->cpum.GstCtx.fExtrn & CPUMCTX_EXTRN_CR0)
