@@ -1,4 +1,4 @@
-/* $Id: UIExtraDataManager.cpp 112403 2026-01-11 19:29:08Z knut.osmundsen@oracle.com $ */
+/* $Id: UIExtraDataManager.cpp 112753 2026-01-29 16:37:47Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - UIExtraDataManager class implementation.
  */
@@ -38,7 +38,6 @@
 # include <QLabel>
 # include <QLineEdit>
 # include <QListView>
-# include <QMainWindow>
 # include <QMenuBar>
 # include <QPainter>
 # include <QPushButton>
@@ -67,9 +66,9 @@
 # include "QIDialog.h"
 # include "QIDialogButtonBox.h"
 # include "QIFileDialog.h"
+# include "QIMainWindow.h"
 # include "QISplitter.h"
 # include "QIWidgetValidator.h"
-# include "QIWithRestorableGeometry.h"
 # include "VBoxUtils.h"
 # include "UIIconPool.h"
 # include "QIToolBar.h"
@@ -462,7 +461,7 @@ protected:
 
 /** QMainWindow extension
   * providing Extra Data Manager with UI features. */
-class UIExtraDataManagerWindow : public QIWithRestorableGeometry<QMainWindow>
+class UIExtraDataManagerWindow : public QIMainWindow
 {
     Q_OBJECT;
 
