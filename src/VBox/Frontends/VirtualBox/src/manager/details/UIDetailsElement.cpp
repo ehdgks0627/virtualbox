@@ -1,4 +1,4 @@
-/* $Id: UIDetailsElement.cpp 112722 2026-01-28 10:39:03Z sergey.dubov@oracle.com $ */
+/* $Id: UIDetailsElement.cpp 112747 2026-01-29 14:24:15Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - UIDetailsElement class implementation.
  */
@@ -898,7 +898,11 @@ void UIDetailsElement::popupNameAndSystemEditor(bool fChooseName, bool fChoosePa
             if (fChooseName)
                 pEditor->setName(strValue);
             else if (fChoosePath)
-                pEditor->setPath(strValue);
+            {
+                const QString strFolder = QFileInfo(strValue).absolutePath();
+                const QString strParentFolder = QFileInfo(strFolder).absolutePath();
+                pEditor->setPath(strParentFolder);
+            }
             else if (fChooseType)
                 pEditor->setGuestOSTypeByTypeId(strValue);
 
