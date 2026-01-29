@@ -1,4 +1,4 @@
-/* $Id: QIMessageBox.cpp 112403 2026-01-11 19:29:08Z knut.osmundsen@oracle.com $ */
+/* $Id: QIMessageBox.cpp 112752 2026-01-29 16:34:30Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - Qt extensions: QIMessageBox class implementation.
  */
@@ -29,6 +29,7 @@
 #include <QApplication>
 #include <QCheckBox>
 #include <QClipboard>
+#include <QCloseEvent>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QMimeData>

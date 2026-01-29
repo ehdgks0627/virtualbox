@@ -1,4 +1,4 @@
-/* $Id: UIHelpBrowserDialog.h 112403 2026-01-11 19:29:08Z knut.osmundsen@oracle.com $ */
+/* $Id: UIHelpBrowserDialog.h 112752 2026-01-29 16:34:30Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - UIHelpBrowserDialog class declaration.
  */
@@ -32,17 +32,16 @@
 #endif
 
 /* Qt includes: */
-#include <QMainWindow>
 #include <QPointer>
 
 /* GUI includes: */
-#include "QIWithRestorableGeometry.h"
+#include "QIMainWindow.h"
 
 /* Forward declarations: */
 class QLabel;
 class UIHelpBrowserWidget;
 
-class SHARED_LIBRARY_STUFF UIHelpBrowserDialog : public QIWithRestorableGeometry<QMainWindow>
+class SHARED_LIBRARY_STUFF UIHelpBrowserDialog : public QIMainWindow
 {
     Q_OBJECT;
 
