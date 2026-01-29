@@ -1,4 +1,4 @@
-/* $Id: QIMainDialog.cpp 112403 2026-01-11 19:29:08Z knut.osmundsen@oracle.com $ */
+/* $Id: QIMainDialog.cpp 112758 2026-01-29 16:58:23Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - Qt extensions: QIMainDialog class implementation.
  */
@@ -48,7 +48,7 @@
 QIMainDialog::QIMainDialog(QWidget *pParent /* = 0 */,
                            Qt::WindowFlags enmFlags /* = Qt::Dialog */,
                            bool fIsAutoCentering /* = true */)
-    : QMainWindow(pParent, enmFlags)
+    : QIMainWindow(pParent, enmFlags)
     , m_fIsAutoCentering(fIsAutoCentering)
     , m_fPolished(false)
     , m_iResult(QDialog::Rejected)
@@ -149,7 +149,7 @@ void QIMainDialog::setSizeGripEnabled(bool fEnabled)
 void QIMainDialog::setVisible(bool fVisible)
 {
     /* Call to base-class: */
-    QMainWindow::setVisible(fVisible);
+    QIMainWindow::setVisible(fVisible);
 
     /* Exit from the event-loop if there is any and
      * we are changing our state from visible to hidden. */
@@ -161,12 +161,12 @@ bool QIMainDialog::eventFilter(QObject *pObject, QEvent *pEvent)
 {
     /* Skip for inactive window: */
     if (!isActiveWindow())
-        return QMainWindow::eventFilter(pObject, pEvent);
+        return QIMainWindow::eventFilter(pObject, pEvent);
 
     /* Skip for children of other than this one window: */
     if (qobject_cast<QWidget*>(pObject) &&
         qobject_cast<QWidget*>(pObject)->window() != this)
-        return QMainWindow::eventFilter(pObject, pEvent);
+        return QIMainWindow::eventFilter(pObject, pEvent);
 
     /* Depending on event-type: */
     switch (pEvent->type())
@@ -204,7 +204,7 @@ bool QIMainDialog::eventFilter(QObject *pObject, QEvent *pEvent)
     }
 
     /* Call to base-class: */
-    return QMainWindow::eventFilter(pObject, pEvent);
+    return QIMainWindow::eventFilter(pObject, pEvent);
 }
 
 bool QIMainDialog::event(QEvent *pEvent)
@@ -223,7 +223,7 @@ bool QIMainDialog::event(QEvent *pEvent)
     }
 
     /* Call to base-class: */
-    return QMainWindow::event(pEvent);
+    return QIMainWindow::event(pEvent);
 }
 
 void QIMainDialog::showEvent(QShowEvent *pEvent)
@@ -236,7 +236,7 @@ void QIMainDialog::showEvent(QShowEvent *pEvent)
     }
 
     /* Call to base-class: */
-    QMainWindow::showEvent(pEvent);
+    QIMainWindow::showEvent(pEvent);
 }
 
 void QIMainDialog::polishEvent(QShowEvent *)
@@ -249,7 +249,7 @@ void QIMainDialog::polishEvent(QShowEvent *)
 void QIMainDialog::resizeEvent(QResizeEvent *pEvent)
 {
     /* Call to base-class: */
-    QMainWindow::resizeEvent(pEvent);
+    QIMainWindow::resizeEvent(pEvent);
 
     /* Adjust the size-grip location for the current resize event: */
     if (m_pSizeGrip)
@@ -269,7 +269,7 @@ void QIMainDialog::keyPressEvent(QKeyEvent *pEvent)
         (qApp->activeModalWidget() && qApp->activeModalWidget() != this))
     {
         /* Call to base-class: */
-        return QMainWindow::keyPressEvent(pEvent);
+        return QIMainWindow::keyPressEvent(pEvent);
     }
 
     /* Special handling for some keys: */
@@ -319,7 +319,7 @@ void QIMainDialog::keyPressEvent(QKeyEvent *pEvent)
     }
 
     /* Call to base-class: */
-    QMainWindow::keyPressEvent(pEvent);
+    QIMainWindow::keyPressEvent(pEvent);
 }
 
 QPushButton *QIMainDialog::searchDefaultButton() const

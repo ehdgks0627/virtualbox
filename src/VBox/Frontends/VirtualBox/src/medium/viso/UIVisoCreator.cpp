@@ -1,4 +1,4 @@
-/* $Id: UIVisoCreator.cpp 112403 2026-01-11 19:29:08Z knut.osmundsen@oracle.com $ */
+/* $Id: UIVisoCreator.cpp 112758 2026-01-29 16:58:23Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - UIVisoCreator classes implementation.
  */
@@ -750,7 +750,7 @@ QString UIVisoCreatorWidget::visoFileFullPath() const
 *********************************************************************************************************************************/
 UIVisoCreatorDialog::UIVisoCreatorDialog(UIActionPool *pActionPool, QWidget *pParent,
                                          const QString& strVisoFilePath  /* = QString() */, const QString& strMachineName /* = QString() */)
-    : QIWithRestorableGeometry<QIMainDialog>(pParent)
+    : QIMainDialog(pParent)
     , m_pVisoCreatorWidget(0)
     , m_pButtonBox(0)
     , m_pActionPool(pActionPool)
@@ -886,7 +886,7 @@ bool UIVisoCreatorDialog::event(QEvent *pEvent)
             saveDialogGeometry();
         }
     }
-    return QIWithRestorableGeometry<QIMainDialog>::event(pEvent);
+    return QIMainDialog::event(pEvent);
 }
 
 void UIVisoCreatorDialog::sltSetCancelButtonShortCut(QKeySequence keySequence)

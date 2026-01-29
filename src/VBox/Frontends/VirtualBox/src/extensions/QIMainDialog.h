@@ -1,4 +1,4 @@
-/* $Id: QIMainDialog.h 112403 2026-01-11 19:29:08Z knut.osmundsen@oracle.com $ */
+/* $Id: QIMainDialog.h 112758 2026-01-29 16:58:23Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - Qt extensions: QIMainDialog class declaration.
  */
@@ -33,10 +33,10 @@
 
 /* Qt includes: */
 #include <QDialog>
-#include <QMainWindow>
 #include <QPointer>
 
 /* GUI includes: */
+#include "QIMainWindow.h"
 #include "UILibraryDefs.h"
 
 /* Forward declarations: */
@@ -44,8 +44,8 @@ class QPushButton;
 class QEventLoop;
 class QSizeGrip;
 
-/** QDialog analog based on QMainWindow. */
-class SHARED_LIBRARY_STUFF QIMainDialog : public QMainWindow
+/** QDialog analog based on QIMainWindow. */
+class SHARED_LIBRARY_STUFF QIMainDialog : public QIMainWindow
 {
     Q_OBJECT;
 
