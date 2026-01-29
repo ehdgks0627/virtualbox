@@ -1,4 +1,4 @@
-/* $Id: NEMR3Native-win-x86.cpp 112691 2026-01-26 11:03:45Z alexander.eichner@oracle.com $ */
+/* $Id: NEMR3Native-win-x86.cpp 112742 2026-01-29 10:55:27Z ramshankar.venkataraman@oracle.com $ */
 /** @file
  * NEM - Native execution manager, native ring-3 Windows backend.
  *
@@ -5294,21 +5294,30 @@ VMMR3_INT_DECL(bool) NEMR3CanExecuteGuest(PVM pVM, PVMCPU pVCpu)
 
 VMMR3_INT_DECL(int) NEMR3Halt(PVM pVM, PVMCPU pVCpu)
 {
-    Assert(EMGetState(pVCpu) == EMSTATE_WAIT_SIPI);
-    /* Should never get here. */
-    AssertFailed(); RT_NOREF(pVM, pVCpu);
-    return VERR_NEM_IPE_3;
+    EMSTATE const enmState = EMGetState(pVCpu);
+    if (enmState == EMSTATE_HALTED)
+        EMSetState(pVCpu, EMSTATE_NEM);
+    else if (enmState == EMSTATE_WAIT_SIPI)
+    {
+        static const WHV_REGISTER_NAME s_Name = WHvRegisterInternalActivityState;
+        WHV_REGISTER_VALUE Reg;
+        RT_ZERO(Reg);
+        Reg.InternalActivity.StartupSuspend = 1;
+        VMCPUID const idCpu = pVCpu->idCpu;
+        HRESULT const hrc   = WHvSetVirtualProcessorRegisters(pVM->nem.s.hPartition, idCpu, &s_Name, 1, &Reg);
+        AssertLogRelMsgReturn(SUCCEEDED(hrc),
+                              ("VCPU%u: WHvSetVirtualProcessorRegisters for WHvRegisterInternalActivityState failed -> %Rhrc (Last=%#x/%u)\n",
+                              idCpu, hrc, RTNtLastStatusValue(), RTNtLastErrorValue()), VERR_NEM_IPE_8);
+    }
+    else
+        AssertReleaseMsgFailed(("Unexpected EM state. enmState=%u\n", enmState));
+    return VINF_EM_RESCHEDULE;
 }
 
 
 DECLHIDDEN(bool) nemR3NativeNeedSpecialWaitMethod(PVM pVM)
 {
-    RT_NOREF(pVM);
-    /** @todo r=aeichner How are APs handled currently which are in a halted state
-     *                   but get an interrupt through the local APIC if the Hyper-V
-     *                   emulation is used?
-     */
-    return false;
+    return RT_BOOL(pVM->nem.s.fLocalApicEmulation);
 }
 
 
