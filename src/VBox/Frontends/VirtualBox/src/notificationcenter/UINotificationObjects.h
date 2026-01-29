@@ -1,4 +1,4 @@
-/* $Id: UINotificationObjects.h 112403 2026-01-11 19:29:08Z knut.osmundsen@oracle.com $ */
+/* $Id: UINotificationObjects.h 112748 2026-01-29 14:28:16Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - Various UINotificationObjects declarations.
  */
@@ -164,6 +164,10 @@ public:
           * @param  strPath  Brings the machine folder path. */
         static void cannotRemoveMachineFolder(const QString &strPath,
                                               UINotificationCenter *pParent = 0);
+        /** Notifies about inability to move machine folder.
+          * @param  strPath  Brings the machine folder path. */
+        static void cannotMoveMachineFolder(const QString &strPath,
+                                            UINotificationCenter *pParent = 0);
 
         /** Notifies about inability to register existing machine.
           * @param  streName     Brings the machine name.

@@ -1,4 +1,4 @@
-/* $Id: UINotificationObjects.cpp 112403 2026-01-11 19:29:08Z knut.osmundsen@oracle.com $ */
+/* $Id: UINotificationObjects.cpp 112748 2026-01-29 14:28:16Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - Various UINotificationObjects implementations.
  */
@@ -258,6 +258,18 @@ void UINotificationMessage::cannotRemoveMachineFolder(const QString &strPath,
     createMessage(
         QApplication::translate("UIMessageCenter", "Can't remove machine folder ..."),
         QApplication::translate("UIMessageCenter", "Failed to remove machine folder at <nobr><b>%1</b></nobr>.")
+                                                   .arg(strPath),
+        QString(), QString(), pParent);
+}
+
+/* static */
+void UINotificationMessage::cannotMoveMachineFolder(const QString &strPath,
+                                                    UINotificationCenter *pParent /* = 0 */)
+{
+    createMessage(
+        QApplication::translate("UIMessageCenter", "Can't move machine folder ..."),
+        QApplication::translate("UIMessageCenter", "Failed to move machine folder to <nobr><b>%1</b></nobr>.  "
+                                                   "A file with the same name already exists!")
                                                    .arg(strPath),
         QString(), QString(), pParent);
 }
