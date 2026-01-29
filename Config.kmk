@@ -1,4 +1,4 @@
-# $Id: Config.kmk 112744 2026-01-29 12:29:39Z andreas.loeffler@oracle.com $
+# $Id: Config.kmk 112745 2026-01-29 12:34:04Z andreas.loeffler@oracle.com $
 ## @file
 # The global build configuration file for VBox.
 #
@@ -655,17 +655,21 @@ ifdef VBOX_WITH_VMSVGA3D
  if1of ($(KBUILD_TARGET), linux)
   VBOX_WITH_DXVK = 1
  endif
- if1of ($(KBUILD_TARGET), linux) && !defined(VBOX_WITH_DXVK)
-  # Otherwise this causes black screens.
-  $(error DXVK must be enabled when VMSVGA with 3D is enabled)
+ if1of ($(KBUILD_TARGET), linux)
+  if !defined(VBOX_WITH_DXVK)
+   # Otherwise this causes black screens.
+   $(error DXVK must be enabled when VMSVGA with 3D is enabled)
+  endif
  endif
  # Enable DXMT library for supporting VGPU10 DX on macOS
  if1of ($(KBUILD_TARGET).$(KBUILD_TARGET_ARCH), darwin.arm64)
   VBOX_WITH_DXMT = 1
  endif
- if1of ($(KBUILD_TARGET), darwin.arm64) && !defined(VBOX_WITH_DXMT)
-  # Otherwise this causes black screens.
-  $(error DXMT must be enabled when VMSVGA with 3D is enabled)
+ if1of ($(KBUILD_TARGET), darwin.arm64)
+  if !defined(VBOX_WITH_DXMT)
+   # Otherwise this causes black screens.
+   $(error DXMT must be enabled when VMSVGA with 3D is enabled)
+  endif
  endif
 endif
 # Enable video decoding in DXVK library
@@ -9461,7 +9465,7 @@ SVN                    ?= svn$(HOSTSUFF_EXE)
 GIT                    ?= git$(HOSTSUFF_EXE)
 VBOX_SVN_REV_KMK        = $(PATH_OUT)/revision.kmk
 ifndef VBOX_SVN_REV
- VBOX_SVN_REV_CONFIG_FALLBACK := $(patsubst %:,,  $Rev: 112744 $  )
+ VBOX_SVN_REV_CONFIG_FALLBACK := $(patsubst %:,,  $Rev: 112745 $  )
  VBOX_SVN_REV_FALLBACK := $(if-expr $(VBOX_SVN_REV_CONFIG_FALLBACK) > $(VBOX_SVN_REV_VERSION_FALLBACK),$(VBOX_SVN_REV_CONFIG_FALLBACK),$(VBOX_SVN_REV_VERSION_FALLBACK))
  VBOX_SVN_DEP          := $(firstword $(wildcard $(PATH_ROOT)/.svn/wc.db $(abspath $(PATH_ROOT)/../.svn/wc.db) $(abspath $(PATH_ROOT)/../../.svn/wc.db) $(PATH_ROOT)/.svn/entries))
  VBOX_GIT_DEP          := $(firstword $(wildcard $(PATH_ROOT)/.git/config $(abspath $(PATH_ROOT)/../.git/config) $(abspath $(PATH_ROOT)/../../.git/config)))
@@ -9475,7 +9479,7 @@ ifndef VBOX_SVN_REV
  ifneq ($(VBOX_GIT_DEP),)
   #
   # VBOX_SVN_REV_CONFIG_FALLBACK is not properly populated for a git checkout,
-  # as the $Rev: 112744 $ is not expanded, so we have to set it based on the information in the repo.
+  # as the $Rev: 112745 $ is not expanded, so we have to set it based on the information in the repo.
   #
   VBOX_SVN_REV_FALLBACK := $(shell $(GIT) log -1 $(PATH_ROOT)/Config.kmk | $(SED) -e 's/^[ \t]*//' -e '/svn:sync-xref-src-repo-rev\: r/!d' -e 's/svn:sync-xref-src-repo-rev\: r*//; t a; :a q')
  endif
