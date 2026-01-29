@@ -1,4 +1,4 @@
-/* $Id: VBoxStub.cpp 112403 2026-01-11 19:29:08Z knut.osmundsen@oracle.com $ */
+/* $Id: VBoxStub.cpp 112743 2026-01-29 12:04:30Z andreas.loeffler@oracle.com $ */
 /** @file
  * VBoxStub - VirtualBox's Windows installer stub.
  */
@@ -827,8 +827,9 @@ static RTEXITCODE ProcessMsiPackage(const char *pszMsi, const char *pszMsiArgs, 
  * Processes a package.
  *
  * @returns Fully complained exit code.
+ * @retval  RTEXITCODE_SKIPPED if the package was not needed and thus skipped.
  * @param   iPackage            The package number.
- * @param   pszMsiArgs          Any additional installer (MSI) argument
+ * @param   pszMsiArgs          Any additional installer (MSI) argument.
  * @param   pszMsiLogFile       Where to let MSI log its output to. NULL if logging is disabled.
  */
 static RTEXITCODE ProcessPackage(unsigned iPackage, const char *pszMsiArgs, const char *pszMsiLogFile)
@@ -841,7 +842,7 @@ static RTEXITCODE ProcessPackage(unsigned iPackage, const char *pszMsiArgs, cons
         return RTEXITCODE_FAILURE;
 
     if (!PackageIsNeeded(pPackage))
-        return RTEXITCODE_SUCCESS;
+        return RTEXITCODE_SKIPPED;
 
     /*
      * Get the cleanup record for the package so we can get the extracted
@@ -1019,7 +1020,7 @@ static RTEXITCODE CopyCustomDir(const char *pszDstDir)
  * Extracts the files for all needed packages to @a pszDstDir.
  *
  * @returns
- * @param   cPackages       Number of packages to consinder.
+ * @param   cPackages       Number of packages to consider.
  * @param   pszDstDir       Where to extract the files.
  * @param   fExtractOnly    Set if only extracting and not doing any installing.
  * @param   ppExtractDirRec Where we keep the cleanup record for @a pszDstDir.
@@ -1850,15 +1851,22 @@ int main(int argc, char **argv)
                     if (rcExit == RTEXITCODE_SUCCESS && fEnableSilentCert && g_fSilent)
                         rcExit = InstallCertificates();
 #endif
-                    unsigned iPackage = 0;
+                    unsigned iPackage   = 0;
+                    unsigned cProcessed = 0; /* How many packages were processed. */
                     while (   iPackage < pHeader->cPackages
                            && (rcExit == RTEXITCODE_SUCCESS || rcExit == (RTEXITCODE)ERROR_SUCCESS_REBOOT_REQUIRED))
                     {
                         RTEXITCODE rcExit2 = ProcessPackage(iPackage, szMSIArgs, szMSILogFile[0] ? szMSILogFile : NULL);
-                        if (rcExit2 != RTEXITCODE_SUCCESS)
+                        if (rcExit2 == RTEXITCODE_SUCCESS)
+                            cProcessed++;
+                        else
                             rcExit = rcExit2;
                         iPackage++;
                     }
+
+                    if (!cProcessed)
+                        rcExit = ShowError("No packages to process found.\n" \
+                                           "This usually indicates a corrupt or wrongly built installer package.\n\n");
                 }
             }
 
