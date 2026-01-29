@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# $Id: configure.py 112737 2026-01-29 08:33:01Z andreas.loeffler@oracle.com $
+# $Id: configure.py 112754 2026-01-29 16:37:52Z andreas.loeffler@oracle.com $
 """
 Configuration script for building VirtualBox.
 
@@ -61,7 +61,7 @@ SPDX-License-Identifier: GPL-3.0-only
 # External Python modules or other dependencies are not allowed!
 #
 
-__revision__ = "$Revision: 112737 $"
+__revision__ = "$Revision: 112754 $"
 
 import argparse
 import ctypes
@@ -1772,6 +1772,12 @@ class LibraryCheck(CheckBase):
         if isDir(sPathLibExec):
             g_oEnv.set(f'PATH_SDK_{self.sSdkName}_LIBEXEC', sPathLibExec);
 
+        # Tool stuff.
+        if isDir(sPathBin):
+            g_oEnv.set(f'PATH_TOOL_{self.sSdkName}_BIN', sPathBin);
+        if isDir(sPathLibExec):
+            g_oEnv.set(f'PATH_TOOL_{self.sSdkName}_LIBEXEC', sPathLibExec);
+
         return True;
 
     def __repr__(self):
@@ -3308,7 +3314,7 @@ g_aoLibs = [
     LibraryCheck("qt6", [ "QtCore/QtGlobal" ], [ ], aeTargets = [ BuildTarget.ANY ],
                  sCode = '#define IN_RING3\n#include <QtCore/QtGlobal>\nint main() { std::cout << QT_VERSION_STR << std::endl; }',
                  fnCallback = LibraryCheck.checkCallback_qt6,
-                 sSdkName = 'QT', dictDefinesToSetIfFailed = { 'VBOX_WITH_QTGUI' : '' }),
+                 sSdkName = 'QT6', dictDefinesToSetIfFailed = { 'VBOX_WITH_QTGUI' : '' }),
     LibraryCheck("libsdl2", [ "SDL2/SDL.h" ], [ "libSDL2" ], aeTargets = [ BuildTarget.LINUX, BuildTarget.SOLARIS ],
                  sCode = '#include <SDL2/SDL.h>\nint main() { printf("%d.%d.%d", SDL_MAJOR_VERSION, SDL_MINOR_VERSION, SDL_PATCHLEVEL); return 0; }\n',
                  dictDefinesToSetIfFailed = { 'VBOX_WITH_VBOXSDL' : '' }),
