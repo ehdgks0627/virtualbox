@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# $Id: configure.py 112653 2026-01-20 16:37:07Z andreas.loeffler@oracle.com $
+# $Id: configure.py 112734 2026-01-29 07:49:48Z andreas.loeffler@oracle.com $
 """
 Configuration script for building VirtualBox.
 
@@ -61,7 +61,7 @@ SPDX-License-Identifier: GPL-3.0-only
 # External Python modules or other dependencies are not allowed!
 #
 
-__revision__ = "$Revision: 112653 $"
+__revision__ = "$Revision: 112734 $"
 
 import argparse
 import ctypes
@@ -188,7 +188,7 @@ g_enmHostTarget = {
 }.get(g_sHostTarget, BuildTarget.UNKNOWN);
 
 # The build target. Defaults to host target.
-g_enmBuildTarget = g_sHostTarget;
+g_enmBuildTarget = g_enmHostTarget;
 # The build architecture. Defaults to host architecture.
 g_enmBuildArch = g_enmHostArch;
 
