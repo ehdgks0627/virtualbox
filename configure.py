@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# $Id: configure.py 112754 2026-01-29 16:37:52Z andreas.loeffler@oracle.com $
+# $Id: configure.py 112769 2026-01-30 14:04:09Z andreas.loeffler@oracle.com $
 """
 Configuration script for building VirtualBox.
 
@@ -61,7 +61,7 @@ SPDX-License-Identifier: GPL-3.0-only
 # External Python modules or other dependencies are not allowed!
 #
 
-__revision__ = "$Revision: 112754 $"
+__revision__ = "$Revision: 112769 $"
 
 import argparse
 import ctypes
@@ -1576,12 +1576,6 @@ class LibraryCheck(CheckBase):
                 if self.fUseInTree and not self.fIsInTree:
                     self.printWarn('Library needs to be used from in-tree sources but was not detected there -- might lead to build errors');
 
-                # Define the SDK location so that the external lib can be found by our build system.
-                if  self.fHave \
-                and not self.fUseInTree:
-                    g_oEnv.set(f'SDK_{self.sSdkName}_INCS'       , ' '.join(self.asIncPaths));
-                    g_oEnv.set(f'SDK_{self.sSdkName}_LIBS'       , ' '.join(self.asLibFiles));
-                    g_oEnv.set(f'SDK_{self.sSdkName}BldProg_LIBS', ' '.join(self.asLibFiles)); ## @todo Filter that out for most of the stuff.
         if not fRc:
             if self.dictDefinesToSetIfFailed: # Implies being optional.
                 self.printWarn('Library check failed and is optional');
@@ -1741,7 +1735,8 @@ class LibraryCheck(CheckBase):
 
         sPkgName = 'Qt6Core'; ## @todo Make the code generic once we have similar SDKs.
         if sPathBase:
-            g_oEnv.set('PATH_SDK_QT6', sPathBase);
+            g_oEnv.set( 'VBOX_PATH_QT', sPathBase);
+            g_oEnv.set(f'PATH_SDK_{self.sSdkName}', sPathBase);
             sPathBin     = os.path.join(sPathBase, 'bin');
             sPathInc     = os.path.join(sPathBase, 'include');
             sPathLib     = os.path.join(sPathBase, 'lib');
@@ -3373,7 +3368,7 @@ g_aoTools = [
 def write_autoconfig_kmk(sFilePath, enmBuildTarget, oEnv, aoLibs, aoTools):
     """
     Writes the AutoConfig.kmk file with SDK paths and enable/disable flags.
-    Each library/tool gets VBOX_WITH_<NAME>, SDK_<NAME>_LIBS, SDK_<NAME>_INCS.
+    Each library/tool gets VBOX_WITH_<NAME>.
     """
 
     _ = enmBuildTarget, aoTools; # Unused for now.
@@ -3392,21 +3387,31 @@ def write_autoconfig_kmk(sFilePath, enmBuildTarget, oEnv, aoLibs, aoTools):
 # Generated on """ + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + """
 #
 \n""");
-    w.write_all(asPrefixInclude = ['VBOX_', 'PATH_TOOL_' ]);
+    # General stuff
+    w.write_all(asPrefixInclude = ['VBOX_' ], asPrefixExclude= ['VBOX_WITH_']);
     w.write_raw('\n');
 
-    # Defines
+    # Features
+    w.write_raw('# Features');
     for oLibCur in aoLibs:
         if      oLibCur.isInTarget() \
         and not oLibCur.fHave:
             sVarBase = oLibCur.sName.upper().replace("+", "PLUS").replace("-", "_");
             w.write_raw(f"VBOX_WITH_{sVarBase.ljust(26)} :=");
+    w.write_raw('\n');
 
+    # Tools
+    w.write_raw('# Tools');
+    w.write_all(asPrefixInclude = ['PATH_TOOL_' ]);
     w.write_raw('\n');
 
     # SDKs
+    w.write_raw('# SDKs');
     w.write_all(asPrefixInclude = ['SDK_' ]);
+    w.write_raw('\n');
+    w.write_raw('# SDK Paths');
     w.write_all(asPrefixInclude = ['PATH_SDK_' ]);
+    w.write_raw('\n');
 
     # Serialize all changes to disk.
     w.save();
