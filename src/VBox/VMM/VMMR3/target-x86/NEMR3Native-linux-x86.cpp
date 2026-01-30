@@ -1,4 +1,4 @@
-/* $Id: NEMR3Native-linux-x86.cpp 112736 2026-01-29 08:24:21Z alexander.eichner@oracle.com $ */
+/* $Id: NEMR3Native-linux-x86.cpp 112770 2026-01-30 14:34:35Z alexander.eichner@oracle.com $ */
 /** @file
  * NEM - Native execution manager, native ring-3 Linux backend.
  */
@@ -1340,8 +1340,11 @@ VMMR3_INT_DECL(int) NEMR3Halt(PVM pVM, PVMCPU pVCpu)
 
 DECLHIDDEN(bool) nemR3NativeSetSingleInstruction(PVM pVM, PVMCPU pVCpu, bool fEnable)
 {
-    NOREF(pVM); NOREF(pVCpu); NOREF(fEnable);
-    return false;
+    VMCPU_ASSERT_EMT(pVCpu);
+    bool fOld = pVCpu->nem.s.fSingleInstruction;
+    pVCpu->nem.s.fSingleInstruction = fEnable;
+    pVCpu->nem.s.fUseDebugLoop = fEnable || pVM->nem.s.fUseDebugLoop;
+    return fOld;
 }
 
 
@@ -1873,9 +1876,28 @@ static VBOXSTRICTRC nemHCLnxHandleExit(PVMCC pVM, PVMCPUCC pVCpu, struct kvm_run
             break;
 
         case KVM_EXIT_DEBUG:
+        {
             STAM_REL_COUNTER_INC(&pVCpu->nem.s.StatExitDebug);
-            AssertFailed();
+            if (pRun->debug.arch.exception == X86_XCPT_BP)
+            {
+                int rc2 = nemHCLnxImportState(pVCpu, IEM_CPUMCTX_EXTRN_MUST_MASK, &pVCpu->cpum.GstCtx, pRun);
+                AssertRCReturn(rc2, rc2);
+
+                VBOXSTRICTRC rcStrict = DBGFTrap03Handler(pVM, pVCpu, &pVCpu->cpum.GstCtx);
+                /** @todo Forward genuine guest traps to the guest. */
+                Assert(rcStrict == VINF_EM_DBG_BREAKPOINT);
+                return rcStrict;
+            }
+            else if (pRun->debug.arch.exception == X86_XCPT_DB)
+            {
+                /* Should be single stepping. */
+                Assert(pRun->debug.arch.dr6 & X86_DR6_BS);
+                return VINF_EM_DBG_STEPPED;
+            }
+            else
+                AssertFailed();
             break;
+        }
 
         case KVM_EXIT_SYSTEM_EVENT:
             AssertFailed();
@@ -1954,6 +1976,60 @@ static VBOXSTRICTRC nemHCLnxHandleExit(PVMCC pVM, PVMCPUCC pVCpu, struct kvm_run
 }
 
 
+/**
+ * Setup the guest debug state if it is active.
+ *
+ * @returns VBox status code.
+ * @param   pVM             The cross context VM structure.
+ * @param   pVCpu           The cross context CPU structure of the calling EMT.
+ * @param   fSingleStepping Flag whether we are in single stepping mode.
+ */
+static int nemR3LnxGstDbgUpdate(PVM pVM, PVMCPU pVCpu, bool fSingleStepping)
+{
+    struct kvm_guest_debug GstDbg = { 0 };
+
+    GstDbg.control = KVM_GUESTDBG_ENABLE;
+    GstDbg.control |= fSingleStepping ? (KVM_GUESTDBG_SINGLESTEP | KVM_GUESTDBG_BLOCKIRQ) : 0;
+
+    if (pVM->dbgf.ro.cEnabledSwBreakpoints)
+        GstDbg.control |= KVM_GUESTDBG_USE_SW_BP;
+
+    int rcLnx = ioctl(pVCpu->nem.s.fdVCpu, KVM_SET_GUEST_DEBUG, &GstDbg);
+    if (rcLnx == 0)
+    { /* probable */ }
+    else
+    {
+        int rc = RTErrConvertFromErrno(errno);
+        AssertLogRelMsgFailedReturn(("KVM_SET_GUEST_DEBUG failed: rcLnx=%d errno=%u rc=%Rrc\n", rcLnx, errno, rc), rc);
+    }
+
+    return VINF_SUCCESS;
+}
+
+
+/**
+ * Clears the guest debug state.
+ *
+ * @returns VBox status code.
+ * @param   pVCpu           The cross context CPU structure of the calling EMT.
+ */
+static int nemR3LnxGstDbgClear(PVMCPU pVCpu)
+{
+    struct kvm_guest_debug GstDbg = { 0 };
+
+    int rcLnx = ioctl(pVCpu->nem.s.fdVCpu, KVM_SET_GUEST_DEBUG, &GstDbg);
+    if (rcLnx == 0)
+    { /* probable */ }
+    else
+    {
+        int rc = RTErrConvertFromErrno(errno);
+        AssertLogRelMsgFailedReturn(("KVM_SET_GUEST_DEBUG failed: rcLnx=%d errno=%u rc=%Rrc\n", rcLnx, errno, rc), rc);
+    }
+
+    return VINF_SUCCESS;
+}
+
+
 VMMR3_INT_DECL(VBOXSTRICTRC) NEMR3RunGC(PVM pVM, PVMCPU pVCpu)
 {
     Assert(VM_IS_NEM_ENABLED(pVM));
@@ -1977,6 +2053,9 @@ VMMR3_INT_DECL(VBOXSTRICTRC) NEMR3RunGC(PVM pVM, PVMCPU pVCpu)
     const bool              fSingleStepping     = DBGFIsStepping(pVCpu);
     VBOXSTRICTRC            rcStrict            = VINF_SUCCESS;
     bool                    fStatefulExit       = false;  /* For MMIO and IO exits. */
+    const bool              fGstDbg             =    pVCpu->nem.s.fUseDebugLoop
+                                                  || fSingleStepping
+                                                  || pVM->dbgf.ro.cEnabledSwBreakpoints;
     for (unsigned iLoop = 0;; iLoop++)
     {
         /*
@@ -2016,6 +2095,12 @@ VMMR3_INT_DECL(VBOXSTRICTRC) NEMR3RunGC(PVM pVM, PVMCPU pVCpu)
         if ((pVCpu->cpum.GstCtx.fExtrn & CPUMCTX_EXTRN_ALL) != CPUMCTX_EXTRN_ALL)
         {
             int rc2 = nemHCLnxExportState(pVM, pVCpu, &pVCpu->cpum.GstCtx, pRun);
+            AssertRCReturn(rc2, rc2);
+        }
+
+        if (fGstDbg)
+        {
+            int rc2 = nemR3LnxGstDbgUpdate(pVM, pVCpu, fSingleStepping);
             AssertRCReturn(rc2, rc2);
         }
 
@@ -2115,6 +2200,12 @@ VMMR3_INT_DECL(VBOXSTRICTRC) NEMR3RunGC(PVM pVM, PVMCPU pVCpu)
         }
     } /* the run loop */
 
+    /* Clear any pending guest debug state. */
+    if (fGstDbg)
+    {
+        int rc2 = nemR3LnxGstDbgClear(pVCpu);
+        AssertRCReturn(rc2, rc2);
+    }
 
     /*
      * If the last exit was stateful, commit the state we provided before
