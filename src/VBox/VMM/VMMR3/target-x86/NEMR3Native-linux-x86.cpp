@@ -1,4 +1,4 @@
-/* $Id: NEMR3Native-linux-x86.cpp 112790 2026-02-02 17:31:52Z alexander.eichner@oracle.com $ */
+/* $Id: NEMR3Native-linux-x86.cpp 112793 2026-02-02 18:36:58Z alexander.eichner@oracle.com $ */
 /** @file
  * NEM - Native execution manager, native ring-3 Linux backend.
  */
@@ -1995,8 +1995,8 @@ static VBOXSTRICTRC nemHCLnxHandleExit(PVMCC pVM, PVMCPUCC pVCpu, struct kvm_run
             break;
 
         case KVM_EXIT_FAIL_ENTRY:
-            LogRel(("NEM: KVM_EXIT_FAIL_ENTRY! hardware_entry_failure_reason=%#x cpu=%#x\n",
-                    pRun->fail_entry.hardware_entry_failure_reason, pRun->fail_entry.cpu));
+            LogRel(("NEM: KVM_EXIT_FAIL_ENTRY! hardware_entry_failure_reason=%#x\n", /* cpu=%#x\n",*/
+                    pRun->fail_entry.hardware_entry_failure_reason/*, pRun->fail_entry.cpu*/));
             EMHistoryAddExit(pVCpu, EMEXIT_MAKE_FT(EMEXIT_F_KIND_NEM, NEMEXITTYPE_FAILED_ENTRY),
                              pRun->s.regs.regs.rip + pRun->s.regs.sregs.cs.base, ASMReadTSC());
             return VERR_NEM_IPE_1;

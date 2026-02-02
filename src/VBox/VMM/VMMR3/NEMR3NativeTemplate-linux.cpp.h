@@ -1,4 +1,4 @@
-/* $Id: NEMR3NativeTemplate-linux.cpp.h 112792 2026-02-02 17:59:51Z alexander.eichner@oracle.com $ */
+/* $Id: NEMR3NativeTemplate-linux.cpp.h 112793 2026-02-02 18:36:58Z alexander.eichner@oracle.com $ */
 /** @file
  * NEM - Native execution manager, native ring-3 Linux backend, common bits for x86 and arm64.
  */
@@ -162,6 +162,9 @@
  */
 #ifndef KVM_INTERNAL_ERROR_UNEXPECTED_EXIT_REASON /* since 5.4 */
 # define KVM_INTERNAL_ERROR_UNEXPECTED_EXIT_REASON 4
+#endif
+#ifndef KVM_GUESTDBG_BLOCKIRQ
+# define KVM_GUESTDBG_BLOCKIRQ 0x00100000
 #endif
 
 
