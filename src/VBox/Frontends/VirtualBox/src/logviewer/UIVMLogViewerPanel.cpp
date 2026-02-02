@@ -1,4 +1,4 @@
-/* $Id: UIVMLogViewerPanel.cpp 112403 2026-01-11 19:29:08Z knut.osmundsen@oracle.com $ */
+/* $Id: UIVMLogViewerPanel.cpp 112785 2026-02-02 16:38:44Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - UIVMLogViewer class implementation.
  */
@@ -40,9 +40,7 @@
 #include "UIVMLogViewerBookmarksWidget.h"
 #include "UIVMLogViewerPreferencesWidget.h"
 #include "UITranslationEventListener.h"
-#ifdef VBOX_WS_MAC
-# include "VBoxUtils-darwin.h"
-#endif
+
 
 UIVMLogViewerPaneContainer::UIVMLogViewerPaneContainer(QWidget *pParent,
                                                        UIVMLogViewerWidget *pViewer,

@@ -1,4 +1,4 @@
-/* $Id: UIMachineWindowFullscreen.cpp 112403 2026-01-11 19:29:08Z knut.osmundsen@oracle.com $ */
+/* $Id: UIMachineWindowFullscreen.cpp 112785 2026-02-02 16:38:44Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - UIMachineWindowFullscreen class implementation.
  */
@@ -49,7 +49,6 @@
 # include "UIMachineDefs.h"
 # include "UIMiniToolBar.h"
 #elif defined(VBOX_WS_MAC)
-# include "VBoxUtils-darwin.h"
 # include "UICocoaApplication.h"
 #endif /* VBOX_WS_MAC */
 

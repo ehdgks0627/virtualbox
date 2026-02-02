@@ -1,4 +1,4 @@
-/* $Id: UISoftKeyboard.cpp 112756 2026-01-29 16:42:26Z sergey.dubov@oracle.com $ */
+/* $Id: UISoftKeyboard.cpp 112785 2026-02-02 16:38:44Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - UISoftKeyboard class implementation.
  */
@@ -65,12 +65,9 @@
 #include "UISoftKeyboard.h"
 #include "UITranslationEventListener.h"
 #include "UISession.h"
-#ifdef VBOX_WS_MAC
-# include "VBoxUtils-darwin.h"
-#endif
 
 /* External includes: */
-# include <math.h>
+#include <math.h>
 
 /* Forward declarations: */
 class UISoftKeyboardColorButton;

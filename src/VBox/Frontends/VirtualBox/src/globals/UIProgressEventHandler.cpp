@@ -1,4 +1,4 @@
-/* $Id: UIProgressEventHandler.cpp 112403 2026-01-11 19:29:08Z knut.osmundsen@oracle.com $ */
+/* $Id: UIProgressEventHandler.cpp 112785 2026-02-02 16:38:44Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - UIProgressEventHandler class implementation.
  */
@@ -30,9 +30,7 @@
 #include "UIGlobalSession.h"
 #include "UIMainEventListener.h"
 #include "UIProgressEventHandler.h"
-#ifdef VBOX_WS_MAC
-# include "VBoxUtils-darwin.h"
-#endif /* VBOX_WS_MAC */
+
 
 UIProgressEventHandler::UIProgressEventHandler(QObject *pParent, const CProgress &comProgress)
     : QObject(pParent)

@@ -1,4 +1,4 @@
-/* $Id: UIDesktopServices_darwin.cpp 112403 2026-01-11 19:29:08Z knut.osmundsen@oracle.com $ */
+/* $Id: UIDesktopServices_darwin.cpp 112785 2026-02-02 16:38:44Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - Qt GUI - Utility Classes and Functions specific to darwin..
  */
@@ -32,6 +32,7 @@
 
 /* Qt includes */
 #include <QString>
+
 
 bool UIDesktopServices::createMachineShortcut(const QString &strSrcFile, const QString &strDstPath, const QString &strName, const QUuid &uUuid)
 {

@@ -1,4 +1,4 @@
-/* $Id: UIVMLogViewerFilterWidget.cpp 112403 2026-01-11 19:29:08Z knut.osmundsen@oracle.com $ */
+/* $Id: UIVMLogViewerFilterWidget.cpp 112785 2026-02-02 16:38:44Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - UIVMLogViewer class implementation.
  */
@@ -47,9 +47,6 @@
 #include "UIVMLogPage.h"
 #include "UIVMLogViewerFilterWidget.h"
 #include "UIVMLogViewerWidget.h"
-#ifdef VBOX_WS_MAC
-# include "VBoxUtils-darwin.h"
-#endif
 
 /* Other VBox includes: */
 #include <iprt/assert.h>

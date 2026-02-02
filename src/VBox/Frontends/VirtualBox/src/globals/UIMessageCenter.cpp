@@ -1,4 +1,4 @@
-/* $Id: UIMessageCenter.cpp 112749 2026-01-29 14:48:10Z sergey.dubov@oracle.com $ */
+/* $Id: UIMessageCenter.cpp 112785 2026-02-02 16:38:44Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - UIMessageCenter class implementation.
  */
@@ -61,9 +61,6 @@
 #endif
 #ifdef VBOX_OSE
 # include "UINotificationCenter.h"
-#endif
-#ifdef VBOX_WS_MAC
-# include "VBoxUtils-darwin.h"
 #endif
 #ifdef VBOX_WS_WIN
 # include <Htmlhelp.h>

@@ -1,4 +1,4 @@
-/* $Id: UIMachineWindow.h 112765 2026-01-30 11:10:06Z sergey.dubov@oracle.com $ */
+/* $Id: UIMachineWindow.h 112785 2026-02-02 16:38:44Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - UIMachineWindow class declaration.
  */
@@ -38,7 +38,7 @@
 #include "UIExtraDataDefs.h"
 #ifdef VBOX_WS_MAC
 # include "VBoxUtils-darwin.h"
-#endif /* VBOX_WS_MAC */
+#endif
 
 /* Forward declarations: */
 class QCloseEvent;

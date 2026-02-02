@@ -1,4 +1,4 @@
-/* $Id: UIMachine.cpp 112641 2026-01-19 13:59:27Z sergey.dubov@oracle.com $ */
+/* $Id: UIMachine.cpp 112785 2026-02-02 16:38:44Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - UIMachine class implementation.
  */
@@ -52,7 +52,6 @@
 #include "UISession.h"
 #ifdef VBOX_WS_MAC
 # include "UICocoaApplication.h"
-# include "VBoxUtils-darwin.h"
 #endif
 
 /* COM includes: */

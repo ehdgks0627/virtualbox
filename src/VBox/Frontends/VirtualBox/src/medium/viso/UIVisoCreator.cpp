@@ -1,4 +1,4 @@
-/* $Id: UIVisoCreator.cpp 112758 2026-01-29 16:58:23Z sergey.dubov@oracle.com $ */
+/* $Id: UIVisoCreator.cpp 112785 2026-02-02 16:38:44Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - UIVisoCreator classes implementation.
  */
@@ -57,13 +57,11 @@
 #include "UITranslationEventListener.h"
 #include "UIVisoCreator.h"
 #include "UIVisoContentBrowser.h"
-#ifdef VBOX_WS_MAC
-# include "VBoxUtils-darwin.h"
-#endif
 
 /* Other VBox includes: */
 #include <iprt/assert.h>
 #include <iprt/getopt.h>
+
 
 /*********************************************************************************************************************************
 *   UIVisoSettingWidget definition.                                                                                          *

@@ -1,4 +1,4 @@
-/* $Id: UIFileManagerDialog.cpp 112403 2026-01-11 19:29:08Z knut.osmundsen@oracle.com $ */
+/* $Id: UIFileManagerDialog.cpp 112785 2026-02-02 16:38:44Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - UIFileManagerDialog class implementation.
  */
@@ -39,12 +39,10 @@
 #include "UILoggingDefs.h"
 #include "UIShortcutPool.h"
 #include "UITranslationEventListener.h"
-#ifdef VBOX_WS_MAC
-# include "VBoxUtils-darwin.h"
-#endif
 
 /* COM includes: */
 #include "CMachine.h"
+
 
 /*********************************************************************************************************************************
 *   Class UIFileManagerDialogFactory implementation.                                                                 *
@@ -56,7 +54,6 @@ UIFileManagerDialogFactory::UIFileManagerDialogFactory(UIActionPool *pActionPool
     , m_strMachineName(strMachineName)
 {
 }
-
 
 UIFileManagerDialogFactory::UIFileManagerDialogFactory()
     : m_pActionPool(0)

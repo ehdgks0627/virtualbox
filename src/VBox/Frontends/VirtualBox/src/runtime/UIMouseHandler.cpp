@@ -1,4 +1,4 @@
-﻿/* $Id: UIMouseHandler.cpp 112403 2026-01-11 19:29:08Z knut.osmundsen@oracle.com $ */
+﻿/* $Id: UIMouseHandler.cpp 112785 2026-02-02 16:38:44Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - UIMouseHandler class implementation.
  */
@@ -47,7 +47,6 @@
 #include "UIMouseHandler.h"
 #include "UINotificationCenter.h"
 #ifdef VBOX_WS_MAC
-# include "VBoxUtils-darwin.h"
 # include "CocoaEventHelper.h"
 #endif
 #ifdef VBOX_WS_WIN
