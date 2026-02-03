@@ -1,4 +1,4 @@
-/* $Id: VBoxUtils-darwin.h 112768 2026-01-30 13:38:47Z sergey.dubov@oracle.com $ */
+/* $Id: VBoxUtils-darwin.h 112798 2026-02-03 10:59:39Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - Declarations of utility classes and functions for handling Darwin specific tasks.
  */
@@ -32,6 +32,7 @@
 #endif
 
 /* Qt includes: */
+#include <QEvent>
 #include <QString>
 
 /* GUI includes: */
@@ -70,6 +71,40 @@ enum StandardWindowButtonType
     StandardWindowButtonType_DocumentIcon,     // Since OS X 10.2
     StandardWindowButtonType_DocumentVersions, // Since OS X 10.7
     StandardWindowButtonType_FullScreen        // Since OS X 10.7
+};
+
+class UIGrabMouseEvent: public QEvent
+{
+public:
+    enum { GrabMouseEvent = QEvent::User + 200 };
+
+    UIGrabMouseEvent(QEvent::Type type, Qt::MouseButton button, Qt::MouseButtons buttons, int x, int y, int wheelDelta, Qt::Orientation o)
+      : QEvent((QEvent::Type)GrabMouseEvent)
+      , m_type(type)
+      , m_button(button)
+      , m_buttons(buttons)
+      , m_x(x)
+      , m_y(y)
+      , m_wheelDelta(wheelDelta)
+      , m_orientation(o)
+    {}
+    QEvent::Type mouseEventType() const { return m_type; }
+    Qt::MouseButton button() const { return m_button; }
+    Qt::MouseButtons buttons() const { return m_buttons; }
+    int xDelta() const { return m_x; }
+    int yDelta() const { return m_y; }
+    int wheelDelta() const { return m_wheelDelta; }
+    Qt::Orientation orientation() const { return m_orientation; }
+
+private:
+    /* Private members */
+    QEvent::Type m_type;
+    Qt::MouseButton m_button;
+    Qt::MouseButtons m_buttons;
+    int m_x;
+    int m_y;
+    int m_wheelDelta;
+    Qt::Orientation m_orientation;
 };
 
 
@@ -207,41 +242,6 @@ SHARED_LIBRARY_STUFF NativeNSImageRef darwinToNSImageRef(const CGImageRef pImage
 SHARED_LIBRARY_STUFF NativeNSImageRef darwinToNSImageRef(const QImage *pImage);
 SHARED_LIBRARY_STUFF NativeNSImageRef darwinToNSImageRef(const QPixmap *pPixmap);
 SHARED_LIBRARY_STUFF NativeNSImageRef darwinToNSImageRef(const char *pczSource);
-
-#include <QEvent>
-class UIGrabMouseEvent: public QEvent
-{
-public:
-    enum { GrabMouseEvent = QEvent::User + 200 };
-
-    UIGrabMouseEvent(QEvent::Type type, Qt::MouseButton button, Qt::MouseButtons buttons, int x, int y, int wheelDelta, Qt::Orientation o)
-      : QEvent((QEvent::Type)GrabMouseEvent)
-      , m_type(type)
-      , m_button(button)
-      , m_buttons(buttons)
-      , m_x(x)
-      , m_y(y)
-      , m_wheelDelta(wheelDelta)
-      , m_orientation(o)
-    {}
-    QEvent::Type mouseEventType() const { return m_type; }
-    Qt::MouseButton button() const { return m_button; }
-    Qt::MouseButtons buttons() const { return m_buttons; }
-    int xDelta() const { return m_x; }
-    int yDelta() const { return m_y; }
-    int wheelDelta() const { return m_wheelDelta; }
-    Qt::Orientation orientation() const { return m_orientation; }
-
-private:
-    /* Private members */
-    QEvent::Type m_type;
-    Qt::MouseButton m_button;
-    Qt::MouseButtons m_buttons;
-    int m_x;
-    int m_y;
-    int m_wheelDelta;
-    Qt::Orientation m_orientation;
-};
 
 /********************************************************************************
  *
