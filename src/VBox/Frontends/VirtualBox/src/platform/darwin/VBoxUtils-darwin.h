@@ -1,4 +1,4 @@
-/* $Id: VBoxUtils-darwin.h 112799 2026-02-03 11:04:11Z sergey.dubov@oracle.com $ */
+/* $Id: VBoxUtils-darwin.h 112801 2026-02-03 11:15:16Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - Declarations of utility classes and functions for handling Darwin specific tasks.
  */
@@ -107,64 +107,104 @@ private:
 };
 
 
+/*********************************************************************************************************************************
+ *
+ * Internal .h/.mm functions which are used by the external .h/.cpp public API
+ *
+ ********************************************************************************************************************************/
+
 RT_C_DECLS_BEGIN
+// Here we'll add only impl .h/.mm functions which have public .h/.cpp API
 
 /********************************************************************************
- *
  * Window/View management (OS System native)
- *
  ********************************************************************************/
 NativeNSWindowRef darwinToNativeWindowImpl(NativeNSViewRef pView);
 NativeNSViewRef darwinToNativeViewImpl(NativeNSWindowRef pWindow);
+
+/********************************************************************************
+ * Simple setter methods (OS System native)
+ ********************************************************************************/
+void darwinSetHidesAllTitleButtonsImpl(NativeNSWindowRef pWindow);
+void darwinSetShowsToolbarButtonImpl(NativeNSWindowRef pWindow, bool fEnabled);
+void darwinLabelWindow(NativeNSWindowRef pWindow, NativeNSImageRef pImage, double dDpr);
+void darwinSetWindowHasShadow(NativeNSWindowRef pWindow, bool fEnabled);
+
+/********************************************************************************
+ * Simple helper methods (OS System native)
+ ********************************************************************************/
 NativeNSButtonRef darwinNativeButtonOfWindowImpl(NativeNSWindowRef pWindow, StandardWindowButtonType enmButtonType);
+int darwinWindowTitleHeight(NativeNSWindowRef pWindow);
+bool darwinIsWindowMaximized(NativeNSWindowRef pWindow);
+void darwinEnableFullscreenSupport(NativeNSWindowRef pWindow);
+void darwinEnableTransienceSupport(NativeNSWindowRef pWindow);
+void darwinToggleFullscreenMode(NativeNSWindowRef pWindow);
+void darwinToggleWindowZoom(NativeNSWindowRef pWindow);
+bool darwinIsInFullscreenMode(NativeNSWindowRef pWindow);
+bool darwinIsOnActiveSpace(NativeNSWindowRef pWindow);
+
+// Finishing adding impl .h/.mm functions which have public .h/.cpp API
+RT_C_DECLS_END
+
+/********************************************************************************
+ * Simple helper methods (OS System native)
+ ********************************************************************************/
+bool darwinMouseGrabEvents(const void *pvCocoaEvent, const void *pvCarbonEvent, void *pvUser);
+
+
+/*********************************************************************************************************************************
+ *
+ * External .h/.mm functions which are used by the external code directly
+ *
+ ********************************************************************************************************************************/
+
+/********************************************************************************
+ * General functionality (OS System native)
+ ********************************************************************************/
+SHARED_LIBRARY_STUFF void *darwinCocoaToCarbonEvent(void *pvCocoaEvent);
 SHARED_LIBRARY_STUFF NativeNSStringRef darwinToNativeString(const char* pcszString);
 QString darwinFromNativeString(NativeNSStringRef pString);
 
 /********************************************************************************
- *
  * Simple setter methods (OS System native)
- *
  ********************************************************************************/
-void darwinSetShowsToolbarButtonImpl(NativeNSWindowRef pWindow, bool fEnabled);
-void darwinSetHidesAllTitleButtonsImpl(NativeNSWindowRef pWindow);
-SHARED_LIBRARY_STUFF void darwinLabelWindow(NativeNSWindowRef pWindow, NativeNSImageRef pImage, double dDpr);
-SHARED_LIBRARY_STUFF void darwinSetWindowHasShadow(NativeNSWindowRef pWindow, bool fEnabled);
 SHARED_LIBRARY_STUFF void darwinSetMouseCoalescingEnabled(bool fEnabled);
 
 /********************************************************************************
- *
  * Simple helper methods (OS System native)
- *
  ********************************************************************************/
-int  darwinWindowToolBarHeight(NativeNSWindowRef pWindow);
-SHARED_LIBRARY_STUFF int darwinWindowTitleHeight(NativeNSWindowRef pWindow);
-SHARED_LIBRARY_STUFF bool darwinIsWindowMaximized(NativeNSWindowRef pWindow);
-SHARED_LIBRARY_STUFF void darwinEnableFullscreenSupport(NativeNSWindowRef pWindow);
-SHARED_LIBRARY_STUFF void darwinEnableTransienceSupport(NativeNSWindowRef pWindow);
-SHARED_LIBRARY_STUFF void darwinToggleFullscreenMode(NativeNSWindowRef pWindow);
-SHARED_LIBRARY_STUFF void darwinToggleWindowZoom(NativeNSWindowRef pWindow);
-SHARED_LIBRARY_STUFF bool darwinIsInFullscreenMode(NativeNSWindowRef pWindow);
-SHARED_LIBRARY_STUFF bool darwinIsOnActiveSpace(NativeNSWindowRef pWindow);
 SHARED_LIBRARY_STUFF bool darwinScreensHaveSeparateSpaces();
 SHARED_LIBRARY_STUFF bool darwinIsScrollerStyleOverlay();
-
-SHARED_LIBRARY_STUFF bool darwinSetFrontMostProcess();
-SHARED_LIBRARY_STUFF uint64_t darwinGetCurrentProcessId();
-
-bool darwinMouseGrabEvents(const void *pvCocoaEvent, const void *pvCarbonEvent, void *pvUser);
-
 SHARED_LIBRARY_STUFF bool darwinIsApplicationCommand(const void *pvCocoaEvent);
-
+int darwinWindowToolBarHeight(NativeNSWindowRef pWindow);
 void darwinRetranslateAppMenu();
 
-void darwinSendMouseGrabEvents(QWidget *pWidget, int type, int button, int buttons, int x, int y);
+/********************************************************************************
+ * Graphics stuff (OS System native)
+ ********************************************************************************/
+SHARED_LIBRARY_STUFF NativeNSImageRef darwinToNSImageRef(const CGImageRef pImage);
+SHARED_LIBRARY_STUFF NativeNSImageRef darwinToNSImageRef(const QImage *pImage);
+SHARED_LIBRARY_STUFF NativeNSImageRef darwinToNSImageRef(const QPixmap *pPixmap);
+SHARED_LIBRARY_STUFF NativeNSImageRef darwinToNSImageRef(const char *pczSource);
 
-SHARED_LIBRARY_STUFF QString darwinResolveAlias(const QString &strFile);
 
-RT_C_DECLS_END
+/*********************************************************************************************************************************
+ *
+ * External .h/.cpp functions which are used by the external code directly
+ *
+ ********************************************************************************************************************************/
 
-DECLINLINE(CGRect) darwinFlipCGRect(CGRect aRect, double aTargetHeight) { aRect.origin.y = aTargetHeight - aRect.origin.y - aRect.size.height; return aRect; }
-DECLINLINE(CGRect) darwinFlipCGRect(CGRect aRect, const CGRect &aTarget) { return darwinFlipCGRect(aRect, aTarget.size.height); }
+DECLINLINE(CGRect) darwinFlipCGRect(CGRect aRect, double aTargetHeight)
+{
+    aRect.origin.y = aTargetHeight - aRect.origin.y - aRect.size.height;
+    return aRect;
+}
+
+DECLINLINE(CGRect) darwinFlipCGRect(CGRect aRect, const CGRect &aTarget)
+{
+    return darwinFlipCGRect(aRect, aTarget.size.height);
+}
+
 DECLINLINE(CGRect) darwinCenterRectTo(CGRect aRect, const CGRect& aToRect)
 {
     aRect.origin.x = aToRect.origin.x + (aToRect.size.width  - aRect.size.width)  / 2.0;
@@ -173,92 +213,29 @@ DECLINLINE(CGRect) darwinCenterRectTo(CGRect aRect, const CGRect& aToRect)
 }
 
 /********************************************************************************
- *
  * Window/View management (Qt Wrapper)
- *
  ********************************************************************************/
-
-/**
- * Returns a reference to the native View of the QWidget.
- *
- * @returns either HIViewRef or NSView* of the QWidget.
- * @param   pWidget   Pointer to the QWidget
- */
 NativeNSViewRef darwinToNativeView(QWidget *pWidget);
-
-/**
- * Returns a reference to the native Window of the QWidget.
- *
- * @returns either WindowRef or NSWindow* of the QWidget.
- * @param   pWidget   Pointer to the QWidget
- */
 NativeNSWindowRef darwinToNativeWindow(QWidget *pWidget);
-
-/* This is necessary because of the C calling convention. Its a simple wrapper
-   for darwinToNativeWindowImpl to allow operator overloading which isn't
-   allowed in C. */
-/**
- * Returns a reference to the native Window of the View..
- *
- * @returns either WindowRef or NSWindow* of the View.
- * @param   pWidget   Pointer to the native View
- */
-NativeNSWindowRef darwinToNativeWindow(NativeNSViewRef pView);
-
-/**
- * Returns a reference to the native View of the Window.
- *
- * @returns either HIViewRef or NSView* of the Window.
- * @param   pWidget   Pointer to the native Window
- */
 NativeNSViewRef darwinToNativeView(NativeNSWindowRef pWindow);
-
-/**
- * Returns a reference to the native button of QWidget.
- *
- * @returns corresponding NSButton* of the QWidget.
- * @param   pWidget       Brings the pointer to the QWidget.
- * @param   enmButtonType Brings the type of the native button required.
- */
+NativeNSWindowRef darwinToNativeWindow(NativeNSViewRef pView);
 NativeNSButtonRef darwinNativeButtonOfWindow(QWidget *pWidget, StandardWindowButtonType enmButtonType);
 
 /********************************************************************************
- *
- * Graphics stuff (Qt Wrapper)
- *
- ********************************************************************************/
-/**
- * Returns a reference to the CGContext of the QWidget.
- *
- * @returns CGContextRef of the QWidget.
- * @param   pWidget      Pointer to the QWidget
- */
-SHARED_LIBRARY_STUFF CGImageRef darwinToCGImageRef(const QImage *pImage);
-SHARED_LIBRARY_STUFF CGImageRef darwinToCGImageRef(const QPixmap *pPixmap);
-SHARED_LIBRARY_STUFF CGImageRef darwinToCGImageRef(const char *pczSource);
-
-SHARED_LIBRARY_STUFF NativeNSImageRef darwinToNSImageRef(const CGImageRef pImage);
-SHARED_LIBRARY_STUFF NativeNSImageRef darwinToNSImageRef(const QImage *pImage);
-SHARED_LIBRARY_STUFF NativeNSImageRef darwinToNSImageRef(const QPixmap *pPixmap);
-SHARED_LIBRARY_STUFF NativeNSImageRef darwinToNSImageRef(const char *pczSource);
-
-/********************************************************************************
- *
  * Simple setter methods (Qt Wrapper)
- *
  ********************************************************************************/
+SHARED_LIBRARY_STUFF bool darwinSetFrontMostProcess();
+SHARED_LIBRARY_STUFF void darwinSetHidesAllTitleButtons(QWidget *pWidget);
 void darwinSetShowsToolbarButton(QToolBar *aToolBar, bool fEnabled);
 SHARED_LIBRARY_STUFF void darwinLabelWindow(QWidget *pWidget, QPixmap *pPixmap);
-SHARED_LIBRARY_STUFF void darwinSetHidesAllTitleButtons(QWidget *pWidget);
 SHARED_LIBRARY_STUFF void darwinSetWindowHasShadow(QWidget *pWidget, bool fEnabled);
-SHARED_LIBRARY_STUFF void darwinDisableIconsInMenus(void);
+SHARED_LIBRARY_STUFF void darwinDisableIconsInMenus();
 
 /********************************************************************************
- *
  * Simple helper methods (Qt Wrapper)
- *
  ********************************************************************************/
-int  darwinWindowToolBarHeight(QWidget *pWidget);
+SHARED_LIBRARY_STUFF uint64_t darwinGetCurrentProcessId();
+SHARED_LIBRARY_STUFF QString darwinResolveAlias(const QString &strFile);
 SHARED_LIBRARY_STUFF int darwinWindowTitleHeight(QWidget *pWidget);
 SHARED_LIBRARY_STUFF bool darwinIsWindowMaximized(QWidget *pWidget);
 SHARED_LIBRARY_STUFF void darwinEnableFullscreenSupport(QWidget *pWidget);
@@ -267,12 +244,17 @@ SHARED_LIBRARY_STUFF void darwinToggleFullscreenMode(QWidget *pWidget);
 SHARED_LIBRARY_STUFF void darwinToggleWindowZoom(QWidget *pWidget);
 SHARED_LIBRARY_STUFF bool darwinIsInFullscreenMode(QWidget *pWidget);
 SHARED_LIBRARY_STUFF bool darwinIsOnActiveSpace(QWidget *pWidget);
-
+int darwinWindowToolBarHeight(QWidget *pWidget);
 QString darwinSystemLanguage(void);
-
 SHARED_LIBRARY_STUFF void darwinMouseGrab(QWidget *pWidget);
 SHARED_LIBRARY_STUFF void darwinMouseRelease(QWidget *pWidget);
+void darwinSendMouseGrabEvents(QWidget *pWidget, int type, int button, int buttons, int x, int y);
 
-SHARED_LIBRARY_STUFF void *darwinCocoaToCarbonEvent(void *pvCocoaEvent);
+/********************************************************************************
+ * Graphics stuff (Qt Wrapper)
+ ********************************************************************************/
+SHARED_LIBRARY_STUFF CGImageRef darwinToCGImageRef(const QImage *pImage);
+SHARED_LIBRARY_STUFF CGImageRef darwinToCGImageRef(const QPixmap *pPixmap);
+SHARED_LIBRARY_STUFF CGImageRef darwinToCGImageRef(const char *pczSource);
 
 #endif /* !FEQT_INCLUDED_SRC_platform_darwin_VBoxUtils_darwin_h */

@@ -1,4 +1,4 @@
-/* $Id: VBoxUtils-darwin-cocoa.mm 112799 2026-02-03 11:04:11Z sergey.dubov@oracle.com $ */
+/* $Id: VBoxUtils-darwin-cocoa.mm 112801 2026-02-03 11:15:16Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI -  Declarations of utility classes and functions for handling Darwin Cocoa specific tasks.
  */
@@ -25,28 +25,21 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "VBoxUtils-darwin.h"
+/* Qt incoudes: */
+#include <QImage>
+
+/* GUI includes: */
 #include "VBoxCocoaHelper.h"
+#include "VBoxUtils-darwin.h"
 
-#include <QMenu>
+/* Carbon includes: */
+#include <Carbon/Carbon.h>
 
-#import <AppKit/NSEvent.h>
-#import <AppKit/NSColor.h>
-#import <AppKit/NSFont.h>
+/* Cocoa imports: */
 #import <AppKit/NSScreen.h>
 #import <AppKit/NSScroller.h>
-#import <AppKit/NSWindow.h>
 #import <AppKit/NSImageView.h>
 
-#import <objc/objc-class.h>
-
-/* For the keyboard stuff */
-#include <Carbon/Carbon.h>
-#include "DarwinKeyboard.h"
-
-/** Easy way of dynamical call for 10.7 AppKit functionality we do not yet support. */
-#define NSWindowCollectionBehaviorFullScreenPrimary (1 << 7)
-#define NSFullScreenWindowMask (1 << 14)
 
 NativeNSWindowRef darwinToNativeWindowImpl(NativeNSViewRef pView)
 {
@@ -66,72 +59,31 @@ NativeNSViewRef darwinToNativeViewImpl(NativeNSWindowRef pWindow)
     return view;
 }
 
-NativeNSButtonRef darwinNativeButtonOfWindowImpl(NativeNSWindowRef pWindow, StandardWindowButtonType enmButtonType)
+
+void darwinSetHidesAllTitleButtonsImpl(NativeNSWindowRef pWindow)
 {
-    /* Return corresponding button: */
-    switch (enmButtonType)
+    /* Remove all title buttons by changing the style mask. This method is
+       available from 10.6 on only. */
+    if ([pWindow respondsToSelector: @selector(setStyleMask:)])
+        [pWindow performSelector: @selector(setStyleMask:) withObject: (id)NSTitledWindowMask];
+    else
     {
-        case StandardWindowButtonType_Close:            return [pWindow standardWindowButton:NSWindowCloseButton];
-        case StandardWindowButtonType_Miniaturize:      return [pWindow standardWindowButton:NSWindowMiniaturizeButton];
-        case StandardWindowButtonType_Zoom:             return [pWindow standardWindowButton:NSWindowZoomButton];
-        case StandardWindowButtonType_Toolbar:          return [pWindow standardWindowButton:NSWindowToolbarButton];
-        case StandardWindowButtonType_DocumentIcon:     return [pWindow standardWindowButton:NSWindowDocumentIconButton];
-        case StandardWindowButtonType_DocumentVersions: /*return [pWindow standardWindowButton:NSWindowDocumentVersionsButton];*/ break;
-        case StandardWindowButtonType_FullScreen:       /*return [pWindow standardWindowButton:NSWindowFullScreenButton];*/ break;
+        /* On pre 10.6 disable all the buttons currently displayed. Don't use
+           setHidden cause this remove the buttons, but didn't release the
+           place used for the buttons. */
+        NSButton *pButton = [pWindow standardWindowButton:NSWindowCloseButton];
+        if (pButton != Nil)
+            [pButton setEnabled: NO];
+        pButton = [pWindow standardWindowButton:NSWindowMiniaturizeButton];
+        if (pButton != Nil)
+            [pButton setEnabled: NO];
+        pButton = [pWindow standardWindowButton:NSWindowZoomButton];
+        if (pButton != Nil)
+            [pButton setEnabled: NO];
+        pButton = [pWindow standardWindowButton:NSWindowDocumentIconButton];
+        if (pButton != Nil)
+            [pButton setEnabled: NO];
     }
-    /* Return Nul by default: */
-    return Nil;
-}
-
-NativeNSImageRef darwinToNSImageRef(const CGImageRef pImage)
-{
-    /* Create a bitmap rep from the image. */
-    NSBitmapImageRep *bitmapRep = [[[NSBitmapImageRep alloc] initWithCGImage:pImage] autorelease];
-    /* Create an NSImage and add the bitmap rep to it */
-    NSImage *image = [[NSImage alloc] init];
-    [image addRepresentation:bitmapRep];
-    return image;
-}
-
-NativeNSImageRef darwinToNSImageRef(const QImage *pImage)
-{
-    /* Create CGImage on the basis of passed QImage: */
-    CGImageRef pCGImage = ::darwinToCGImageRef(pImage);
-    NativeNSImageRef pNSImage = ::darwinToNSImageRef(pCGImage);
-    CGImageRelease(pCGImage);
-    /* Apply device pixel ratio: */
-    double dScaleFactor = pImage->devicePixelRatio();
-    NSSize imageSize = { (CGFloat)pImage->width() / dScaleFactor,
-                         (CGFloat)pImage->height() / dScaleFactor };
-    [pNSImage setSize:imageSize];
-    /* Return result: */
-    return pNSImage;
-}
-
-NativeNSImageRef darwinToNSImageRef(const QPixmap *pPixmap)
-{
-   CGImageRef pCGImage = ::darwinToCGImageRef(pPixmap);
-   NativeNSImageRef pNSImage = ::darwinToNSImageRef(pCGImage);
-   CGImageRelease(pCGImage);
-   return pNSImage;
-}
-
-NativeNSImageRef darwinToNSImageRef(const char *pczSource)
-{
-   CGImageRef pCGImage = ::darwinToCGImageRef(pczSource);
-   NativeNSImageRef pNSImage = ::darwinToNSImageRef(pCGImage);
-   CGImageRelease(pCGImage);
-   return pNSImage;
-}
-
-NativeNSStringRef darwinToNativeString(const char* pcszString)
-{
-    return [NSString stringWithUTF8String: pcszString];
-}
-
-QString darwinFromNativeString(NativeNSStringRef pString)
-{
-    return [pString cStringUsingEncoding :NSASCIIStringEncoding];
 }
 
 void darwinSetShowsToolbarButtonImpl(NativeNSWindowRef pWindow, bool fEnabled)
@@ -161,38 +113,50 @@ void darwinLabelWindow(NativeNSWindowRef pWindow, NativeNSImageRef pImage, doubl
     }
 }
 
-void darwinSetHidesAllTitleButtonsImpl(NativeNSWindowRef pWindow)
-{
-    /* Remove all title buttons by changing the style mask. This method is
-       available from 10.6 on only. */
-    if ([pWindow respondsToSelector: @selector(setStyleMask:)])
-        [pWindow performSelector: @selector(setStyleMask:) withObject: (id)NSTitledWindowMask];
-    else
-    {
-        /* On pre 10.6 disable all the buttons currently displayed. Don't use
-           setHidden cause this remove the buttons, but didn't release the
-           place used for the buttons. */
-        NSButton *pButton = [pWindow standardWindowButton:NSWindowCloseButton];
-        if (pButton != Nil)
-            [pButton setEnabled: NO];
-        pButton = [pWindow standardWindowButton:NSWindowMiniaturizeButton];
-        if (pButton != Nil)
-            [pButton setEnabled: NO];
-        pButton = [pWindow standardWindowButton:NSWindowZoomButton];
-        if (pButton != Nil)
-            [pButton setEnabled: NO];
-        pButton = [pWindow standardWindowButton:NSWindowDocumentIconButton];
-        if (pButton != Nil)
-            [pButton setEnabled: NO];
-    }
-}
-
 void darwinSetWindowHasShadow(NativeNSWindowRef pWindow, bool fEnabled)
 {
     if (fEnabled)
         [pWindow setHasShadow :YES];
     else
         [pWindow setHasShadow :NO];
+}
+
+
+NativeNSButtonRef darwinNativeButtonOfWindowImpl(NativeNSWindowRef pWindow, StandardWindowButtonType enmButtonType)
+{
+    /* Return corresponding button: */
+    switch (enmButtonType)
+    {
+        case StandardWindowButtonType_Close:            return [pWindow standardWindowButton:NSWindowCloseButton];
+        case StandardWindowButtonType_Miniaturize:      return [pWindow standardWindowButton:NSWindowMiniaturizeButton];
+        case StandardWindowButtonType_Zoom:             return [pWindow standardWindowButton:NSWindowZoomButton];
+        case StandardWindowButtonType_Toolbar:          return [pWindow standardWindowButton:NSWindowToolbarButton];
+        case StandardWindowButtonType_DocumentIcon:     return [pWindow standardWindowButton:NSWindowDocumentIconButton];
+        case StandardWindowButtonType_DocumentVersions: /*return [pWindow standardWindowButton:NSWindowDocumentVersionsButton];*/ break;
+        case StandardWindowButtonType_FullScreen:       /*return [pWindow standardWindowButton:NSWindowFullScreenButton];*/ break;
+    }
+    /* Return Nul by default: */
+    return Nil;
+}
+
+int darwinWindowTitleHeight(NativeNSWindowRef pWindow)
+{
+    NSView *pSuperview = [[pWindow standardWindowButton:NSWindowCloseButton] superview];
+    NSSize sz = [pSuperview frame].size;
+    return sz.height;
+}
+
+bool darwinIsWindowMaximized(NativeNSWindowRef pWindow)
+{
+    /* Mac OS X API NSWindow isZoomed returns true even for almost maximized windows,
+     * So implementing this by ourseleves by comparing visible screen-frame & window-frame: */
+    NSRect windowFrame = [pWindow frame];
+    NSRect screenFrame = [[NSScreen mainScreen] visibleFrame];
+
+    return (windowFrame.origin.x == screenFrame.origin.x) &&
+           (windowFrame.origin.y == screenFrame.origin.y) &&
+           (windowFrame.size.width == screenFrame.size.width) &&
+           (windowFrame.size.height == screenFrame.size.height);
 }
 
 void darwinEnableFullscreenSupport(NativeNSWindowRef pWindow)
@@ -231,72 +195,6 @@ bool darwinIsOnActiveSpace(NativeNSWindowRef pWindow)
     return [pWindow isOnActiveSpace];
 }
 
-bool darwinScreensHaveSeparateSpaces()
-{
-    /* Check whether screens have separate spaces.
-     * This method is available since 10.9 only. */
-    if ([NSScreen respondsToSelector: @selector(screensHaveSeparateSpaces)])
-        return [NSScreen performSelector: @selector(screensHaveSeparateSpaces)];
-    else
-        return false;
-}
-
-bool darwinIsScrollerStyleOverlay()
-{
-    /* Check whether scrollers by default have legacy style.
-     * This method is available since 10.7 only. */
-    if ([NSScroller respondsToSelector: @selector(preferredScrollerStyle)])
-    {
-        const int enmType = (int)(intptr_t)[NSScroller performSelector: @selector(preferredScrollerStyle)];
-        return enmType == NSScrollerStyleOverlay;
-    }
-    else
-        return false;
-}
-
-/**
- * Calls the + (void)setMouseCoalescingEnabled:(BOOL)flag class method.
- *
- * @param   fEnabled    Whether to enable or disable coalescing.
- */
-void darwinSetMouseCoalescingEnabled(bool fEnabled)
-{
-    [NSEvent setMouseCoalescingEnabled:fEnabled];
-}
-
-int darwinWindowToolBarHeight(NativeNSWindowRef pWindow)
-{
-    NSToolbar *toolbar = [pWindow toolbar];
-    NSRect windowFrame = [pWindow frame];
-    int toolbarHeight = 0;
-    int theight = (NSHeight([NSWindow contentRectForFrameRect:[pWindow frame] styleMask:[pWindow styleMask]]) - NSHeight([[pWindow contentView] frame]));
-    /* toolbar height: */
-    if(toolbar && [toolbar isVisible])
-        /* title bar height: */
-        toolbarHeight = NSHeight(windowFrame) - NSHeight([[pWindow contentView] frame]) - theight;
-
-    return toolbarHeight;
-}
-
-int darwinWindowTitleHeight(NativeNSWindowRef pWindow)
-{
-    NSView *pSuperview = [[pWindow standardWindowButton:NSWindowCloseButton] superview];
-    NSSize sz = [pSuperview frame].size;
-    return sz.height;
-}
-
-bool darwinIsWindowMaximized(NativeNSWindowRef pWindow)
-{
-    /* Mac OS X API NSWindow isZoomed returns true even for almost maximized windows,
-     * So implementing this by ourseleves by comparing visible screen-frame & window-frame: */
-    NSRect windowFrame = [pWindow frame];
-    NSRect screenFrame = [[NSScreen mainScreen] visibleFrame];
-
-    return (windowFrame.origin.x == screenFrame.origin.x) &&
-           (windowFrame.origin.y == screenFrame.origin.y) &&
-           (windowFrame.size.width == screenFrame.size.width) &&
-           (windowFrame.size.height == screenFrame.size.height);
-}
 
 bool darwinMouseGrabEvents(const void *pvCocoaEvent, const void *pvCarbonEvent, void *pvUser)
 {
@@ -348,6 +246,58 @@ bool darwinMouseGrabEvents(const void *pvCocoaEvent, const void *pvCarbonEvent, 
     return false;
 }
 
+
+void *darwinCocoaToCarbonEvent(void *pvCocoaEvent)
+{
+    NSEvent *pEvent = (NSEvent*)pvCocoaEvent;
+    return (void*)[pEvent eventRef];
+}
+
+NativeNSStringRef darwinToNativeString(const char* pcszString)
+{
+    return [NSString stringWithUTF8String: pcszString];
+}
+
+QString darwinFromNativeString(NativeNSStringRef pString)
+{
+    return [pString cStringUsingEncoding :NSASCIIStringEncoding];
+}
+
+
+/**
+ * Calls the + (void)setMouseCoalescingEnabled:(BOOL)flag class method.
+ *
+ * @param   fEnabled    Whether to enable or disable coalescing.
+ */
+void darwinSetMouseCoalescingEnabled(bool fEnabled)
+{
+    [NSEvent setMouseCoalescingEnabled:fEnabled];
+}
+
+
+bool darwinScreensHaveSeparateSpaces()
+{
+    /* Check whether screens have separate spaces.
+     * This method is available since 10.9 only. */
+    if ([NSScreen respondsToSelector: @selector(screensHaveSeparateSpaces)])
+        return [NSScreen performSelector: @selector(screensHaveSeparateSpaces)];
+    else
+        return false;
+}
+
+bool darwinIsScrollerStyleOverlay()
+{
+    /* Check whether scrollers by default have legacy style.
+     * This method is available since 10.7 only. */
+    if ([NSScroller respondsToSelector: @selector(preferredScrollerStyle)])
+    {
+        const int enmType = (int)(intptr_t)[NSScroller performSelector: @selector(preferredScrollerStyle)];
+        return enmType == NSScrollerStyleOverlay;
+    }
+    else
+        return false;
+}
+
 /**
  * Check for some default application key combinations a Mac user expect, like
  * CMD+Q or CMD+H.
@@ -394,6 +344,20 @@ bool darwinIsApplicationCommand(const void *pvCocoaEvent)
     return fGlobalHotkey;
 }
 
+int darwinWindowToolBarHeight(NativeNSWindowRef pWindow)
+{
+    NSToolbar *toolbar = [pWindow toolbar];
+    NSRect windowFrame = [pWindow frame];
+    int toolbarHeight = 0;
+    int theight = (NSHeight([NSWindow contentRectForFrameRect:[pWindow frame] styleMask:[pWindow styleMask]]) - NSHeight([[pWindow contentView] frame]));
+    /* toolbar height: */
+    if(toolbar && [toolbar isVisible])
+        /* title bar height: */
+        toolbarHeight = NSHeight(windowFrame) - NSHeight([[pWindow contentView] frame]) - theight;
+
+    return toolbarHeight;
+}
+
 void darwinRetranslateAppMenu()
 {
     /* This is purely Qt internal. If the Trolls change something here, it will
@@ -406,8 +370,44 @@ void darwinRetranslateAppMenu()
     }
 }
 
-void *darwinCocoaToCarbonEvent(void *pvCocoaEvent)
+
+NativeNSImageRef darwinToNSImageRef(const CGImageRef pImage)
 {
-    NSEvent *pEvent = (NSEvent*)pvCocoaEvent;
-    return (void*)[pEvent eventRef];
+    /* Create a bitmap rep from the image. */
+    NSBitmapImageRep *bitmapRep = [[[NSBitmapImageRep alloc] initWithCGImage:pImage] autorelease];
+    /* Create an NSImage and add the bitmap rep to it */
+    NSImage *image = [[NSImage alloc] init];
+    [image addRepresentation:bitmapRep];
+    return image;
+}
+
+NativeNSImageRef darwinToNSImageRef(const QImage *pImage)
+{
+    /* Create CGImage on the basis of passed QImage: */
+    CGImageRef pCGImage = ::darwinToCGImageRef(pImage);
+    NativeNSImageRef pNSImage = ::darwinToNSImageRef(pCGImage);
+    CGImageRelease(pCGImage);
+    /* Apply device pixel ratio: */
+    double dScaleFactor = pImage->devicePixelRatio();
+    NSSize imageSize = { (CGFloat)pImage->width() / dScaleFactor,
+                         (CGFloat)pImage->height() / dScaleFactor };
+    [pNSImage setSize:imageSize];
+    /* Return result: */
+    return pNSImage;
+}
+
+NativeNSImageRef darwinToNSImageRef(const QPixmap *pPixmap)
+{
+   CGImageRef pCGImage = ::darwinToCGImageRef(pPixmap);
+   NativeNSImageRef pNSImage = ::darwinToNSImageRef(pCGImage);
+   CGImageRelease(pCGImage);
+   return pNSImage;
+}
+
+NativeNSImageRef darwinToNSImageRef(const char *pczSource)
+{
+   CGImageRef pCGImage = ::darwinToCGImageRef(pczSource);
+   NativeNSImageRef pNSImage = ::darwinToNSImageRef(pCGImage);
+   CGImageRelease(pCGImage);
+   return pNSImage;
 }
