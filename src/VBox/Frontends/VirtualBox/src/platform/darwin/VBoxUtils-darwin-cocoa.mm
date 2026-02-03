@@ -1,4 +1,4 @@
-/* $Id: VBoxUtils-darwin-cocoa.mm 112803 2026-02-03 11:43:28Z sergey.dubov@oracle.com $ */
+/* $Id: VBoxUtils-darwin-cocoa.mm 112804 2026-02-03 11:46:00Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI -  Declarations of utility classes and functions for handling Darwin Cocoa specific tasks.
  */
@@ -113,7 +113,7 @@ void darwinSetWindowLabelImpl(NativeNSWindowRef pWindow, NativeNSImageRef pImage
     }
 }
 
-void darwinSetWindowHasShadow(NativeNSWindowRef pWindow, bool fEnabled)
+void darwinSetWindowHasShadowImpl(NativeNSWindowRef pWindow, bool fEnabled)
 {
     if (fEnabled)
         [pWindow setHasShadow :YES];
@@ -139,14 +139,14 @@ NativeNSButtonRef darwinNativeButtonOfWindowImpl(NativeNSWindowRef pWindow, Stan
     return Nil;
 }
 
-int darwinWindowTitleHeight(NativeNSWindowRef pWindow)
+int darwinWindowTitleHeightImpl(NativeNSWindowRef pWindow)
 {
     NSView *pSuperview = [[pWindow standardWindowButton:NSWindowCloseButton] superview];
     NSSize sz = [pSuperview frame].size;
     return sz.height;
 }
 
-bool darwinIsWindowMaximized(NativeNSWindowRef pWindow)
+bool darwinIsWindowMaximizedImpl(NativeNSWindowRef pWindow)
 {
     /* Mac OS X API NSWindow isZoomed returns true even for almost maximized windows,
      * So implementing this by ourseleves by comparing visible screen-frame & window-frame: */
@@ -159,37 +159,37 @@ bool darwinIsWindowMaximized(NativeNSWindowRef pWindow)
            (windowFrame.size.height == screenFrame.size.height);
 }
 
-void darwinEnableFullscreenSupport(NativeNSWindowRef pWindow)
+void darwinEnableFullscreenSupportImpl(NativeNSWindowRef pWindow)
 {
     [pWindow setCollectionBehavior :NSWindowCollectionBehaviorFullScreenPrimary];
 }
 
-void darwinEnableTransienceSupport(NativeNSWindowRef pWindow)
+void darwinEnableTransienceSupportImpl(NativeNSWindowRef pWindow)
 {
     [pWindow setCollectionBehavior :NSWindowCollectionBehaviorTransient];
 }
 
-void darwinToggleFullscreenMode(NativeNSWindowRef pWindow)
+void darwinToggleFullscreenModeImpl(NativeNSWindowRef pWindow)
 {
     /* Toggle native fullscreen mode for passed pWindow. This method is available since 10.7 only. */
     if ([pWindow respondsToSelector: @selector(toggleFullScreen:)])
         [pWindow performSelector: @selector(toggleFullScreen:) withObject: (id)nil];
 }
 
-void darwinToggleWindowZoom(NativeNSWindowRef pWindow)
+void darwinToggleWindowZoomImpl(NativeNSWindowRef pWindow)
 {
     /* Toggle native window zoom for passed pWindow. This method is available since 10.0. */
     if ([pWindow respondsToSelector: @selector(zoom:)])
         [pWindow performSelector: @selector(zoom:)];
 }
 
-bool darwinIsInFullscreenMode(NativeNSWindowRef pWindow)
+bool darwinIsInFullscreenModeImpl(NativeNSWindowRef pWindow)
 {
     /* Check whether passed pWindow is in native fullscreen mode. */
     return [pWindow styleMask] & NSFullScreenWindowMask;
 }
 
-bool darwinIsOnActiveSpace(NativeNSWindowRef pWindow)
+bool darwinIsOnActiveSpaceImpl(NativeNSWindowRef pWindow)
 {
     /* Check whether passed pWindow is on active space. */
     return [pWindow isOnActiveSpace];

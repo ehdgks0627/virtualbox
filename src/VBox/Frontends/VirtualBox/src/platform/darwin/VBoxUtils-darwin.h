@@ -1,4 +1,4 @@
-/* $Id: VBoxUtils-darwin.h 112803 2026-02-03 11:43:28Z sergey.dubov@oracle.com $ */
+/* $Id: VBoxUtils-darwin.h 112804 2026-02-03 11:46:00Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - Declarations of utility classes and functions for handling Darwin specific tasks.
  */
@@ -137,20 +137,20 @@ NativeNSViewRef darwinToNativeViewImpl(NativeNSWindowRef pWindow);
 void darwinSetHidesAllTitleButtonsImpl(NativeNSWindowRef pWindow);
 void darwinSetShowsToolbarButtonImpl(NativeNSWindowRef pWindow, bool fEnabled);
 void darwinSetWindowLabelImpl(NativeNSWindowRef pWindow, NativeNSImageRef pImage, double dDpr);
-void darwinSetWindowHasShadow(NativeNSWindowRef pWindow, bool fEnabled);
+void darwinSetWindowHasShadowImpl(NativeNSWindowRef pWindow, bool fEnabled);
 
 /********************************************************************************
  * Simple helper methods (OS System native)
  ********************************************************************************/
 NativeNSButtonRef darwinNativeButtonOfWindowImpl(NativeNSWindowRef pWindow, StandardWindowButtonType enmButtonType);
-int darwinWindowTitleHeight(NativeNSWindowRef pWindow);
-bool darwinIsWindowMaximized(NativeNSWindowRef pWindow);
-void darwinEnableFullscreenSupport(NativeNSWindowRef pWindow);
-void darwinEnableTransienceSupport(NativeNSWindowRef pWindow);
-void darwinToggleFullscreenMode(NativeNSWindowRef pWindow);
-void darwinToggleWindowZoom(NativeNSWindowRef pWindow);
-bool darwinIsInFullscreenMode(NativeNSWindowRef pWindow);
-bool darwinIsOnActiveSpace(NativeNSWindowRef pWindow);
+int darwinWindowTitleHeightImpl(NativeNSWindowRef pWindow);
+bool darwinIsWindowMaximizedImpl(NativeNSWindowRef pWindow);
+void darwinEnableFullscreenSupportImpl(NativeNSWindowRef pWindow);
+void darwinEnableTransienceSupportImpl(NativeNSWindowRef pWindow);
+void darwinToggleFullscreenModeImpl(NativeNSWindowRef pWindow);
+void darwinToggleWindowZoomImpl(NativeNSWindowRef pWindow);
+bool darwinIsInFullscreenModeImpl(NativeNSWindowRef pWindow);
+bool darwinIsOnActiveSpaceImpl(NativeNSWindowRef pWindow);
 
 // Finishing adding impl .h/.mm functions which have public .h/.cpp API
 RT_C_DECLS_END

@@ -1,4 +1,4 @@
-/* $Id: VBoxUtils-darwin.cpp 112803 2026-02-03 11:43:28Z sergey.dubov@oracle.com $ */
+/* $Id: VBoxUtils-darwin.cpp 112804 2026-02-03 11:46:00Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - Utility Classes and Functions specific to Darwin.
  */
@@ -99,7 +99,7 @@ void darwinSetWindowLabel(QWidget *pWidget, QPixmap *pPixmap)
 
 void darwinSetWindowHasShadow(QWidget *pWidget, bool fEnabled)
 {
-    ::darwinSetWindowHasShadow(::darwinToNativeWindow(pWidget), fEnabled);
+    ::darwinSetWindowHasShadowImpl(::darwinToNativeWindow(pWidget), fEnabled);
 }
 
 void darwinDisableIconsInMenus()
@@ -149,43 +149,42 @@ QString darwinResolveAlias(const QString &strFile)
 
 int darwinWindowTitleHeight(QWidget *pWidget)
 {
-    return ::darwinWindowTitleHeight(::darwinToNativeWindow(pWidget));
+    return ::darwinWindowTitleHeightImpl(::darwinToNativeWindow(pWidget));
 }
 
 bool darwinIsWindowMaximized(QWidget *pWidget)
 {
-    /* Currently only necessary in the Cocoa version */
-    return ::darwinIsWindowMaximized(::darwinToNativeWindow(pWidget));
+    return ::darwinIsWindowMaximizedImpl(::darwinToNativeWindow(pWidget));
 }
 
 void darwinEnableFullscreenSupport(QWidget *pWidget)
 {
-    return ::darwinEnableFullscreenSupport(::darwinToNativeWindow(pWidget));
+    return ::darwinEnableFullscreenSupportImpl(::darwinToNativeWindow(pWidget));
 }
 
 void darwinEnableTransienceSupport(QWidget *pWidget)
 {
-    return ::darwinEnableTransienceSupport(::darwinToNativeWindow(pWidget));
+    return ::darwinEnableTransienceSupportImpl(::darwinToNativeWindow(pWidget));
 }
 
 void darwinToggleFullscreenMode(QWidget *pWidget)
 {
-    return ::darwinToggleFullscreenMode(::darwinToNativeWindow(pWidget));
+    return ::darwinToggleFullscreenModeImpl(::darwinToNativeWindow(pWidget));
 }
 
 void darwinToggleWindowZoom(QWidget *pWidget)
 {
-    return ::darwinToggleWindowZoom(::darwinToNativeWindow(pWidget));
+    return ::darwinToggleWindowZoomImpl(::darwinToNativeWindow(pWidget));
 }
 
 bool darwinIsInFullscreenMode(QWidget *pWidget)
 {
-    return ::darwinIsInFullscreenMode(::darwinToNativeWindow(pWidget));
+    return ::darwinIsInFullscreenModeImpl(::darwinToNativeWindow(pWidget));
 }
 
 bool darwinIsOnActiveSpace(QWidget *pWidget)
 {
-    return ::darwinIsOnActiveSpace(::darwinToNativeWindow(pWidget));
+    return ::darwinIsOnActiveSpaceImpl(::darwinToNativeWindow(pWidget));
 }
 
 int darwinWindowToolBarHeight(QWidget *pWidget)
