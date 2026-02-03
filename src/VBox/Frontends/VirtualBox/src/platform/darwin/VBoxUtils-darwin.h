@@ -1,4 +1,4 @@
-/* $Id: VBoxUtils-darwin.h 112801 2026-02-03 11:15:16Z sergey.dubov@oracle.com $ */
+/* $Id: VBoxUtils-darwin.h 112802 2026-02-03 11:38:49Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - Declarations of utility classes and functions for handling Darwin specific tasks.
  */
@@ -60,7 +60,7 @@ ADD_COCOA_NATIVE_REF(NSString);
 ADD_COCOA_NATIVE_REF(NSView);
 ADD_COCOA_NATIVE_REF(NSWindow);
 
-/** Mac OS X: Standard window button types. */
+/** Standard window button types. */
 enum StandardWindowButtonType
 {
     StandardWindowButtonType_Close,            // Since OS X 10.2
@@ -72,12 +72,20 @@ enum StandardWindowButtonType
     StandardWindowButtonType_FullScreen        // Since OS X 10.7
 };
 
-class UIGrabMouseEvent: public QEvent
+/** Special mouse grab even for native macOS mouse handler. */
+class UIGrabMouseEvent : public QEvent
 {
 public:
+
     enum { GrabMouseEvent = QEvent::User + 200 };
 
-    UIGrabMouseEvent(QEvent::Type type, Qt::MouseButton button, Qt::MouseButtons buttons, int x, int y, int wheelDelta, Qt::Orientation o)
+    UIGrabMouseEvent(QEvent::Type type,
+                     Qt::MouseButton button,
+                     Qt::MouseButtons buttons,
+                     int x,
+                     int y,
+                     int wheelDelta,
+                     Qt::Orientation o)
       : QEvent((QEvent::Type)GrabMouseEvent)
       , m_type(type)
       , m_button(button)
@@ -87,6 +95,7 @@ public:
       , m_wheelDelta(wheelDelta)
       , m_orientation(o)
     {}
+
     QEvent::Type mouseEventType() const { return m_type; }
     Qt::MouseButton button() const { return m_button; }
     Qt::MouseButtons buttons() const { return m_buttons; }
@@ -96,14 +105,14 @@ public:
     Qt::Orientation orientation() const { return m_orientation; }
 
 private:
-    /* Private members */
-    QEvent::Type m_type;
-    Qt::MouseButton m_button;
-    Qt::MouseButtons m_buttons;
-    int m_x;
-    int m_y;
-    int m_wheelDelta;
-    Qt::Orientation m_orientation;
+
+    QEvent::Type      m_type;
+    Qt::MouseButton   m_button;
+    Qt::MouseButtons  m_buttons;
+    int               m_x;
+    int               m_y;
+    int               m_wheelDelta;
+    Qt::Orientation   m_orientation;
 };
 
 
