@@ -23492,14 +23492,14 @@ Snapshot 1 (B.vdi)            Snapshot 1 (B.vdi)
         Whether to execute all the code in the instruction interpreter.
 
         When @c true the VM execution engine changes to
-        <link to="VMExecutionEngine::Interpreter"/> (or
-        <link to="VMExecutionEngine::Recompiler"/> when
+        <link to="VMExecutionEngine_Interpreter"/> (or
+        <link to="VMExecutionEngine_Recompiler"/> when
         <link to="IMachineDebugger::recompiledIEMExecution"/> is set to @c true).
 
         This is mainly for temporarily testing the interpreter and its recompiler.
 
         See also <link to="IMachine::VMExecutionEngine"/> for how to permanently
-        configure a VM to run in <link to="VMExecutionEngine::Interpreter"/> mode.
+        configure a VM to run in <link to="VMExecutionEngine_Interpreter"/> mode.
       </desc>
     </attribute>
 
@@ -23599,16 +23599,16 @@ Snapshot 1 (B.vdi)            Snapshot 1 (B.vdi)
 
         This is used together with <link to="IMachineDebugger::executeAllInIEM"/>
         to temporarily change the main VM execution engine to
-        <link to="VMExecutionEngine::Recompiler"/>.
+        <link to="VMExecutionEngine_Recompiler"/>.
 
-        If the VM is configured to run in <link to="VMExecutionEngine::Interpreter"/>
+        If the VM is configured to run in <link to="VMExecutionEngine_Interpreter"/>
         via <link to="IMachine::VMExecutionEngine"/>, setting this to @c true temporarily
-        changes it to <link to="VMExecutionEngine::Recompiler"/>.
+        changes it to <link to="VMExecutionEngine_Recompiler"/>.
 
         This mainly for testing the instruction interpreter in recompiler mode.
 
         See also <link to="IMachine::VMExecutionEngine"/> for how to permanently
-        configure a VM to run in <link to="VMExecutionEngine::Recompiler"/> mode.
+        configure a VM to run in <link to="VMExecutionEngine_Recompiler"/> mode.
       </desc>
     </attribute>
 

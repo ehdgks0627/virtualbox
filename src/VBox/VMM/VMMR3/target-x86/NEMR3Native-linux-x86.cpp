@@ -1,4 +1,4 @@
-/* $Id: NEMR3Native-linux-x86.cpp 112829 2026-02-04 20:02:16Z klaus.espenlaub@oracle.com $ */
+/* $Id: NEMR3Native-linux-x86.cpp 112830 2026-02-04 20:32:28Z klaus.espenlaub@oracle.com $ */
 /** @file
  * NEM - Native execution manager, native ring-3 Linux backend.
  */
@@ -1893,8 +1893,8 @@ static VBOXSTRICTRC nemHCLnxHandleExitWrMsr(PVMCPUCC pVCpu, struct kvm_run *pRun
  * @param   pVM             The cross context VM structure.
  * @param   pVCpu           The cross context CPU structure of the calling EMT.
  * @param   fSingleStepping Flag whether we are in single stepping mode.
- * @param   fInjectDb       Flag whether to inject a #DB for a genuine guest trap.
- * @param   fInjectBp       Flag whether to inject a #BP for a genuine guest trap.
+ * @param   fInjectDb       Flag whether to inject a \#DB for a genuine guest trap.
+ * @param   fInjectBp       Flag whether to inject a \#BP for a genuine guest trap.
  */
 static int nemR3LnxGstDbgUpdate(PVM pVM, PVMCPU pVCpu, bool fSingleStepping, bool fInjectDb, bool fInjectBp)
 {

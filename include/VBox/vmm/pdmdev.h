@@ -7055,8 +7055,18 @@ DECLINLINE(int) PDMDevHlpSSMRegisterLegacy(PPDMDEVINS pDevIns, const char *pszOl
  * @param   uVersion            Data layout version number.
  * @param   cbGuess             The approximate amount of data in the unit.
  *                              Only for progress indicators.
+ *
+ * @param   pfnLivePrep         Prepare live save callback, optional.
+ * @param   pfnLiveExec         Execute live save callback, optional.
+ * @param   pfnLiveVote         Vote live save callback, optional.
+ *
+ * @param   pfnSavePrep         Prepare save callback, optional.
  * @param   pfnSaveExec         Execute save callback, optional.
+ * @param   pfnSaveDone         Done save callback, optional.
+ *
+ * @param   pfnLoadPrep         Prepare load callback, optional.
  * @param   pfnLoadExec         Execute load callback, optional.
+ * @param   pfnLoadDone         Done load callback, optional.
  */
 DECLINLINE(int) PDMDevHlpSSMRegisterAsImposter(PPDMDEVINS pDevIns, const char *pszName, uint32_t uVersion, size_t cbGuess,
                                                PFNSSMDEVLIVEPREP pfnLivePrep, PFNSSMDEVLIVEEXEC pfnLiveExec, PFNSSMDEVLIVEVOTE pfnLiveVote,
