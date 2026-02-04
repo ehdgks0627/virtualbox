@@ -1,4 +1,4 @@
-/* $Id: UIVMActivityMonitor.cpp 112751 2026-01-29 16:30:52Z sergey.dubov@oracle.com $ */
+/* $Id: UIVMActivityMonitor.cpp 112826 2026-02-04 16:58:35Z serkan.bayraktar@oracle.com $ */
 /** @file
  * VBox Qt GUI - UIVMActivityMonitor class implementation.
  */
@@ -1860,19 +1860,19 @@ void UIVMActivityMonitorLocal::updateDiskIOChart(quint64 uDiskIOTotalWritten, qu
 {
     UIMetric &diskMetric = m_metrics[Metric_Type_Disk_InOut];
 
-    quint64 uWriteRate = uDiskIOTotalWritten - diskMetric.total(0);
-    quint64 uReadRate = uDiskIOTotalRead - diskMetric.total(1);
+    quint64 uWriteRate = uDiskIOTotalWritten - diskMetric.total(1);
+    quint64 uReadRate = uDiskIOTotalRead - diskMetric.total(0);
 
-    diskMetric.setTotal(0, uDiskIOTotalWritten);
-    diskMetric.setTotal(1, uDiskIOTotalRead);
+    diskMetric.setTotal(1, uDiskIOTotalWritten);
+    diskMetric.setTotal(0, uDiskIOTotalRead);
 
     /* Do not set data and maximum if the metric has not been initialized  since we need to initialize totals "(t-1)" first: */
     if (!diskMetric.isInitialized()){
         diskMetric.setIsInitialized(true);
         return;
     }
-    diskMetric.addData(0, uWriteRate);
-    diskMetric.addData(1, uReadRate);
+    diskMetric.addData(1, uWriteRate);
+    diskMetric.addData(0, uReadRate);
 
     if (m_infoLabels.contains(Metric_Type_Disk_InOut)  && m_infoLabels[Metric_Type_Disk_InOut])
     {
