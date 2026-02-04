@@ -1,4 +1,4 @@
-/* $Id: PDMR3.cpp 112403 2026-01-11 19:29:08Z knut.osmundsen@oracle.com $ */
+/* $Id: PDMR3.cpp 112819 2026-02-04 14:42:49Z alexander.eichner@oracle.com $ */
 /** @file
  * PDM - Pluggable Device Manager.
  */
@@ -1304,6 +1304,16 @@ static DECLCALLBACK(int) pdmR3LoadExec(PVM pVM, PSSMHANDLE pSSM, uint32_t uVersi
                 && !RTStrCmp(szName, "AudioSniffer"))
                 fSkip = true;
 
+            /*
+             * Depending on the host either our own APIC emulation or the
+             * one provided by the host hypervisor is used, which are saved state compatible.
+             */
+            /** @todo Maybe it is worth introducing a flag in the device registration structure to indicate that
+             *        the same functionality can be provided by different device registrations.
+            if (   !RTStrCmp(szName, "apic")
+                || !RTStrCmp(szName, "apic-nem"))
+                fSkip = true;
+
             if (!fSkip)
             {
                 LogRel(("Device '%s'/%d not found in current config\n", szName, iInstance));
@@ -1326,8 +1336,11 @@ static DECLCALLBACK(int) pdmR3LoadExec(PVM pVM, PSSMHANDLE pSSM, uint32_t uVersi
              *        flag to PDMDEVREG::fFlags to indicate that having a new device added for a saved state is okay.
              *        (For now I just want to get saved states unwedged).
              */
+            /** @todo apic/apic-nem can be used interchangeably, find a better solution here. */
             if (   SSMR3HandleGetAfter(pSSM) != SSMAFTER_DEBUG_IT
-                && RTStrCmp(pDevIns->pReg->szName, "tpm-ppi") /* !!HACK ALERT!! - ugly, see todo above */)
+                && RTStrCmp(pDevIns->pReg->szName, "tpm-ppi") /* !!HACK ALERT!! - ugly, see todo above */
+                && RTStrCmp(pDevIns->pReg->szName, "apic")
+                && RTStrCmp(pDevIns->pReg->szName, "apic-nem")))
             {
                 RTCritSectRwLeaveShared(&pVM->pdm.s.CoreListCritSectRw);
                 return SSMR3SetCfgError(pSSM, RT_SRC_POS, N_("Device '%s'/%d not found in the saved state"),

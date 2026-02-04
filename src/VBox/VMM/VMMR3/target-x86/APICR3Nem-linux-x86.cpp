@@ -1,4 +1,4 @@
-/* $Id: APICR3Nem-linux-x86.cpp 112788 2026-02-02 16:54:19Z alexander.eichner@oracle.com $ */
+/* $Id: APICR3Nem-linux-x86.cpp 112819 2026-02-04 14:42:49Z alexander.eichner@oracle.com $ */
 /** @file
  * APIC - Advanced Programmable Interrupt Controller - NEM KVM backend.
  */
@@ -768,15 +768,24 @@ static DECLCALLBACK(int) apicR3KvmSaveExec(PPDMDEVINS pDevIns, PSSMHANDLE pSSM)
         else
             pHlp->pfnSSMPutStruct(pSSM, (const void *)pKvmApicCpu->pvApicPageR3, &g_aXApicPageFields[0]);
 
-#if 0 /** @todo */
-        /* Save the timer. */
-        pHlp->pfnSSMPutU64(pSSM, pKvmApicCpu->u64TimerInitial);
-        PDMDevHlpTimerSave(pDevIns, pKvmApicCpu->hTimer, pSSM);
+        /*
+         * Make sure the timer state is compatible with our APIC emulation in order to be able to
+         * switch between those two.
+         */
+        PCXAPICPAGE    pXApicPage   = VMCPU_TO_CXAPICPAGE(pVCpu);
+        uint8_t  const uTimerShift  = apicCommonGetTimerShift(pXApicPage);
+        uint64_t const cTicksToNext = (uint64_t)pXApicPage->timer_icr.u32InitialCount << uTimerShift;
+        bool     const fActive      =    pXApicPage->timer_icr.u32InitialCount != 0
+                                      && pXApicPage->lvt_timer.u.u2TimerMode != XAPIC_TIMER_MODE_TSC_DEADLINE;
+        pHlp->pfnTimerSaveFakeForSsm(pDevIns, pSSM, TMCLOCK_VIRTUAL_SYNC, fActive, cTicksToNext, true /*fSaveNowTsBeforeTimer*/);
 
-        /* Save the LINT0, LINT1 interrupt line states. */
-        pHlp->pfnSSMPutBool(pSSM, pKvmApicCpu->fActiveLint0);
-        pHlp->pfnSSMPutBool(pSSM, pKvmApicCpu->fActiveLint1);
-#endif
+        /*
+         * Save the LINT0, LINT1 interrupt line states, these are always false in our APIC emulation
+         * currently and would need changing as soon as these are actually used.
+         */
+        pHlp->pfnSSMPutBool(pSSM, false);
+        pHlp->pfnSSMPutBool(pSSM, false);
+
     }
 
     return rc;
@@ -837,27 +846,23 @@ static DECLCALLBACK(int) apicR3KvmLoadExec(PPDMDEVINS pDevIns, PSSMHANDLE pSSM, 
             else
                 pHlp->pfnSSMGetStruct(pSSM, pKvmApicCpu->pvApicPageR3, &g_aXApicPageFields[0]);
 
-#if 0 /** @todo */
-            /* Load the timer. */
-            rc = pHlp->pfnSSMGetU64(pSSM, &pApicCpu->u64TimerInitial);     AssertRCReturn(rc, rc);
-            rc = PDMDevHlpTimerLoad(pDevIns, pApicCpu->hTimer, pSSM);      AssertRCReturn(rc, rc);
-            Assert(pApicCpu->uHintedTimerShift == 0);
-            Assert(pApicCpu->uHintedTimerInitialCount == 0);
-            if (PDMDevHlpTimerIsActive(pDevIns, pApicCpu->hTimer))
-            {
-                PCXAPICPAGE    pXApicPage    = VMCPU_TO_CXAPICPAGE(pVCpu);
-                uint32_t const uInitialCount = pXApicPage->timer_icr.u32InitialCount;
-                uint8_t const  uTimerShift   = apicCommonGetTimerShift(pXApicPage);
-                apicHintTimerFreq(pDevIns, pApicCpu, uInitialCount, uTimerShift);
-            }
+            /*
+             * Load the timer data, because the in kernel APIC handles the timer there
+             * is nothing we have to do here as everything should be in the APIC state.
+             */
+            uint64_t u64Skip = 0;
+            rc = pHlp->pfnSSMGetU64(pSSM, &u64Skip);     AssertRCReturn(rc, rc);
 
-            /* Load the LINT0, LINT1 interrupt line states. */
+            bool fActive = false;
+            rc = pHlp->pfnTimerSkipLoad(pSSM, &fActive); AssertRCReturn(rc, rc);
+
+            /* Load the LINT0, LINT1 interrupt line states, nothing we act on here. */
             if (uVersion > APIC_SAVED_STATE_VERSION_VBOX_51_BETA2)
             {
-                pHlp->pfnSSMGetBoolV(pSSM, &pApicCpu->fActiveLint0);
-                pHlp->pfnSSMGetBoolV(pSSM, &pApicCpu->fActiveLint1);
+                bool fSkip = false;
+                pHlp->pfnSSMGetBoolV(pSSM, &fSkip);
+                pHlp->pfnSSMGetBoolV(pSSM, &fSkip);
             }
-#endif
         }
         else
         {
@@ -865,6 +870,7 @@ static DECLCALLBACK(int) apicR3KvmLoadExec(PPDMDEVINS pDevIns, PSSMHANDLE pSSM, 
             rc = apicR3LoadLegacyVCpuData(pDevIns, pVCpu, pSSM, uVersion);
             AssertRCReturn(rc, rc);
 #else
+            AssertFailedReturn(VERR_SSM_UNSUPPORTED_DATA_UNIT_VERSION); /** @todo */
 #endif
         }
 
@@ -890,6 +896,32 @@ static DECLCALLBACK(int) apicR3KvmLoadExec(PPDMDEVINS pDevIns, PSSMHANDLE pSSM, 
     }
 
     return rc;
+}
+
+
+/**
+ * @copydoc FNSSMDEVLOADDONE
+ */
+static DECLCALLBACK(int) apicR3KvmLoadDone(PPDMDEVINS pDevIns, PSSMHANDLE pSSM)
+{
+    PVM pVM  = PDMDevHlpGetVM(pDevIns);
+
+    RT_NOREF(pSSM);
+    AssertReturn(pVM, VERR_INVALID_VM_HANDLE);
+
+    /*
+     * Ensure the interrupt APIC FF is clear which might be set
+     * when a saved state using our own APIC emulation was loaded,
+     * it is completely unused with the KVM APIC emulation.
+     */
+    for (VMCPUID idCpu = 0; idCpu < pVM->cCpus; idCpu++)
+    {
+        PVMCPU pVCpu = pVM->apCpusR3[idCpu];
+
+        VMCPU_FF_CLEAR(pVCpu, VMCPU_FF_INTERRUPT_APIC);
+    }
+
+    return VINF_SUCCESS;
 }
 
 
@@ -1232,7 +1264,11 @@ DECLCALLBACK(int) apicR3KvmConstruct(PPDMDEVINS pDevIns, int iInstance, PCFGMNOD
     /*
      * Register saved state callbacks.
      */
-    rc = PDMDevHlpSSMRegister(pDevIns, APIC_SAVED_STATE_VERSION, cPages * HOST_PAGE_SIZE, apicR3KvmSaveExec, apicR3KvmLoadExec);
+    rc = PDMDevHlpSSMRegisterAsImposter(pDevIns, "apic", APIC_SAVED_STATE_VERSION, cPages * HOST_PAGE_SIZE,
+                                        NULL /*pfnLivePrep*/, NULL /*pfnLiveExec*/, NULL /*pfnLiveDone*/,
+                                        NULL /*pfnSavePrep*/, apicR3KvmSaveExec,    NULL /*pfnSaveDone*/,
+                                        NULL /*pfnLoadPrep*/, apicR3KvmLoadExec,    apicR3KvmLoadDone);
+
     AssertRCReturn(rc, rc);
 
     /*

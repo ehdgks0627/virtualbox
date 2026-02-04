@@ -1,4 +1,4 @@
-/* $Id: PDMR3DevHlp.cpp 112403 2026-01-11 19:29:08Z knut.osmundsen@oracle.com $ */
+/* $Id: PDMR3DevHlp.cpp 112819 2026-02-04 14:42:49Z alexander.eichner@oracle.com $ */
 /** @file
  * PDM - Pluggable Device and Driver Manager, Device Helpers.
  */
@@ -537,6 +537,32 @@ static DECLCALLBACK(int) pdmR3DevHlp_SSMRegisterLegacy(PPDMDEVINS pDevIns, const
 }
 
 
+/** @interface_method_impl{PDMDEVHLPR3,pfnSSMRegisterAsImposter} */
+static DECLCALLBACK(int) pdmR3DevHlp_SSMRegisterAsImposter(PPDMDEVINS pDevIns, const char *pszName, uint32_t uVersion, size_t cbGuess, const char *pszBefore,
+                                                           PFNSSMDEVLIVEPREP pfnLivePrep, PFNSSMDEVLIVEEXEC pfnLiveExec, PFNSSMDEVLIVEVOTE pfnLiveVote,
+                                                           PFNSSMDEVSAVEPREP pfnSavePrep, PFNSSMDEVSAVEEXEC pfnSaveExec, PFNSSMDEVSAVEDONE pfnSaveDone,
+                                                           PFNSSMDEVLOADPREP pfnLoadPrep, PFNSSMDEVLOADEXEC pfnLoadExec, PFNSSMDEVLOADDONE pfnLoadDone)
+{
+    PDMDEV_ASSERT_DEVINS(pDevIns);
+    VM_ASSERT_EMT(pDevIns->Internal.s.pVMR3);
+    LogFlow(("pdmR3DevHlp_SSMRegisterAsImposter: caller='%s'/%d: pszName=%s uVersion=%#x cbGuess=%#x pszBefore=%p:{%s}\n"
+             "    pfnLivePrep=%p pfnLiveExec=%p pfnLiveVote=%p pfnSavePrep=%p pfnSaveExec=%p pfnSaveDone=%p pfnLoadPrep=%p pfnLoadExec=%p pfnLoadDone=%p\n",
+             pDevIns->pReg->szName, pDevIns->iInstance, pszName, uVersion, cbGuess, pszBefore, pszBefore,
+             pfnLivePrep, pfnLiveExec, pfnLiveVote,
+             pfnSavePrep, pfnSaveExec, pfnSaveDone,
+             pfnLoadPrep, pfnLoadExec, pfnLoadDone));
+
+    int rc = SSMR3RegisterDevice(pDevIns->Internal.s.pVMR3, pDevIns, pszName, pDevIns->iInstance,
+                                 uVersion, cbGuess, pszBefore,
+                                 pfnLivePrep, pfnLiveExec, pfnLiveVote,
+                                 pfnSavePrep, pfnSaveExec, pfnSaveDone,
+                                 pfnLoadPrep, pfnLoadExec, pfnLoadDone);
+
+    LogFlow(("pdmR3DevHlp_SSMRegisterAsImposter: caller='%s'/%d: returns %Rrc\n", pDevIns->pReg->szName, pDevIns->iInstance, rc));
+    return rc;
+}
+
+
 /** @interface_method_impl{PDMDEVHLPR3,pfnTimerCreate} */
 static DECLCALLBACK(int) pdmR3DevHlp_TimerCreate(PPDMDEVINS pDevIns, TMCLOCK enmClock, PFNTMTIMERDEV pfnCallback,
                                                  void *pvUser, uint32_t fFlags, const char *pszDesc, PTMTIMERHANDLE phTimer)
@@ -769,6 +795,15 @@ static DECLCALLBACK(int) pdmR3DevHlp_TimerDestroy(PPDMDEVINS pDevIns, TMTIMERHAN
 {
     PDMDEV_ASSERT_DEVINS(pDevIns);
     return TMR3TimerDestroy(pDevIns->Internal.s.pVMR3, hTimer);
+}
+
+
+/** @interface_method_impl{PDMDEVHLPR3,pfnTimerSaveFakeForSsm} */
+static DECLCALLBACK(int) pdmR3DevHlp_TimerSaveFakeForSsm(PPDMDEVINS pDevIns, PSSMHANDLE pSSM, TMCLOCK enmClock, bool fActive,
+                                                         uint64_t cTicksToNext, bool fSaveNowTsBeforeTimer)
+{
+    PDMDEV_ASSERT_DEVINS(pDevIns);
+    return TMR3TimerSaveFakeForSsm(pDevIns->Internal.s.pVMR3, pSSM, enmClock, fActive, cTicksToNext, fSaveNowTsBeforeTimer);
 }
 
 
@@ -5016,6 +5051,7 @@ const PDMDEVHLPR3 g_pdmR3DevHlpTrusted =
     pdmR3DevHlp_ROMProtectShadow,
     pdmR3DevHlp_SSMRegister,
     pdmR3DevHlp_SSMRegisterLegacy,
+    pdmR3DevHlp_SSMRegisterAsImposter,
     SSMR3PutStruct,
     SSMR3PutStructEx,
     SSMR3PutBool,
@@ -5124,6 +5160,7 @@ const PDMDEVHLPR3 g_pdmR3DevHlpTrusted =
     pdmR3DevHlp_TimerLoad,
     pdmR3DevHlp_TimerDestroy,
     TMR3TimerSkip,
+    pdmR3DevHlp_TimerSaveFakeForSsm,
     pdmR3DevHlp_TMUtcNow,
     CFGMR3Exists,
     CFGMR3QueryType,
@@ -5419,6 +5456,7 @@ const PDMDEVHLPR3 g_pdmR3DevHlpTracing =
     pdmR3DevHlp_ROMProtectShadow,
     pdmR3DevHlp_SSMRegister,
     pdmR3DevHlp_SSMRegisterLegacy,
+    pdmR3DevHlp_SSMRegisterAsImposter,
     SSMR3PutStruct,
     SSMR3PutStructEx,
     SSMR3PutBool,
@@ -5527,6 +5565,7 @@ const PDMDEVHLPR3 g_pdmR3DevHlpTracing =
     pdmR3DevHlp_TimerLoad,
     pdmR3DevHlp_TimerDestroy,
     TMR3TimerSkip,
+    pdmR3DevHlp_TimerSaveFakeForSsm,
     pdmR3DevHlp_TMUtcNow,
     CFGMR3Exists,
     CFGMR3QueryType,
@@ -6150,6 +6189,7 @@ const PDMDEVHLPR3 g_pdmR3DevHlpUnTrusted =
     pdmR3DevHlp_ROMProtectShadow,
     pdmR3DevHlp_SSMRegister,
     pdmR3DevHlp_SSMRegisterLegacy,
+    pdmR3DevHlp_SSMRegisterAsImposter,
     SSMR3PutStruct,
     SSMR3PutStructEx,
     SSMR3PutBool,
@@ -6258,6 +6298,7 @@ const PDMDEVHLPR3 g_pdmR3DevHlpUnTrusted =
     pdmR3DevHlp_TimerLoad,
     pdmR3DevHlp_TimerDestroy,
     TMR3TimerSkip,
+    pdmR3DevHlp_TimerSaveFakeForSsm,
     pdmR3DevHlp_TMUtcNow,
     CFGMR3Exists,
     CFGMR3QueryType,

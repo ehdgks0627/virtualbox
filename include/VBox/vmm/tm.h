@@ -300,6 +300,8 @@ VMM_INT_DECL(int)       TMR3TimerDestroyDriver(PVM pVM, PPDMDRVINS pDrvIns);
 VMMR3DECL(int)          TMR3TimerSave(PVMCC pVM, TMTIMERHANDLE hTimer, PSSMHANDLE pSSM);
 VMMR3DECL(int)          TMR3TimerLoad(PVMCC pVM, TMTIMERHANDLE hTimer, PSSMHANDLE pSSM);
 VMMR3DECL(int)          TMR3TimerSkip(PSSMHANDLE pSSM, bool *pfActive);
+VMMR3DECL(int)          TMR3TimerSaveFakeForSsm(PVMCC pVM, PSSMHANDLE pSSM, TMCLOCK enmClock, bool fActive, uint64_t cTicksToNext,
+                                                bool fSaveNowTsBeforeTimer);
 VMMR3DECL(int)          TMR3TimerSetCritSect(PVMCC pVM, TMTIMERHANDLE hTimer, PPDMCRITSECT pCritSect);
 VMMR3DECL(void)         TMR3TimerQueuesDo(PVM pVM);
 VMMR3_INT_DECL(void)    TMR3VirtualSyncFF(PVM pVM, PVMCPU pVCpu);

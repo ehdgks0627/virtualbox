@@ -2393,7 +2393,7 @@ typedef const PDMRTCHLP *PCPDMRTCHLP;
 /** @} */
 
 /** Current PDMDEVHLPR3 version number. */
-#define PDM_DEVHLPR3_VERSION                PDM_VERSION_MAKE_PP(0xffe7, 69, 0)
+#define PDM_DEVHLPR3_VERSION                PDM_VERSION_MAKE_PP(0xffe7, 70, 0)
 
 /**
  * PDM Device API.
@@ -2884,6 +2884,40 @@ typedef struct PDMDEVHLPR3
     DECLR3CALLBACKMEMBER(int, pfnSSMRegisterLegacy,(PPDMDEVINS pDevIns, const char *pszOldName, PFNSSMDEVLOADPREP pfnLoadPrep,
                                                     PFNSSMDEVLOADEXEC pfnLoadExec, PFNSSMDEVLOADDONE pfnLoadDone));
 
+    /**
+     * Register a save state data unit with a different name.
+     *
+     * @returns VBox status.
+     * @param   pDevIns             The device instance.
+     * @param   pszName             The unit name.
+     * @param   uVersion            Data layout version number.
+     * @param   cbGuess             The approximate amount of data in the unit.
+     *                              Only for progress indicators.
+     * @param   pszBefore           Name of data unit which we should be put in
+     *                              front of. Optional (NULL).
+     *
+     * @param   pfnLivePrep         Prepare live save callback, optional.
+     * @param   pfnLiveExec         Execute live save callback, optional.
+     * @param   pfnLiveVote         Vote live save callback, optional.
+     *
+     * @param   pfnSavePrep         Prepare save callback, optional.
+     * @param   pfnSaveExec         Execute save callback, optional.
+     * @param   pfnSaveDone         Done save callback, optional.
+     *
+     * @param   pfnLoadPrep         Prepare load callback, optional.
+     * @param   pfnLoadExec         Execute load callback, optional.
+     * @param   pfnLoadDone         Done load callback, optional.
+     * @remarks Caller enters the device critical section prior to invoking the
+     *          registered callback methods.
+     *
+     * @note Only use this if you 100% know what you are doing!
+     */
+    DECLR3CALLBACKMEMBER(int, pfnSSMRegisterAsImposter,(PPDMDEVINS pDevIns, const char *pszName,
+                                                        uint32_t uVersion, size_t cbGuess, const char *pszBefore,
+                                                        PFNSSMDEVLIVEPREP pfnLivePrep, PFNSSMDEVLIVEEXEC pfnLiveExec, PFNSSMDEVLIVEVOTE pfnLiveVote,
+                                                        PFNSSMDEVSAVEPREP pfnSavePrep, PFNSSMDEVSAVEEXEC pfnSaveExec, PFNSSMDEVSAVEDONE pfnSaveDone,
+                                                        PFNSSMDEVLOADPREP pfnLoadPrep, PFNSSMDEVLOADEXEC pfnLoadExec, PFNSSMDEVLOADDONE pfnLoadDone));
+
     /** @name Exported SSM Functions
      * @{ */
     DECLR3CALLBACKMEMBER(int,      pfnSSMPutStruct,(PSSMHANDLE pSSM, const void *pvStruct, PCSSMFIELD paFields));
@@ -3017,6 +3051,8 @@ typedef struct PDMDEVHLPR3
     DECLR3CALLBACKMEMBER(int,      pfnTimerDestroy,(PPDMDEVINS pDevIns, TMTIMERHANDLE hTimer));
     /** @sa TMR3TimerSkip */
     DECLR3CALLBACKMEMBER(int,      pfnTimerSkipLoad,(PSSMHANDLE pSSM, bool *pfActive));
+    DECLR3CALLBACKMEMBER(int,      pfnTimerSaveFakeForSsm,(PPDMDEVINS pDevIns, PSSMHANDLE pSSM, TMCLOCK enmClock, bool fActive,
+                                                           uint64_t cTicksToNext, bool fSaveNowTsBeforeTimer));
     /** @} */
 
     /**
@@ -7008,6 +7044,29 @@ DECLINLINE(int) PDMDevHlpSSMRegisterLegacy(PPDMDEVINS pDevIns, const char *pszOl
                                            PFNSSMDEVLOADEXEC pfnLoadExec, PFNSSMDEVLOADDONE pfnLoadDone)
 {
     return pDevIns->pHlpR3->pfnSSMRegisterLegacy(pDevIns, pszOldName, pfnLoadPrep, pfnLoadExec, pfnLoadDone);
+}
+
+/**
+ * Register a save state data unit with a different unit name.
+ *
+ * @returns VBox status.
+ * @param   pDevIns             The device instance.
+ * @param   pszName             The saved state unit name.
+ * @param   uVersion            Data layout version number.
+ * @param   cbGuess             The approximate amount of data in the unit.
+ *                              Only for progress indicators.
+ * @param   pfnSaveExec         Execute save callback, optional.
+ * @param   pfnLoadExec         Execute load callback, optional.
+ */
+DECLINLINE(int) PDMDevHlpSSMRegisterAsImposter(PPDMDEVINS pDevIns, const char *pszName, uint32_t uVersion, size_t cbGuess,
+                                               PFNSSMDEVLIVEPREP pfnLivePrep, PFNSSMDEVLIVEEXEC pfnLiveExec, PFNSSMDEVLIVEVOTE pfnLiveVote,
+                                               PFNSSMDEVSAVEPREP pfnSavePrep, PFNSSMDEVSAVEEXEC pfnSaveExec, PFNSSMDEVSAVEDONE pfnSaveDone,
+                                               PFNSSMDEVLOADPREP pfnLoadPrep, PFNSSMDEVLOADEXEC pfnLoadExec, PFNSSMDEVLOADDONE pfnLoadDone)
+{
+    return pDevIns->pHlpR3->pfnSSMRegisterAsImposter(pDevIns, pszName, uVersion, cbGuess, NULL /*pszBefore*/,
+                                                     pfnLivePrep, pfnLiveExec,  pfnLiveVote,
+                                                     pfnSavePrep, pfnSaveExec,  pfnSaveDone,
+                                                     pfnLoadPrep, pfnLoadExec,  pfnLoadDone);
 }
 
 /**

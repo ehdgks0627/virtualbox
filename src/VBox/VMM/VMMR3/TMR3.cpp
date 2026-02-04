@@ -1,4 +1,4 @@
-/* $Id: TMR3.cpp 112688 2026-01-26 10:44:27Z alexander.eichner@oracle.com $ */
+/* $Id: TMR3.cpp 112819 2026-02-04 14:42:49Z alexander.eichner@oracle.com $ */
 /** @file
  * TM - Time Manager.
  */
@@ -3152,6 +3152,54 @@ VMMR3DECL(int) TMR3TimerSkip(PSSMHANDLE pSSM, bool *pfActive)
     }
 
     return rc;
+}
+
+
+/**
+ * Fakes a timer in the saved state.
+ *
+ * @returns VBox status.
+ * @param   pVM                   The cross context VM structure.
+ * @param   pSSM                  Save State Manager handle.
+ * @param   enmClock              The clock type to fake this saved state entry for.
+ * @param   fActive               Flag to indicate whether the timer was active/stopped
+ *                                when the state is saved.
+ * @param   cTicksToNext          The number of ticks passed to a hypothetical call to TMTimerSetRelative(),
+ *                                only relevant when the timer is marked as active.
+ * @param   fSaveNowTsBeforeTimer Flag whether to save the timestamp returned in pu64Now at the time of
+ *                                a call to TMTimerSetRelative() before the actual timer state.
+ *                                This is a specific hack for the APIC saved state code in order to be able to
+ *                                keep saved state compatibility.
+ *
+ * @note Use only when you absolutely have to keep saved state compatibility for whatever reason
+ *       and make sure the data is correct.
+ */
+VMMR3DECL(int) TMR3TimerSaveFakeForSsm(PVMCC pVM, PSSMHANDLE pSSM, TMCLOCK enmClock, bool fActive, uint64_t cTicksToNext,
+                                       bool fSaveNowTsBeforeTimer)
+{
+    switch (enmClock)
+    {
+        case TMCLOCK_VIRTUAL_SYNC:
+        {
+            /** @todo The handling of the now timestamp is not correct as it doesn't reflect
+             *        the timestamp when a timer was actually started but is something we can't
+             *        (or the caller) can get at this point. Lets hope this doesn't trip up guests too much
+             *        during a restore because the timer got dragged out for too long. This should mainly
+             *        affect long timer intervals.
+             */
+            uint64_t u64Now = TMVirtualSyncGetNoCheck(pVM);
+            if (fSaveNowTsBeforeTimer)
+                SSMR3PutU64(pSSM, u64Now);
+            SSMR3PutU8(pSSM, fActive ? TMTIMERSTATE_SAVED_PENDING_SCHEDULE : TMTIMERSTATE_SAVED_PENDING_STOP);
+            if (fActive)
+                SSMR3PutU64(pSSM, u64Now + cTicksToNext);
+            break;
+        }
+        default:
+            AssertMsgFailedReturn(("You have the honor to implement the missing timer type!\n"), VERR_NOT_SUPPORTED);
+    }
+
+    return SSMR3HandleGetStatus(pSSM);
 }
 
 
