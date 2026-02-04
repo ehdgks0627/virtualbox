@@ -1,4 +1,4 @@
-/* $Id: NEMR3Native-linux-x86.cpp 112825 2026-02-04 16:43:18Z alexander.eichner@oracle.com $ */
+/* $Id: NEMR3Native-linux-x86.cpp 112829 2026-02-04 20:02:16Z klaus.espenlaub@oracle.com $ */
 /** @file
  * NEM - Native execution manager, native ring-3 Linux backend.
  */
@@ -2469,7 +2469,7 @@ VMMR3_INT_DECL(VBOXSTRICTRC) NEMR3RunGC(PVM pVM, PVMCPU pVCpu)
     else
     {
         rcStrict = RTErrConvertFromErrno(errno);
-        LogRelMax(10, ("NEM/KVM#%u: Failed to query the MP state %Rrc (errno=%d)\n", VBOXSTRICTRC_VAL(rcStrict), errno));
+        LogRelMax(10, ("NEM/KVM#%u: Failed to query the MP state %Rrc (errno=%d)\n", pVCpu->idCpu, VBOXSTRICTRC_VAL(rcStrict), errno));
     }
 
     LogFlow(("NEM/%u: %04x:%08RX64 efl=%#08RX64 => %Rrc\n", pVCpu->idCpu, pVCpu->cpum.GstCtx.cs.Sel, pVCpu->cpum.GstCtx.rip,
