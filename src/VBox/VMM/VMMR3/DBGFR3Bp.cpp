@@ -1,4 +1,4 @@
-/* $Id: DBGFR3Bp.cpp 112403 2026-01-11 19:29:08Z knut.osmundsen@oracle.com $ */
+/* $Id: DBGFR3Bp.cpp 112833 2026-02-05 09:16:57Z ramshankar.venkataraman@oracle.com $ */
 /** @file
  * DBGF - Debugger Facility, Breakpoint Management.
  */
@@ -588,9 +588,9 @@ DECLINLINE(PDBGFBPINT) dbgfR3BpGetByHnd(PUVM pUVM, DBGFBP hBp)
     PDBGFBPCHUNKR3 pBpChunk = &pUVM->dbgf.s.aBpChunks[idChunk];
     AssertReturn(pBpChunk->idChunk == idChunk, NULL);
     AssertPtrReturn(pBpChunk->pbmAlloc, NULL);
-    AssertReturn(ASMBitTest(pBpChunk->pbmAlloc, idxEntry), NULL);
-
-    return &pBpChunk->pBpBaseR3[idxEntry];
+    if (ASMBitTest(pBpChunk->pbmAlloc, idxEntry))
+        return &pBpChunk->pBpBaseR3[idxEntry];
+    return NULL;
 }
 
 
@@ -2620,7 +2620,8 @@ VMMR3DECL(int) DBGFR3BpClear(PUVM pUVM, DBGFBP hBp)
     AssertReturn(hBp != NIL_DBGFBPOWNER, VERR_INVALID_HANDLE);
 
     PDBGFBPINT pBp = dbgfR3BpGetByHnd(pUVM, hBp);
-    AssertPtrReturn(pBp, VERR_DBGF_BP_NOT_FOUND);
+    if (!pBp)
+        return VERR_DBGF_BP_NOT_FOUND;
 
     /* Disarm the breakpoint when it is enabled. */
     if (DBGF_BP_PUB_IS_ENABLED(&pBp->Pub))
