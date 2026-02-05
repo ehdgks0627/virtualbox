@@ -1,4 +1,4 @@
-/* $Id: UIMessageCenter.cpp 112785 2026-02-02 16:38:44Z sergey.dubov@oracle.com $ */
+/* $Id: UIMessageCenter.cpp 112842 2026-02-05 14:06:53Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - UIMessageCenter class implementation.
  */
@@ -756,13 +756,6 @@ bool UIMessageCenter::confirmCreatingPath(const QString &strPath, QWidget *pPare
                           QString() /* ok button text */,
                           QString() /* cancel button text */,
                           false /* ok button by default? */);
-}
-
-void UIMessageCenter::cannotSaveSettings(const QString strDetails, QWidget *pParent /* = 0 */) const
-{
-    error(pParent, MessageType_Error,
-          tr("Failed to save the settings."),
-          strDetails);
 }
 
 void UIMessageCenter::warnAboutUnaccessibleUSB(const COMBaseWithEI &object, QWidget *pParent /* = 0*/) const

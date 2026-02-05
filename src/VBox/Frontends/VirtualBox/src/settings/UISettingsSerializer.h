@@ -1,4 +1,4 @@
-/* $Id: UISettingsSerializer.h 112403 2026-01-11 19:29:08Z knut.osmundsen@oracle.com $ */
+/* $Id: UISettingsSerializer.h 112842 2026-02-05 14:06:53Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - UISettingsSerializer class declaration.
  */
@@ -54,6 +54,7 @@ class QVariant;
 class QWaitCondition;
 class QWidget;
 class QILabel;
+class UIAdvancedSettingsDialog;
 class UISettingsPage;
 
 /* Type definitions: */
@@ -176,8 +177,10 @@ public:
       * @param  enmDirection  Brings the load/save direction.
       * @param  data          Brings the wrapper(s) to load/save the data from/to.
       * @param  pages         Brings the page(s) to load/save the data to/from. */
-    UISettingsSerializerProgress(QWidget *pParent, UISettingsSerializer::SerializationDirection enmDirection,
-                                 const QVariant &data, const UISettingsPageList &pages);
+    UISettingsSerializerProgress(UIAdvancedSettingsDialog *pParent,
+                                 UISettingsSerializer::SerializationDirection enmDirection,
+                                 const QVariant &data,
+                                 const UISettingsPageList &pages);
 
     /** Executes the dialog. */
     int exec() RT_OVERRIDE;
@@ -223,6 +226,9 @@ private slots:
     void sltHandleOperationProgressError(QString strErrorInfo);
 
 private:
+
+    /** Holds the dialog reference. */
+    UIAdvancedSettingsDialog *m_pDialog;
 
     /** Holds the load/save direction. */
     const UISettingsSerializer::SerializationDirection  m_enmDirection;

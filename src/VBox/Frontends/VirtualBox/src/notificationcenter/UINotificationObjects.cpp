@@ -1,4 +1,4 @@
-/* $Id: UINotificationObjects.cpp 112839 2026-02-05 13:15:54Z sergey.dubov@oracle.com $ */
+/* $Id: UINotificationObjects.cpp 112842 2026-02-05 14:06:53Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - Various UINotificationObjects implementations.
  */
@@ -159,6 +159,16 @@ void UINotificationMessage::warnAboutClipboardError(const QString &strMsg)
     createMessage(
         QApplication::translate("UIMessageCenter", "Shared clipboard error ..."),
         strMsg.toUtf8().constData());
+}
+
+/* static */
+void UINotificationMessage::warnAboutCannotSaveSettings(const QString strDetails,
+                                                        UINotificationCenter *pParent)
+{
+    createMessage(
+        QApplication::translate("UIMessageCenter", "Failed to save the settings."),
+        strDetails.toUtf8().constData(),
+        QString(), QString(), pParent);
 }
 
 #ifdef VBOX_GUI_WITH_NETWORK_MANAGER

@@ -1,4 +1,4 @@
-/* $Id: UINotificationObjects.h 112839 2026-02-05 13:15:54Z sergey.dubov@oracle.com $ */
+/* $Id: UINotificationObjects.h 112842 2026-02-05 14:06:53Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - Various UINotificationObjects declarations.
  */
@@ -115,6 +115,11 @@ public:
                                                        UINotificationCenter *pParent);
         /** Notifies about a clipboard error. */
         static void warnAboutClipboardError(const QString &strMsg);
+
+        /** Notifies about unability to save machine settings.
+          * @param  strDetails  Brings the notification details. */
+        static void warnAboutCannotSaveSettings(const QString strDetails,
+                                                UINotificationCenter *pParent);
 
 #ifdef VBOX_GUI_WITH_NETWORK_MANAGER
         /** Notifies about update not found. */
