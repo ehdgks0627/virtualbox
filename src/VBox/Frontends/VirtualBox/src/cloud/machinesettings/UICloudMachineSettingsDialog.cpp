@@ -1,4 +1,4 @@
-/* $Id: UICloudMachineSettingsDialog.cpp 112403 2026-01-11 19:29:08Z knut.osmundsen@oracle.com $ */
+/* $Id: UICloudMachineSettingsDialog.cpp 112851 2026-02-06 12:46:53Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - UICloudMachineSettingsDialog class implementation.
  */
@@ -123,6 +123,11 @@ void UICloudMachineSettingsDialog::prepare()
 {
     /* Prepare local notification-center (parent to be assigned in the end): */
     m_pNotificationCenter = new UINotificationCenter(0);
+    if (m_pNotificationCenter)
+    {
+        QPointer<UINotificationCenter> target = m_pNotificationCenter;
+        setProperty("notification_center", QVariant::fromValue(target));
+    }
 
     /* Prepare layout: */
     QVBoxLayout *pLayout = new QVBoxLayout(this);
