@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# $Id: status.py 112403 2026-01-11 19:29:08Z knut.osmundsen@oracle.com $
+# $Id: status.py 112855 2026-02-06 16:09:11Z ksenia.s.stepanova@oracle.com $
 
 """
 CGI - Administrator Web-UI.
@@ -37,7 +37,7 @@ terms and conditions of either the GPL or the CDDL or both.
 
 SPDX-License-Identifier: GPL-3.0-only OR CDDL-1.0
 """
-__version__ = "$Revision: 112403 $"
+__version__ = "$Revision: 112855 $"
 
 
 # Standard python imports.
@@ -73,7 +73,8 @@ def testbox_data_processing(oDb):
         enmStatus              = aoRow[1];
         oTimeDeltaSinceStarted = aoRow[2];
         sTestBoxOs             = aoRow[3]
-        sSchedGroupNames       = aoRow[4];
+        sTestBoxArch           = aoRow[4]
+        sSchedGroupNames       = aoRow[5];
 
         # Idle testboxes will not have an assigned test set, so enmStatus
         # will be None.  Skip these.
@@ -82,6 +83,8 @@ def testbox_data_processing(oDb):
 
             if "testbox_os" not in dTestBoxes[sTextBoxName]:
                 dTestBoxes[sTextBoxName].update({"testbox_os": sTestBoxOs})
+            if "testbox_arch" not in dTestBoxes[sTextBoxName]:
+                dTestBoxes[sTextBoxName].update({"testbox_arch": sTestBoxArch})
 
             if "sched_group" not in dTestBoxes[sTextBoxName]:
                 dTestBoxes[sTextBoxName].update({"sched_group": sSchedGroupNames})
@@ -305,6 +308,7 @@ class StatusDispatcher(object): # pylint: disable=too-few-public-methods
             TestSets.enmStatus,
             CURRENT_TIMESTAMP - TestSets.tsCreated,
             TestBoxesWithStrings.sOS,
+            TestBoxesWithStrings.sCpuArch,
             SchedGroupNames.sSchedGroupNames
     FROM    (
             SELECT TestBoxesInSchedGroups.idTestBox AS idTestBox,
@@ -328,6 +332,7 @@ class StatusDispatcher(object): # pylint: disable=too-few-public-methods
             TestSets.enmStatus,
             CURRENT_TIMESTAMP - TestSets.tsCreated,
             TestBoxesWithStrings.sOS,
+            TestBoxesWithStrings.sCpuArch,
             SchedGroupNames.sSchedGroupNames
     FROM    (
             SELECT TestBoxesInSchedGroups.idTestBox AS idTestBox,
