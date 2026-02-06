@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# $Id: configure.py 112856 2026-02-06 18:32:32Z klaus.espenlaub@oracle.com $
+# $Id: configure.py 112857 2026-02-06 19:37:10Z klaus.espenlaub@oracle.com $
 """
 Configuration script for building VirtualBox.
 
@@ -61,7 +61,7 @@ SPDX-License-Identifier: GPL-3.0-only
 # External Python modules or other dependencies are not allowed!
 #
 
-__revision__ = "$Revision: 112856 $"
+__revision__ = "$Revision: 112857 $"
 
 import argparse
 import ctypes
@@ -2764,7 +2764,7 @@ int main()
             self.printVerbose(1, 'Python disbled, skipping');
             return True;
 
-        asModulesToCheck = [ 'packaging' ]; # Required by XPCOM.
+        asModulesToCheck = [ 'packaging' ]; # Required by VirtualBox API bindings (both COM and XPCOM).
 
         self.printVerbose(1, 'Checking modules ...');
 
@@ -2773,6 +2773,16 @@ int main()
                 self.printVerbose(1, f"Checking module '{sCurMod}'");
                 importlib.import_module(sCurMod);
             except ImportError:
+                # Hack to accept distutils for now as a substitute to the packaging module.
+                if sCurMod == 'packaging':
+                    try:
+                        self.printVerbose(1, f"Checking module 'distutils'");
+                        importlib.import_module('distutils');
+                    except ImportError:
+                        self.printWarn(f"Python module '{sCurMod}' or 'distutils' is not installed");
+                        self.print(f"Hint: Try running 'pip install {sCurMod}' (or 'pip install distutils')");
+                        return False;
+                    continue;
                 self.printWarn(f"Python module '{sCurMod}' is not installed");
                 self.print    (f"Hint: Try running 'pip install {sCurMod}'");
                 return False;
