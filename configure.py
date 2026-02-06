@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# $Id: configure.py 112854 2026-02-06 14:15:48Z klaus.espenlaub@oracle.com $
+# $Id: configure.py 112856 2026-02-06 18:32:32Z klaus.espenlaub@oracle.com $
 """
 Configuration script for building VirtualBox.
 
@@ -61,7 +61,7 @@ SPDX-License-Identifier: GPL-3.0-only
 # External Python modules or other dependencies are not allowed!
 #
 
-__revision__ = "$Revision: 112854 $"
+__revision__ = "$Revision: 112856 $"
 
 import argparse
 import ctypes
@@ -3304,10 +3304,10 @@ g_aoLibs = [
     LibraryCheck("openssl", [ "openssl/crypto.h" ], [ "libcrypto", "libssl", "libz", "libzstd" ], fUseInTree = True,
                  sCode = '#include <openssl/crypto.h>\n#include <stdio.h>\nint main() { printf("%s", OpenSSL_version(OPENSSL_VERSION)); return 0; }\n',
                  sSdkName = "VBoxOpenSslStatic"),
-    # Note: The required libs for qt6 can differ (VBox infix and whatnot), and thus will
+    # Note: The required libs for Qt can differ (VBox infix and whatnot), and thus will
     #       be resolved in the check callback.
-    LibraryCheck("qt6", [ "QtCore/QtGlobal" ], [ ], aeTargets = [ BuildTarget.ANY ],
-                 sCode = '#define IN_RING3\n#include <QtCore/QtGlobal>\nint main() { std::cout << QT_VERSION_STR << std::endl; }',
+    LibraryCheck("qt", [ "QtCore/QtGlobal" ], [ ], aeTargets = [ BuildTarget.ANY ],
+                 sCode = '#define IN_RING3\n#include <QtCore/QtGlobal>\nint main() { std::cout << QT_VERSION_STR << std::endl;\n#if QT_VERSION >= 6 * 65536 + 8 * 256\nreturn 0;\n#else\nreturn 1;\n#endif\n}',
                  fnCallback = LibraryCheck.checkCallback_qt6,
                  sSdkName = 'QT6', dictDefinesToSetIfFailed = { 'VBOX_WITH_QTGUI' : '' }),
     LibraryCheck("libsdl2", [ "SDL2/SDL.h" ], [ "libSDL2" ], aeTargets = [ BuildTarget.LINUX, BuildTarget.SOLARIS ],
