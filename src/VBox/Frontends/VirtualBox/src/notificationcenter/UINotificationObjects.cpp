@@ -1,4 +1,4 @@
-/* $Id: UINotificationObjects.cpp 112850 2026-02-06 11:10:07Z sergey.dubov@oracle.com $ */
+/* $Id: UINotificationObjects.cpp 112852 2026-02-06 12:49:53Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - Various UINotificationObjects implementations.
  */
@@ -1918,10 +1918,12 @@ void UINotificationMessage::createMessage(const QString &strName,
                                           const QString &strDetails,
                                           QWidget *pParent)
 {
-    QPointer<UINotificationCenter> pNotificationCenter;
-    if (pParent)
-        pNotificationCenter = pParent->property("notification_center").value<QPointer<UINotificationCenter>>();
-    return createMessage(strName, strDetails, QString(), QString(), pNotificationCenter);
+    /* Acquire notification-center, make sure it's present: */
+    UINotificationCenter *pCenter = UINotificationCenter::acquire(pParent);
+    AssertPtrReturnVoid(pCenter);
+
+    /* Redirect to wrapper above: */
+    return createMessage(strName, strDetails, QString(), QString(), pCenter);
 }
 
 /* static */

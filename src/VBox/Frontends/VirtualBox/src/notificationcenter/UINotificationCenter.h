@@ -1,4 +1,4 @@
-/* $Id: UINotificationCenter.h 112843 2026-02-05 16:45:00Z sergey.dubov@oracle.com $ */
+/* $Id: UINotificationCenter.h 112852 2026-02-06 12:49:53Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - UINotificationCenter class declaration.
  */
@@ -77,6 +77,9 @@ public:
     static void destroy();
     /** Returns notification-center singleton instance. */
     static UINotificationCenter *instance();
+
+    /** Returns notification-center contained within @a pParent. */
+    static UINotificationCenter *acquire(QWidget *pParent);
 
     /** Constructs notification-center passing @a pParent to the base-class. */
     UINotificationCenter(QWidget *pParent);

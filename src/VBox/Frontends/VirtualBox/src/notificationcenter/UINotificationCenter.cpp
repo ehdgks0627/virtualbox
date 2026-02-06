@@ -1,4 +1,4 @@
-/* $Id: UINotificationCenter.cpp 112403 2026-01-11 19:29:08Z knut.osmundsen@oracle.com $ */
+/* $Id: UINotificationCenter.cpp 112852 2026-02-06 12:49:53Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - UINotificationCenter class implementation.
  */
@@ -154,6 +154,24 @@ void UINotificationCenter::destroy()
 UINotificationCenter *UINotificationCenter::instance()
 {
     return s_pInstance;
+}
+
+/* static */
+UINotificationCenter *UINotificationCenter::acquire(QWidget *pParent)
+{
+    /* Do we have parent passed? */
+    if (pParent)
+    {
+        /* Acquire contained UINotificationCenter reference: */
+        QPointer<UINotificationCenter> pNotificationCenter =
+            pParent->property("notification_center").value<QPointer<UINotificationCenter>>();
+        /* Return if something present: */
+        if (!pNotificationCenter.isNull())
+            return pNotificationCenter;
+    }
+
+    /* Return global one otherwise: */
+    return gpNotificationCenter;
 }
 
 UINotificationCenter::UINotificationCenter(QWidget *pParent)
