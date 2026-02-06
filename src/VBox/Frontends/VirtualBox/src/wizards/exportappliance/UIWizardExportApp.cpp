@@ -1,4 +1,4 @@
-/* $Id: UIWizardExportApp.cpp 112845 2026-02-05 16:55:12Z sergey.dubov@oracle.com $ */
+/* $Id: UIWizardExportApp.cpp 112850 2026-02-06 11:10:07Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - UIWizardExportApp class implementation.
  */
@@ -278,7 +278,8 @@ bool UIWizardExportApp::exportVMs(CAppliance &comAppliance)
         QPointer<UIAddDiskEncryptionPasswordDialog> pDlg =
             new UIAddDiskEncryptionPasswordDialog(this,
                                                   window()->windowTitle(),
-                                                  encryptedMedia);
+                                                  encryptedMedia,
+                                                  this);
 
         /* Execute the dialog: */
         if (pDlg->exec() != QDialog::Accepted)

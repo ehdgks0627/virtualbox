@@ -1,4 +1,4 @@
-/* $Id: UINotificationObjects.cpp 112845 2026-02-05 16:55:12Z sergey.dubov@oracle.com $ */
+/* $Id: UINotificationObjects.cpp 112850 2026-02-06 11:10:07Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - Various UINotificationObjects implementations.
  */
@@ -144,13 +144,13 @@ void UINotificationMessage::remindAboutExperimentalBuild()
 
 /* static */
 void UINotificationMessage::warnAboutInvalidEncryptionPassword(const QString &strPasswordId,
-                                                               UINotificationCenter *pParent)
+                                                               QWidget *pParent)
 {
     createMessage(
         QApplication::translate("UIMessageCenter", "Invalid Password ..."),
         QApplication::translate("UIMessageCenter", "Encryption password for <nobr>ID = '%1'</nobr> is invalid.")
                                                    .arg(strPasswordId),
-        QString(), QString(), pParent);
+        pParent);
 }
 
 /* static */
@@ -163,12 +163,12 @@ void UINotificationMessage::warnAboutClipboardError(const QString &strMsg)
 
 /* static */
 void UINotificationMessage::warnAboutCannotSaveSettings(const QString strDetails,
-                                                        UINotificationCenter *pParent)
+                                                        QWidget *pParent)
 {
     createMessage(
         QApplication::translate("UIMessageCenter", "Failed to save the settings."),
         strDetails.toUtf8().constData(),
-        QString(), QString(), pParent);
+        pParent);
 }
 
 #ifdef VBOX_GUI_WITH_NETWORK_MANAGER

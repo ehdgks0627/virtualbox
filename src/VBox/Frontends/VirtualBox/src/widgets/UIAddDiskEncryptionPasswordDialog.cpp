@@ -1,4 +1,4 @@
-/* $Id: UIAddDiskEncryptionPasswordDialog.cpp 112839 2026-02-05 13:15:54Z sergey.dubov@oracle.com $ */
+/* $Id: UIAddDiskEncryptionPasswordDialog.cpp 112850 2026-02-06 11:10:07Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - UIAddDiskEncryptionPasswordDialog class implementation.
  */
@@ -44,7 +44,7 @@
 #include "UIIconPool.h"
 #include "UIMedium.h"
 #include "UIMediumEnumerator.h"
-#include "UINotificationCenter.h"
+#include "UINotificationObjects.h"
 #include "UITranslationEventListener.h"
 
 /* Other VBox includes: */
@@ -490,11 +490,11 @@ void UIEncryptionDataTable::cleanup()
 UIAddDiskEncryptionPasswordDialog::UIAddDiskEncryptionPasswordDialog(QWidget *pParent,
                                                                      const QString &strMachineName,
                                                                      const EncryptedMediumMap &encryptedMedia,
-                                                                     UINotificationCenter *pCenter /* = 0 */)
+                                                                     QWidget *pDialog /* = 0 */)
     : QDialog(pParent)
     , m_strMachineName(strMachineName)
     , m_encryptedMedia(encryptedMedia)
-    , m_pNotificationCenter(pCenter)
+    , m_pDialog(pDialog)
     , m_pLabelDescription(0)
     , m_pTableEncryptionData(0)
     , m_pButtonBox(0)
@@ -540,7 +540,7 @@ void UIAddDiskEncryptionPasswordDialog::accept()
         const QString strPassword = m_pTableEncryptionData->encryptionPasswords().value(strPasswordId);
         if (!isPasswordValid(uMediumId, strPassword))
         {
-            UINotificationMessage::warnAboutInvalidEncryptionPassword(strPasswordId, m_pNotificationCenter);
+            UINotificationMessage::warnAboutInvalidEncryptionPassword(strPasswordId, m_pDialog);
             AssertPtrReturnVoid(m_pTableEncryptionData);
             m_pTableEncryptionData->setFocus();
             m_pTableEncryptionData->editFirstIndex();

@@ -1,4 +1,4 @@
-/* $Id: UINotificationObjects.h 112845 2026-02-05 16:55:12Z sergey.dubov@oracle.com $ */
+/* $Id: UINotificationObjects.h 112850 2026-02-06 11:10:07Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - Various UINotificationObjects declarations.
  */
@@ -109,17 +109,16 @@ public:
         /** Reminds about BETA build. */
         static void remindAboutExperimentalBuild();
         /** Notifies about invalid encryption password.
-          * @param  strPasswordId  Brings password ID.
-          * @param  pParent        Brings the local notification-center reference. */
+          * @param  strPasswordId  Brings password ID. */
         static void warnAboutInvalidEncryptionPassword(const QString &strPasswordId,
-                                                       UINotificationCenter *pParent);
+                                                       QWidget *pParent);
         /** Notifies about a clipboard error. */
         static void warnAboutClipboardError(const QString &strMsg);
 
         /** Notifies about unability to save machine settings.
           * @param  strDetails  Brings the notification details. */
         static void warnAboutCannotSaveSettings(const QString strDetails,
-                                                UINotificationCenter *pParent);
+                                                QWidget *pParent);
 
 #ifdef VBOX_GUI_WITH_NETWORK_MANAGER
         /** Notifies about update not found. */

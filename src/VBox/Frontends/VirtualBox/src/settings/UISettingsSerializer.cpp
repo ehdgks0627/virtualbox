@@ -1,4 +1,4 @@
-/* $Id: UISettingsSerializer.cpp 112842 2026-02-05 14:06:53Z sergey.dubov@oracle.com $ */
+/* $Id: UISettingsSerializer.cpp 112850 2026-02-06 11:10:07Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - UISettingsSerializer class implementation.
  */
@@ -37,7 +37,7 @@
 #include "QILabel.h"
 #include "UIAdvancedSettingsDialog.h"
 #include "UIIconPool.h"
-#include "UINotificationCenter.h"
+#include "UINotificationObjects.h"
 #include "UISettingsPage.h"
 #include "UISettingsSerializer.h"
 #include "UITranslationEventListener.h"
@@ -412,5 +412,5 @@ void UISettingsSerializerProgress::sltHandleOperationProgressError(QString strEr
     m_fClean = false;
 
     /* Show the error message: */
-    UINotificationMessage::warnAboutCannotSaveSettings(strErrorInfo, m_pDialog->notificationCenter());
+    UINotificationMessage::warnAboutCannotSaveSettings(strErrorInfo, m_pDialog);
 }

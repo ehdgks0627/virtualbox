@@ -1,4 +1,4 @@
-﻿/* $Id: UIAdvancedSettingsDialog.cpp 112838 2026-02-05 13:05:37Z sergey.dubov@oracle.com $ */
+﻿/* $Id: UIAdvancedSettingsDialog.cpp 112850 2026-02-06 11:10:07Z sergey.dubov@oracle.com $ */
 /** @file
  * VBox Qt GUI - UIAdvancedSettingsDialog class implementation.
  */
@@ -1481,6 +1481,11 @@ void UIAdvancedSettingsDialog::prepare()
 {
     /* Prepare local notification-center (parent to be assigned in the end): */
     m_pNotificationCenter = new UINotificationCenter(0);
+    if (m_pNotificationCenter)
+    {
+        QPointer<UINotificationCenter> target = m_pNotificationCenter;
+        setProperty("notification_center", QVariant::fromValue(target));
+    }
 
     /* Create timer to update disabled widgets look&feel: */
     m_pTimerDisabledLookAndFeel = new QTimer(this);
