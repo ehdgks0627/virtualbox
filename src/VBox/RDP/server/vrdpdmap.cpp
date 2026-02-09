@@ -690,7 +690,7 @@ VRDPClientDesktopMapMultiMon::VRDPClientDesktopMapMultiMon(VRDPTP *pTP)
 
 /* virtual */ void VRDPClientDesktopMapMultiMon::QueryClientMonitorRect (unsigned uScreenId, RGNRECT *pRect)
 {
-    if (uScreenId > m_cMonitors)
+    if (uScreenId >= m_cMonitors)
     {
         pRect->x = 0;
         pRect->y = 0;
